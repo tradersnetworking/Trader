@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import ProductImage from "../../components/ProductImage.jsx";
 
 export default function Products() {
   const [sp, setSp] = useSearchParams();
@@ -60,16 +61,21 @@ export default function Products() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.length === 0 && <p className="text-slate-400">No products found.</p>}
           {products.map((p) => (
-            <div key={p.id} className="card flex flex-col p-4">
-              <span className={`badge w-fit ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
-              <Link to={`/products/${p.slug}`} className="mt-2 font-semibold text-navy hover:text-gold-600">{p.name}</Link>
-              <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>
-              <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
-              <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
-              <div className="mt-3 flex gap-2">
-                <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold flex-1">Request Quote</button>
-                <button onClick={() => setQuote({ product: p, direction: "SELL" })} className="btn-outline">Supply</button>
+            <div key={p.id} className="card flex flex-col overflow-hidden">
+              <Link to={`/products/${p.slug}`} className="relative block">
+                <ProductImage product={p} className="h-44 w-full" />
+                <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
+              </Link>
+              <div className="flex flex-1 flex-col p-4">
+                <Link to={`/products/${p.slug}`} className="font-semibold text-navy hover:text-gold-600 line-clamp-2">{p.name}</Link>
+                <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>
+                <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
+                <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold flex-1">Request Quote</button>
+                  <button onClick={() => setQuote({ product: p, direction: "SELL" })} className="btn-outline">Supply</button>
+                </div>
               </div>
             </div>
           ))}

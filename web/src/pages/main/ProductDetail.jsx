@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import ProductImage from "../../components/ProductImage.jsx";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -19,7 +20,9 @@ export default function ProductDetail() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <Link to="/products" className="text-sm text-slate-500 hover:underline">← Back to products</Link>
       <div className="mt-4 grid gap-8 md:grid-cols-2">
-        <div className="card flex aspect-square items-center justify-center bg-slate-50 text-6xl">📦</div>
+        <div className="card aspect-square overflow-hidden">
+          <ProductImage product={p} className="h-full w-full" size={800} />
+        </div>
         <div>
           <span className={`badge ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType === "EXPORT" ? "Available to Export" : "Import Requirement"}</span>
           <h1 className="mt-2 text-3xl font-extrabold text-navy">{p.name}</h1>

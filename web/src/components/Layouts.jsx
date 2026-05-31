@@ -51,7 +51,6 @@ export function MarketplaceLayout({ children }) {
       <Link to="/products?listingType=IMPORT" className="text-sm font-medium text-slate-200 hover:text-gold">Import</Link>
       <Link to="/products" className="text-sm font-medium text-slate-200 hover:text-gold">All Products</Link>
       <Link to="/sell" className="text-sm font-medium text-slate-200 hover:text-gold">Supply / Sell</Link>
-      <a href="/invest" className="text-sm font-semibold text-gold hover:text-gold-400">Invest →</a>
     </>
   );
   const actions = main ? (
@@ -111,22 +110,36 @@ function Footer({ invest }) {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="flex items-center gap-2"><Logo className="h-9 w-9 rounded-full bg-black/30 p-0.5" /><span className="font-bold text-white">Akshaya Exim Traders</span></div>
-          <p className="mt-3 text-sm">Export & Import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies, textiles & more. B2B & B2C, India & abroad.</p>
+          <p className="mt-3 text-sm">{invest
+            ? "Smart investment in Akshaya Exim Traders. Flexible lock-in periods, transparent profit sharing and secure payouts."
+            : "Export & Import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies, textiles & more. B2B & B2C, India & abroad."}</p>
         </div>
         <div>
           <h4 className="mb-3 font-semibold text-white">Domains</h4>
           <ul className="space-y-1 text-sm">
-            <li>akshayaexim.com</li><li>akshayaexim.in</li>
-            <li>invest.akshayaexim.com</li><li>invest.akshayaexim.in</li>
+            {invest
+              ? (<><li>invest.akshayaexim.com</li><li>invest.akshayaexim.in</li></>)
+              : (<><li>akshayaexim.com</li><li>akshayaexim.in</li></>)}
           </ul>
         </div>
         <div>
           <h4 className="mb-3 font-semibold text-white">Quick Links</h4>
           <ul className="space-y-1 text-sm">
-            <li><Link to="/products" className="hover:text-gold">Products</Link></li>
-            <li><Link to="/invest" className="hover:text-gold">Investment Plans</Link></li>
-            <li><Link to="/login" className="hover:text-gold">User Login</Link></li>
-            <li><Link to="/staff-login" className="hover:text-gold">Staff Login</Link></li>
+            {invest ? (
+              <>
+                <li><a href="/invest#plans" className="hover:text-gold">Investment Plans</a></li>
+                <li><a href="/invest#calculator" className="hover:text-gold">Returns Calculator</a></li>
+                <li><Link to="/invest/login" className="hover:text-gold">Investor Login</Link></li>
+                <li><Link to="/invest/staff-login" className="hover:text-gold">Admin Login</Link></li>
+              </>
+            ) : (
+              <>
+                <li><Link to="/products" className="hover:text-gold">Products</Link></li>
+                <li><Link to="/sell" className="hover:text-gold">Supply / Sell</Link></li>
+                <li><Link to="/login" className="hover:text-gold">User Login</Link></li>
+                <li><Link to="/staff-login" className="hover:text-gold">Staff Login</Link></li>
+              </>
+            )}
           </ul>
         </div>
         <div>

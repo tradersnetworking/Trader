@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import ProductImage from "../../components/ProductImage.jsx";
+import { keywordImageUrl } from "../../lib/img.js";
 
 export default function Home() {
   const [categories, setCategories] = useState([]);
@@ -25,12 +27,17 @@ export default function Home() {
             <p className="mt-4 max-w-lg text-slate-300">Akshaya Exim Traders sources and supplies food grains, vegetables, essential oils, ayurvedic powders, dry fruits, veterinary feed, medical supplies, metals and chemicals in bulk. Request or give quotes instantly.</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/products?listingType=EXPORT" className="btn-gold">Browse Export Products</Link>
-              <Link to="/sell" className="btn-outline border-white/30 bg-transparent text-white hover:bg-white/10">Supply to Us</Link>
-              <a href="/invest" className="btn-outline border-gold/50 bg-transparent text-gold hover:bg-gold/10">Invest & Earn →</a>
+              <Link to="/products?listingType=IMPORT" className="btn-outline border-white/30 bg-transparent text-white hover:bg-white/10">Import Requirements</Link>
+              <Link to="/sell" className="btn-outline border-gold/50 bg-transparent text-gold hover:bg-gold/10">Supply to Us →</Link>
             </div>
           </div>
-          <div className="card overflow-hidden bg-white/5 p-2 backdrop-blur">
-            <img src="/assets/plans-brochure.png" alt="Akshaya Exim" className="rounded-xl" />
+          <div className="grid grid-cols-2 gap-3">
+            {[["spices,food", "Agro & Food"], ["machinery,industrial", "Machinery"], ["fabric,textile", "Textiles"], ["metal,steel", "Metals"]].map(([kw, label], i) => (
+              <div key={kw} className="card overflow-hidden bg-white/5">
+                <img src={keywordImageUrl(kw, 400, i + 1)} alt={label} loading="lazy" className="h-32 w-full object-cover sm:h-40" />
+                <div className="px-3 py-2 text-sm font-semibold text-white">{label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -71,27 +78,32 @@ export default function Home() {
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((p) => (
-              <div key={p.id} className="card flex flex-col p-4">
-                <span className={`badge w-fit ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
-                <Link to={`/products/${p.slug}`} className="mt-2 font-semibold text-navy hover:text-gold-600">{p.name}</Link>
-                <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
-                <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
-                <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
-                <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold mt-3">Request Quote</button>
+              <div key={p.id} className="card flex flex-col overflow-hidden">
+                <Link to={`/products/${p.slug}`} className="relative block">
+                  <ProductImage product={p} className="h-40 w-full" />
+                  <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
+                </Link>
+                <div className="flex flex-1 flex-col p-4">
+                  <Link to={`/products/${p.slug}`} className="font-semibold text-navy hover:text-gold-600 line-clamp-2">{p.name}</Link>
+                  <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
+                  <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
+                  <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
+                  <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold mt-3">Request Quote</button>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Invest CTA */}
+      {/* Global trade CTA */}
       <section className="mx-auto max-w-7xl px-4 py-12">
         <div className="hero-gradient flex flex-col items-center justify-between gap-4 rounded-2xl p-8 text-white md:flex-row">
           <div>
-            <h3 className="text-2xl font-extrabold">Smart Investment • Secure Future • Grow Your Wealth</h3>
-            <p className="text-slate-300">Invest in Akshaya Exim and earn up to 20% monthly ROI across Starter to Diamond plans.</p>
+            <h3 className="text-2xl font-extrabold">Buy & Sell in Bulk • B2B & B2C • India & Abroad</h3>
+            <p className="text-slate-300">List your products, request quotes, and trade across 37+ categories with Akshaya Exim Traders.</p>
           </div>
-          <a href="/invest" className="btn-gold whitespace-nowrap">Explore Investment Plans →</a>
+          <Link to="/products" className="btn-gold whitespace-nowrap">Explore All Products →</Link>
         </div>
       </section>
 
