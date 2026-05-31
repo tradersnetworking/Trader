@@ -1,0 +1,170 @@
+// INVEST SUBDOMAIN DATABASE (invest.akshayaexim.com / .in)
+// Investors, investment plans, subscriptions, wallet/ledger, KYC, deposits, payouts
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/invest"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./invest.db"
+}
+
+model Investor {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?
+  passwordHash  String?
+  name          String
+  // role: SUPERADMIN, ADMIN, INVESTOR
+  role          String   @default("INVESTOR")
+  googleId      String?
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  resetToken    String?
+  resetExpires  DateTime?
+  // payout details
+  upiId         String?
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  kyc           Kyc?
+  wallet        Wallet?
+  subscriptions Subscription[]
+  ledger        LedgerEntry[]
+  deposits      Deposit[]
+  payouts       Payout[]
+}
+
+model Plan {
+  id            String  @id @default(cuid())
+  // planType: STARTER, BRONZE, SILVER, GOLD, PLATINUM, DIAMOND
+  planType      String
+  name          String
+  // lockInDays must be a multiple of 30
+  lockInDays    Int     @default(30)
+  minInvestment Float   @default(10000)
+  maxInvestment Float   @default(10000000)
+  // profit share percentage per month (== monthly ROI %)
+  profitSharePct Float  @default(10)
+  monthlyRoiPct Float   @default(10)
+  annualRoiPct  Float   @default(120)
+  // settlementCycles allowed: comma list e.g. "WEEKLY,MONTHLY"
+  settlementCycles String @default("MONTHLY")
+  color         String   @default("#0a3d91")
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  investorId      String
+  investor        Investor @relation(fields: [investorId], references: [id])
+  planId          String
+  plan            Plan     @relation(fields: [planId], references: [id])
+  amount          Float
+  settlementCycle String   @default("MONTHLY")
+  monthlyRoiPct   Float
+  lockInDays      Int
+  compounding     Boolean  @default(false)
+  startDate       DateTime @default(now())
+  maturityDate    DateTime
+  // status: PENDING (awaiting payment/approval), ACTIVE, MATURED, CANCELLED
+  status          String   @default("PENDING")
+  totalPaidOut    Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Wallet {
+  id         String   @id @default(cuid())
+  investorId String   @unique
+  investor   Investor @relation(fields: [investorId], references: [id])
+  // balances
+  available  Float    @default(0)
+  invested   Float    @default(0)
+  earnings   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+model LedgerEntry {
+  id         String   @id @default(cuid())
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id])
+  // type: DEPOSIT, INVESTMENT, RETURN, PAYOUT, ADJUSTMENT, REFUND
+  type       String
+  // direction: CREDIT or DEBIT (relative to investor wallet)
+  direction  String
+  amount     Float
+  balanceAfter Float
+  reference  String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model Kyc {
+  id            String   @id @default(cuid())
+  investorId    String   @unique
+  investor      Investor @relation(fields: [investorId], references: [id])
+  panNumber     String?
+  aadhaarNumber String?
+  fullName      String?
+  dob           String?
+  address       String?
+  panDocument   String?
+  aadhaarDocument String?
+  photo         String?
+  // status: PENDING, APPROVED, REJECTED
+  status        String   @default("PENDING")
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Deposit {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id])
+  amount      Float
+  // method: UPI, IMPS, NEFT, RTGS, RAZORPAY, CASHFREE, PAYU, JUSPAY, EXIMPE
+  method      String
+  reference   String?
+  proofImage  String?
+  // status: PENDING, APPROVED, REJECTED
+  status      String   @default("PENDING")
+  remarks     String?
+  // optional link to a plan to subscribe upon approval
+  planId      String?
+  gatewayRef  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payout {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id])
+  amount      Float
+  // mode: UPI or BANK
+  mode        String
+  destination String   // upi id or masked account
+  gateway     String   @default("RAZORPAYX") // RAZORPAYX, CASHFREE, JUSPAY
+  gatewayRef  String?
+  status      String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  remarks     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InvestSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}

@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+html { scroll-behavior: smooth; }
+* { -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0;
+  background: #eef2f9;
+  color: #0a1f44;
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none disabled:opacity-50 whitespace-nowrap;
+  }
+  .btn-primary { @apply btn bg-navy text-white hover:bg-navy-800 shadow-sm; }
+  .btn-gold { @apply btn bg-gradient-to-r from-gold to-gold-400 text-navy-900 hover:from-gold-400 hover:to-gold shadow-sm; }
+  .btn-outline { @apply btn border border-navy/20 bg-white text-navy hover:bg-navy-50; }
+  .card { @apply rounded-2xl bg-white shadow-sm border border-slate-100; }
+  .input { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-navy outline-none focus:border-navy focus:ring-2 focus:ring-navy/10; }
+  .label { @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1; }
+  .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+}
+
+.hero-gradient {
+  background: radial-gradient(1200px 500px at 20% -10%, #1d4ed8 0%, #0a1f44 45%, #071736 100%);
+}
+.gold-text { color: #d4a017; }
+
+/* ============ DARK MODE (auto/system or manual) ============ */
+.dark body { background: #0a0f1d; color: #e2e8f0; }
+.dark .hero-gradient { background: radial-gradient(1200px 500px at 20% -10%, #1e3a8a 0%, #0b1530 45%, #060c1c 100%); }
+.dark .gold-text { color: #f0c44c; }
+
+.dark .bg-white { background-color: #111a2e; }
+.dark .bg-slate-50 { background-color: #0f1828; }
+.dark .bg-slate-100 { background-color: #15203a; }
+.dark .bg-navy-50 { background-color: #16243f; }
+
+.dark .card { background-color: #111a2e; border-color: #1e293b; }
+.dark .input { background-color: #0f1828; border-color: #28344d; color: #e2e8f0; }
+.dark .input::placeholder { color: #64748b; }
+.dark .btn-outline { background-color: #111a2e; border-color: #334155; color: #cbd5e1; }
+.dark .btn-outline:hover { background-color: #16243f; }
+
+.dark .text-navy { color: #dbe6ff; }
+.dark .text-navy-900 { color: #0a1f44; } /* keep on gold buttons */
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #b6c2d6; }
+.dark .text-slate-500 { color: #94a3b8; }
+.dark .text-slate-400 { color: #7c8aa3; }
+.dark .text-gold-600 { color: #f0c44c; }
+
+.dark .border, .dark .border-t, .dark .border-b,
+.dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300 { border-color: #1e293b; }
+
+.dark .hover\:bg-slate-50:hover { background-color: #16243f; }
+.dark .hover\:bg-navy-50:hover { background-color: #16243f; }
+.dark .hover\:bg-navy:hover { background-color: #1d4ed8; }
+
+.dark .divide-y > * { border-color: #1e293b; }
+.dark table thead { background-color: #0f1828; }
+
+/* line clamp helper */
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Prevent any element from forcing horizontal scroll */
+img, svg, video, canvas { max-width: 100%; height: auto; }

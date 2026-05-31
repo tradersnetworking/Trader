@@ -1,0 +1,124 @@
+// MAIN DOMAIN DATABASE (akshayaexim.com / .in)
+// Marketplace: users, products, categories, RFQ/quotes, orders, payments
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/main"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./main.db"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?
+  passwordHash  String?
+  name          String
+  // role: SUPERADMIN, ADMIN, STAFF, USER (buyer/seller)
+  role          String   @default("USER")
+  // accountType: B2B, B2C
+  accountType   String   @default("B2C")
+  companyName   String?
+  gstNumber     String?
+  googleId      String?
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  resetToken    String?
+  resetExpires  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products      Product[]
+  quotes        Quote[]
+  orders        Order[]
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?
+  image       String?
+  parentId    String?
+  parent      Category?  @relation("CategoryChildren", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryChildren")
+  products    Product[]
+  createdAt   DateTime   @default(now())
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  // listingType: EXPORT (available to export) or IMPORT (required to import)
+  listingType String   @default("EXPORT")
+  // tradeType: B2B, B2C, BOTH
+  tradeType   String   @default("BOTH")
+  unit        String   @default("kg")
+  minOrderQty Float    @default(1)
+  basePrice   Float    @default(0)
+  currency    String   @default("INR")
+  images      String   @default("[]") // JSON array of urls
+  origin      String?
+  hsCode      String?
+  inStock     Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+  ownerId     String?
+  owner       User?     @relation(fields: [ownerId], references: [id])
+  quotes      Quote[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Quote {
+  id           String   @id @default(cuid())
+  // direction: BUY (user requests to buy/import) or SELL (user offers to supply)
+  direction    String   @default("BUY")
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id])
+  productName  String
+  quantity     Float
+  unit         String   @default("kg")
+  targetPrice  Float?
+  currency     String   @default("INR")
+  message      String?
+  contactName  String
+  contactEmail String
+  contactPhone String?
+  company      String?
+  // status: PENDING, RESPONDED, ACCEPTED, REJECTED, CLOSED
+  status       String   @default("PENDING")
+  adminResponse String?
+  quotedPrice  Float?
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  orderNumber  String   @unique
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  items        String   @default("[]") // JSON
+  totalAmount  Float
+  currency     String   @default("INR")
+  status       String   @default("PENDING") // PENDING, PAID, SHIPPED, COMPLETED, CANCELLED
+  paymentGateway String?
+  paymentRef   String?
+  paymentStatus String  @default("UNPAID")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}

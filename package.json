@@ -1,0 +1,21 @@
+{
+  "name": "akshaya-exim",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Akshaya Exim Traders - Export/Import marketplace + Investor portal",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:web": "npm --workspace web run dev",
+    "setup": "npm --workspace server run db:setup",
+    "seed": "npm --workspace server run seed",
+    "build": "npm --workspace web run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
