@@ -1,7 +1,14 @@
 import { useState } from "react";
 
-export function Logo({ className = "h-10" }) {
-  return <img src="/assets/logo.png" alt="Akshaya Exim Traders" className={className} />;
+export function Logo({ className = "h-10", variant = "header" }) {
+  // Logo has black bg + blue/gold — show on white/gold ring so it's visible on navy headers.
+  const wrap = variant === "header"
+    ? "inline-flex shrink-0 items-center justify-center rounded-lg bg-white p-1.5 shadow-md ring-2 ring-gold/50"
+    : variant === "footer"
+      ? "inline-flex shrink-0 items-center justify-center rounded-lg bg-white p-1 shadow ring-1 ring-gold/30"
+      : "";
+  const img = <img src="/assets/logo.png" alt="Akshaya Exim Traders" className={className} />;
+  return wrap ? <div className={wrap}>{img}</div> : img;
 }
 
 export function Copyable({ value, label }) {

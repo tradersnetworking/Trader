@@ -3,6 +3,7 @@ import { hashPassword } from "./utils/auth.js";
 import { config } from "./config.js";
 import { nanoid } from "nanoid";
 import { TAXONOMY } from "./data/categories.js";
+import { imageForProduct } from "./data/productImages.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 
@@ -45,24 +46,33 @@ async function seedMain() {
     update: {},
     create: { email: config.seed.adminEmail, name: "Marketplace Admin", passwordHash: hashPassword(config.seed.adminPassword), role: "ADMIN", emailVerified: true },
   });
+  await mainDb.user.upsert({
+    where: { email: "user@akshayaexim.com" },
+    update: {},
+    create: { email: "user@akshayaexim.com", name: "Demo Buyer", passwordHash: hashPassword("User@123"), role: "USER", accountType: "B2B", companyName: "Demo Trading Co.", emailVerified: true },
+  });
 
   // Reset catalog so the full taxonomy is (re)applied on every seed run.
   await mainDb.product.deleteMany({});
   await mainDb.category.deleteMany({});
   const subMap = {};
+  const subToParent = {};
   for (const c of TAXONOMY) {
     const parent = await mainDb.category.create({ data: { name: c.name, slug: slug(c.name) } });
     for (const s of c.sub) {
       const child = await mainDb.category.create({ data: { name: s, slug: slug(s), parentId: parent.id } });
       if (!subMap[s]) subMap[s] = child.id;
+      subToParent[s] = c.name;
     }
   }
   for (const p of SAMPLE_PRODUCTS) {
+    const img = imageForProduct(p.name, p.cat, subToParent[p.cat]);
     await mainDb.product.create({
       data: {
         name: p.name, slug: slug(p.name), listingType: p.listingType, tradeType: "BOTH",
         unit: p.unit, minOrderQty: p.min, basePrice: p.price, origin: p.origin,
-        categoryId: subMap[p.cat] || null, images: "[]",
+        categoryId: subMap[p.cat] || null,
+        images: JSON.stringify(img ? [img] : []),
         description: `${p.listingType === "EXPORT" ? "Available for export" : "Import requirement"} - bulk ${p.name}. Request a quote for best bulk pricing.`,
       },
     });
@@ -115,6 +125,11 @@ async function main() {
   await seedMain();
   await seedInvest();
   console.log("\nSeed complete.");
+  console.log("\n=== MARKETPLACE (akshayaexim.com / .in) ===");
+  console.log(`  Super Admin: ${config.seed.superadminEmail} / ${config.seed.superadminPassword}`);
+  console.log(`  Admin:       ${config.seed.adminEmail} / ${config.seed.adminPassword}`);
+  console.log(`  Demo User:   user@akshayaexim.com / User@123`);
+  console.log("\n=== INVEST (invest.akshayaexim.com / .in) ===");
   console.log(`  Super Admin: ${config.seed.superadminEmail} / ${config.seed.superadminPassword}`);
   console.log(`  Admin:       ${config.seed.adminEmail} / ${config.seed.adminPassword}`);
   console.log(`  Demo Investor: investor@akshayaexim.com / Investor@123`);

@@ -7,7 +7,7 @@ import { ThemeToggle } from "../lib/theme.jsx";
 function Brand({ to, title, sub }) {
   return (
     <Link to={to} className="flex min-w-0 items-center gap-2 sm:gap-3">
-      <Logo className="h-10 w-10 shrink-0 rounded-full bg-black/30 p-0.5" />
+      <Logo className="h-9 w-9 sm:h-10 sm:w-10" variant="header" />
       <div className="min-w-0 leading-tight">
         <div className="truncate text-base font-extrabold sm:text-lg">{title}</div>
         <div className="truncate text-[9px] uppercase tracking-[0.2em] text-slate-300 sm:text-[10px]">{sub}</div>
@@ -47,9 +47,10 @@ export function MarketplaceLayout({ children }) {
   const dashHref = main && ["ADMIN", "SUPERADMIN", "STAFF"].includes(main.role) ? "/admin" : "/dashboard";
   const links = (
     <>
+      <Link to="/categories" className="text-sm font-medium text-slate-200 hover:text-gold">Categories</Link>
       <Link to="/products?listingType=EXPORT" className="text-sm font-medium text-slate-200 hover:text-gold">Export</Link>
       <Link to="/products?listingType=IMPORT" className="text-sm font-medium text-slate-200 hover:text-gold">Import</Link>
-      <Link to="/products" className="text-sm font-medium text-slate-200 hover:text-gold">All Products</Link>
+      <Link to="/products" className="text-sm font-medium text-slate-200 hover:text-gold">Products</Link>
       <Link to="/sell" className="text-sm font-medium text-slate-200 hover:text-gold">Supply / Sell</Link>
     </>
   );
@@ -68,7 +69,7 @@ export function MarketplaceLayout({ children }) {
     <div className="flex min-h-full flex-col">
       <Shell brand={<Brand to="/" title={<>Akshaya <span className="gold-text">Exim</span></>} sub="Traders" />} links={links} actions={actions} />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <MarketplaceFooter />
     </div>
   );
 }
@@ -81,7 +82,6 @@ export function InvestLayout({ children }) {
     <>
       <a href="/invest#plans" className="text-sm font-medium text-slate-200 hover:text-gold">Plans</a>
       <a href="/invest#calculator" className="text-sm font-medium text-slate-200 hover:text-gold">Calculator</a>
-      <Link to="/" className="text-sm font-semibold text-gold hover:text-gold-400">← Marketplace</Link>
     </>
   );
   const actions = invest ? (
@@ -99,59 +99,82 @@ export function InvestLayout({ children }) {
     <div className="flex min-h-full flex-col">
       <Shell brand={<Brand to="/invest" title={<>Akshaya <span className="gold-text">Invest</span></>} sub="Smart Investment" />} links={links} actions={actions} />
       <main className="flex-1">{children}</main>
-      <Footer invest />
+      <InvestFooter />
     </div>
   );
 }
 
-function Footer({ invest }) {
+function MarketplaceFooter() {
   return (
     <footer className="hero-gradient mt-12 text-slate-300">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2"><Logo className="h-9 w-9 rounded-full bg-black/30 p-0.5" /><span className="font-bold text-white">Akshaya Exim Traders</span></div>
-          <p className="mt-3 text-sm">{invest
-            ? "Smart investment in Akshaya Exim Traders. Flexible lock-in periods, transparent profit sharing and secure payouts."
-            : "Export & Import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies, textiles & more. B2B & B2C, India & abroad."}</p>
+          <div className="flex items-center gap-2"><Logo className="h-9 w-9" variant="footer" /><span className="font-bold text-white">Akshaya Exim Traders</span></div>
+          <p className="mt-3 text-sm">Global export & import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies, textiles & more. B2B & B2C trade across India and abroad.</p>
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white">Trade</h4>
+          <ul className="space-y-1 text-sm">
+            <li><Link to="/categories" className="hover:text-gold">Product Categories</Link></li>
+            <li><Link to="/products?listingType=EXPORT" className="hover:text-gold">Export Products</Link></li>
+            <li><Link to="/products?listingType=IMPORT" className="hover:text-gold">Import Requirements</Link></li>
+            <li><Link to="/sell" className="hover:text-gold">Supply / Sell</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white">Company</h4>
+          <ul className="space-y-1 text-sm">
+            <li><Link to="/about" className="hover:text-gold">About Us</Link></li>
+            <li><Link to="/contact" className="hover:text-gold">Contact Us</Link></li>
+            <li><Link to="/faq" className="hover:text-gold">FAQ</Link></li>
+            <li><Link to="/login" className="hover:text-gold">User Login</Link></li>
+            <li><Link to="/staff-login" className="hover:text-gold">Staff / Admin Login</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white">Policies</h4>
+          <ul className="space-y-1 text-sm">
+            <li><Link to="/privacy" className="hover:text-gold">Privacy Policy</Link></li>
+            <li><Link to="/terms" className="hover:text-gold">Terms of Service</Link></li>
+            <li><Link to="/returns" className="hover:text-gold">Returns & Refunds</Link></li>
+          </ul>
+          <p className="mt-4 text-xs text-slate-400">akshayaexim.com · akshayaexim.in</p>
+        </div>
+      </div>
+      <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">
+        © {new Date().getFullYear()} Akshaya Exim Traders. Trade Globally. Grow Locally.
+      </div>
+    </footer>
+  );
+}
+
+function InvestFooter() {
+  return (
+    <footer className="hero-gradient mt-12 text-slate-300">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div>
+          <div className="flex items-center gap-2"><Logo className="h-9 w-9" variant="footer" /><span className="font-bold text-white">Akshaya Invest</span></div>
+          <p className="mt-3 text-sm">Smart investment in Akshaya Exim Traders. Flexible lock-in periods, transparent profit sharing and secure payouts.</p>
+        </div>
+        <div>
+          <h4 className="mb-3 font-semibold text-white">Investor</h4>
+          <ul className="space-y-1 text-sm">
+            <li><a href="/invest#plans" className="hover:text-gold">Investment Plans</a></li>
+            <li><a href="/invest#calculator" className="hover:text-gold">Returns Calculator</a></li>
+            <li><Link to="/invest/login" className="hover:text-gold">Investor Login</Link></li>
+            <li><Link to="/invest/staff-login" className="hover:text-gold">Admin Login</Link></li>
+          </ul>
         </div>
         <div>
           <h4 className="mb-3 font-semibold text-white">Domains</h4>
           <ul className="space-y-1 text-sm">
-            {invest
-              ? (<><li>invest.akshayaexim.com</li><li>invest.akshayaexim.in</li></>)
-              : (<><li>akshayaexim.com</li><li>akshayaexim.in</li></>)}
-          </ul>
-        </div>
-        <div>
-          <h4 className="mb-3 font-semibold text-white">Quick Links</h4>
-          <ul className="space-y-1 text-sm">
-            {invest ? (
-              <>
-                <li><a href="/invest#plans" className="hover:text-gold">Investment Plans</a></li>
-                <li><a href="/invest#calculator" className="hover:text-gold">Returns Calculator</a></li>
-                <li><Link to="/invest/login" className="hover:text-gold">Investor Login</Link></li>
-                <li><Link to="/invest/staff-login" className="hover:text-gold">Admin Login</Link></li>
-              </>
-            ) : (
-              <>
-                <li><Link to="/products" className="hover:text-gold">Products</Link></li>
-                <li><Link to="/sell" className="hover:text-gold">Supply / Sell</Link></li>
-                <li><Link to="/login" className="hover:text-gold">User Login</Link></li>
-                <li><Link to="/staff-login" className="hover:text-gold">Staff Login</Link></li>
-              </>
-            )}
-          </ul>
-        </div>
-        <div>
-          <h4 className="mb-3 font-semibold text-white">Trust</h4>
-          <ul className="space-y-1 text-sm">
-            <li>100% Capital Secured</li><li>24/7 Customer Support</li>
-            <li>Transparent & Reliable</li><li>Multiple Payment Options</li>
+            <li>invest.akshayaexim.com</li>
+            <li>invest.akshayaexim.in</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} Akshaya Exim Traders. {invest ? "Returns are subject to plan policies & market conditions. *T&C Apply." : "Invest Wisely. Earn Consistently. Build Wealth."}
+        © {new Date().getFullYear()} Akshaya Exim Traders. Returns subject to plan policies. *T&C Apply.
       </div>
     </footer>
   );

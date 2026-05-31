@@ -10,6 +10,8 @@ import ProductDetail from "./pages/main/ProductDetail.jsx";
 import Sell from "./pages/main/Sell.jsx";
 import UserDashboard from "./pages/main/UserDashboard.jsx";
 import AdminDashboard from "./pages/main/AdminDashboard.jsx";
+import CategoriesPage from "./pages/main/CategoriesPage.jsx";
+import { AboutUs, PrivacyPolicy, ReturnsRefund, TermsOfService, ContactUs, FaqPage } from "./pages/main/StaticPages.jsx";
 
 // Invest pages
 import InvestHome from "./pages/invest/Home.jsx";
@@ -44,6 +46,13 @@ export default function App() {
       <Route path="/products" element={M(<Products />)} />
       <Route path="/products/:slug" element={M(<ProductDetail />)} />
       <Route path="/sell" element={M(<Sell />)} />
+      <Route path="/categories" element={M(<CategoriesPage />)} />
+      <Route path="/about" element={M(<AboutUs />)} />
+      <Route path="/privacy" element={M(<PrivacyPolicy />)} />
+      <Route path="/returns" element={M(<ReturnsRefund />)} />
+      <Route path="/terms" element={M(<TermsOfService />)} />
+      <Route path="/contact" element={M(<ContactUs />)} />
+      <Route path="/faq" element={M(<FaqPage />)} />
 
       <Route path="/login" element={M(<LoginScreen scope="main" />)} />
       <Route path="/staff-login" element={M(<LoginScreen scope="main" staff />)} />
