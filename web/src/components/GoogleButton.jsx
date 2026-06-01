@@ -9,11 +9,10 @@ export default function GoogleButton({ onCredential, scope = "main" }) {
   const [enabled, setEnabled] = useState(Boolean(ENV_CLIENT_ID));
 
   useEffect(() => {
-    if (scope !== "main") return;
     loadMainSiteConfig().then((cfg) => {
       if (cfg?.googleClientId) setClientId(cfg.googleClientId);
       if (cfg?.googleLoginEnabled === false) setEnabled(false);
-      else if (cfg?.googleClientId) setEnabled(true);
+      else if (cfg?.googleClientId || ENV_CLIENT_ID) setEnabled(true);
     }).catch(() => {});
   }, [scope]);
 
