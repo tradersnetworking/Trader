@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { Alert, Field } from "../ui.jsx";
-import { paymentOriginPublic } from "../../lib/portalConfig.js";
+import { paymentOriginPublic, loadPortalConfig, resetPortalConfigCache } from "../../lib/portalConfig.js";
+
+async function refreshPortalConfig() {
+  resetPortalConfigCache();
+  await loadPortalConfig(true);
+}
 
 export default function AdditionalDomainsPanel() {
   const [domains, setDomains] = useState([]);
@@ -31,7 +36,7 @@ export default function AdditionalDomainsPanel() {
       setForm({ hostname: "", note: "" });
       setMsg("Additional domain added. Point DNS A record to your VPS and enable.");
       load();
-      await import("../../lib/portalConfig.js").then((m) => m.loadPortalConfig());
+      await refreshPortalConfig();
     } catch (e2) {
       setErr(e2.message);
     } finally {
@@ -43,7 +48,7 @@ export default function AdditionalDomainsPanel() {
     try {
       await investApi(`/admin/additional-domains/${id}`, { method: "PUT", body: { enabled } });
       load();
-      await import("../../lib/portalConfig.js").then((m) => m.loadPortalConfig());
+      await refreshPortalConfig();
     } catch (e) {
       setErr(e.message);
     }
@@ -54,7 +59,7 @@ export default function AdditionalDomainsPanel() {
       await investApi(`/admin/additional-domains/${id}`, { method: "PUT", body: { useForSharing: true } });
       setMsg("This domain is now used for referral & social share links.");
       load();
-      await import("../../lib/portalConfig.js").then((m) => m.loadPortalConfig());
+      await refreshPortalConfig();
     } catch (e) {
       setErr(e.message);
     }
@@ -64,6 +69,7 @@ export default function AdditionalDomainsPanel() {
     try {
       await investApi(`/admin/additional-domains/${id}`, { method: "PUT", body: { hostname } });
       load();
+      await refreshPortalConfig();
     } catch (e) {
       setErr(e.message);
     }
@@ -75,7 +81,7 @@ export default function AdditionalDomainsPanel() {
       await investApi(`/admin/additional-domains/${id}`, { method: "DELETE" });
       setMsg("Domain removed.");
       load();
-      await import("../../lib/portalConfig.js").then((m) => m.loadPortalConfig());
+      await refreshPortalConfig();
     } catch (e) {
       setErr(e.message);
     }

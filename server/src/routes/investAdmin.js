@@ -74,7 +74,14 @@ import {
   addAdditionalDomain,
   updateAdditionalDomain,
   deleteAdditionalDomain,
+  normalizeHostname,
 } from "../services/additionalDomains.js";
+import {
+  getInvestEmailRoutingInfo,
+  setInvestEmailRouting,
+  applyAdditionalDomainToMailboxes,
+  revertInvestMailboxesToSubdomain,
+} from "../services/investEmailRouting.js";
 import {
   getTemplates,
   updateTemplate,
@@ -1001,6 +1008,74 @@ router.post(
   })
 );
 
+router.get(
+  "/settings/email-routing",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json(await getInvestEmailRoutingInfo());
+  })
+);
+
+router.put(
+  "/settings/email-routing",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    try {
+      const { enabled, domainId } = req.body;
+      if (enabled === true) {
+        const info = await getInvestEmailRoutingInfo();
+        if (!info.canEnableRouting) {
+          return res.status(400).json({ error: "Add and enable an additional domain under Site & API Settings first." });
+        }
+      }
+      const routing = await setInvestEmailRouting({ enabled, domainId });
+      res.json({ routing });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/settings/mailboxes/apply-additional-domain",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    try {
+      const info = await getInvestEmailRoutingInfo();
+      const domainInput = req.body?.domain || req.body?.domainId || info.additionalDomainId || info.additionalDomain;
+      if (!domainInput) return res.status(400).json({ error: "No enabled additional domain configured" });
+      const result = await applyAdditionalDomainToMailboxes(domainInput);
+      const cfg = await getAdditionalDomainsConfig();
+      const applied = cfg.domains.find((d) => d.enabled && normalizeHostname(d.hostname) === result.domain);
+      await setInvestEmailRouting({ enabled: true, domainId: applied?.id || info.additionalDomainId });
+      res.json({ ok: true, ...result, routing: await getInvestEmailRoutingInfo() });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/settings/mailboxes/revert-subdomain-email",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    try {
+      const result = await revertInvestMailboxesToSubdomain();
+      res.json({ ok: true, ...result, routing: await getInvestEmailRoutingInfo() });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
 router.post(
   "/settings/email-communication/test",
   authRequired(SCOPE),
@@ -1035,8 +1110,12 @@ router.post(
   adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (req, res) => {
-    const entry = await addAdditionalDomain(req.body);
-    res.json({ domain: entry, domains: (await getAdditionalDomainsConfig()).domains });
+    try {
+      const entry = await addAdditionalDomain(req.body);
+      res.json({ domain: entry, domains: (await getAdditionalDomainsConfig()).domains });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   })
 );
 
@@ -1046,8 +1125,17 @@ router.put(
   adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (req, res) => {
-    const domain = await updateAdditionalDomain(req.params.id, req.body);
-    res.json({ domain, domains: (await getAdditionalDomainsConfig()).domains });
+    try {
+      const routingBefore = await getInvestEmailRoutingInfo();
+      const wasRoutingDomain = routingBefore.additionalDomainId === req.params.id;
+      const domain = await updateAdditionalDomain(req.params.id, req.body);
+      if (routingBefore.routingActive && wasRoutingDomain && req.body.enabled === false) {
+        await revertInvestMailboxesToSubdomain();
+      }
+      res.json({ domain, domains: (await getAdditionalDomainsConfig()).domains });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   })
 );
 
@@ -1057,8 +1145,16 @@ router.delete(
   adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (req, res) => {
-    await deleteAdditionalDomain(req.params.id);
-    res.json({ ok: true, domains: (await getAdditionalDomainsConfig()).domains });
+    try {
+      const routing = await getInvestEmailRoutingInfo();
+      if (routing.additionalDomainId === req.params.id) {
+        await revertInvestMailboxesToSubdomain();
+      }
+      await deleteAdditionalDomain(req.params.id);
+      res.json({ ok: true, domains: (await getAdditionalDomainsConfig()).domains });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   })
 );
 

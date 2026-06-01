@@ -56,7 +56,7 @@ export async function saveAdditionalDomainsConfig(data) {
 }
 
 export async function refreshDomainCache(force = false) {
-  if (!force && Date.now() - cacheAt < 30_000 && aliasHostCache.size >= 0) return;
+  if (!force && cacheAt > 0 && Date.now() - cacheAt < 30_000) return;
   const cfg = await getAdditionalDomainsConfig();
   aliasHostCache = new Set();
   disabledHostCache = new Set();

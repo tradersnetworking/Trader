@@ -59,6 +59,7 @@ function mergeMailbox(saved, fallback) {
     label: saved.label || fallback.label,
     name: saved.name || fallback.name,
     address: saved.address || fallback.address,
+    subdomainAddress: saved.subdomainAddress || "",
     smtp,
     imap,
   };
@@ -114,6 +115,7 @@ export async function saveMailboxConfig(portal, incoming) {
         label: patch.label ?? base.label,
         name: patch.name ?? base.name,
         address: patch.address ?? base.address,
+        subdomainAddress: patch.subdomainAddress ?? base.subdomainAddress ?? "",
         smtp,
         imap,
       };
@@ -184,15 +186,24 @@ export async function getMailboxBundle(portal) {
   const configured = config.mailboxes.filter((m) => isMailboxSmtpConfigured(m)).length;
   const imapReady = config.mailboxes.filter((m) => isMailboxImapConfigured(m)).length;
   const defaultBox = config.mailboxes.find((m) => m.id === "noreply");
+  let emailDomain = portal === "main" ? "akshayaexim.com" : "akshayaexim.in";
+  let emailRouting = null;
+  if (portal === "invest") {
+    const { getInvestEmailRoutingInfo } = await import("./investEmailRouting.js");
+    emailRouting = await getInvestEmailRoutingInfo();
+    emailDomain = emailRouting.effectiveDomain;
+  }
   return {
     portal,
-    domain: portal === "main" ? "akshayaexim.com" : "akshayaexim.in",
+    domain: emailDomain,
+    emailRouting,
     config,
     summary: {
       total: config.mailboxes.length,
       smtpConfigured: configured,
       imapConfigured: imapReady,
       defaultAddress: defaultBox?.address || "",
+      effectiveDomain: emailDomain,
     },
   };
 }

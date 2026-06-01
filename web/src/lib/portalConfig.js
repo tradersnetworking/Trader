@@ -3,7 +3,13 @@
 let cached = null;
 let loadPromise = null;
 
-export async function loadPortalConfig() {
+export function resetPortalConfigCache() {
+  cached = null;
+  loadPromise = null;
+}
+
+export async function loadPortalConfig(force = false) {
+  if (force) resetPortalConfigCache();
   if (cached) return cached;
   if (!loadPromise) {
     loadPromise = fetch("/api/invest/public/portal-config")

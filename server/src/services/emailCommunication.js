@@ -1,5 +1,5 @@
 import { getSetting, setSettings } from "./investSettings.js";
-import { getMailbox, getDefaultMailbox, isMailboxSmtpConfigured } from "./mailboxConfig.js";
+import { getMailbox, getDefaultMailbox, isMailboxSmtpConfigured, getMailboxConfig } from "./mailboxConfig.js";
 
 export const DEFAULT_EMAIL_PURPOSE_META = {
   registration: { label: "Registration / Welcome", description: "Sent when a new investor completes registration", group: "Account" },
@@ -151,6 +151,20 @@ export async function getEmailCommunicationBundle(portal = "invest") {
   const defaultBox = await getDefaultMailbox(portal, false);
   const supportBox = await getMailbox(portal, "support", false);
 
+  if (portal === "invest") {
+    const mbConfig = await getMailboxConfig("invest", false);
+    config.identities = config.identities.map((id) => {
+      const mb = mbConfig.mailboxes.find((m) => m.id === id.id);
+      return mb ? { ...id, address: mb.address, name: mb.name || id.name } : id;
+    });
+  }
+
+  let emailRouting = null;
+  if (portal === "invest") {
+    const { getInvestEmailRoutingInfo } = await import("./investEmailRouting.js");
+    emailRouting = await getInvestEmailRoutingInfo();
+  }
+
   const resolvedFrom = {};
   for (const purpose of purposes) {
     const id = config.assignments[purpose] || "noreply";
@@ -171,6 +185,7 @@ export async function getEmailCommunicationBundle(portal = "invest") {
     purposeMeta,
     purposes,
     resolvedFrom,
+    emailRouting,
     summary: {
       smtp: {
         configured: smtpConfigured,
@@ -186,6 +201,7 @@ export async function getEmailCommunicationBundle(portal = "invest") {
       autoEmailsEnabled,
       autoEmailsTotal: purposes.length,
       defaultMailbox: defaultBox?.address || "",
+      emailDomain: emailRouting?.effectiveDomain || (portal === "main" ? "akshayaexim.com" : "akshayaexim.in"),
     },
   };
 }

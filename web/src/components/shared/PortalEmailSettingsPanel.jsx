@@ -61,9 +61,6 @@ function defaultMailboxes(portal) {
 export default function PortalEmailSettingsPanel({ portal, api }) {
   const base = defaultsFor(portal);
   const domain = portal === "main" ? "akshayaexim.com" : "akshayaexim.in";
-  const domainNote = portal === "main"
-    ? "Main marketplace — use @akshayaexim.com addresses only."
-    : "Invest subdomain — use @akshayaexim.in addresses only.";
 
   const [config, setConfig] = useState(null);
   const [mailboxes, setMailboxes] = useState(null);
@@ -80,20 +77,33 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
   const [testTo, setTestTo] = useState("");
   const [testing, setTesting] = useState(false);
   const [testingBox, setTestingBox] = useState(null);
+  const [emailRouting, setEmailRouting] = useState(null);
+  const [routingSaving, setRoutingSaving] = useState(false);
+
+  const effectiveDomain = emailRouting?.effectiveDomain || summary?.emailDomain || domain;
+  const domainNote = portal === "main"
+    ? "Main marketplace — use @akshayaexim.com addresses only."
+    : emailRouting?.routingActive
+      ? `Invest email routed via @${emailRouting.additionalDomain} — inbound & outbound use additional domain mailboxes.`
+      : "Invest subdomain — use @akshayaexim.in addresses (or enable additional domain routing below).";
 
   const load = useCallback(async () => {
+    const fb = defaultsFor(portal);
     setLoading(true);
     setLoadError("");
     try {
       const data = await api("/admin/settings/email-communication");
       setConfig(data.config);
       setMailboxes(data.mailboxes?.config || defaultMailboxes(portal));
-      setPurposeMeta(data.purposeMeta || base.purposeMeta);
-      setPurposes(data.purposes || base.purposes);
+      setPurposeMeta(data.purposeMeta || fb.purposeMeta);
+      const nextPurposes = data.purposes || fb.purposes;
+      setPurposes(nextPurposes);
       setSummary(data.summary);
       setResolvedFrom(data.resolvedFrom || {});
+      setEmailRouting(data.emailRouting || data.mailboxes?.emailRouting || null);
+      setTestPurpose((cur) => (nextPurposes.includes(cur) ? cur : nextPurposes[0] || "registration"));
     } catch (e) {
-      setConfig(JSON.parse(JSON.stringify(base.config)));
+      setConfig(JSON.parse(JSON.stringify(fb.config)));
       setMailboxes(defaultMailboxes(portal));
       setLoadError(e.message || "Could not load — showing defaults.");
     } finally {
@@ -102,6 +112,51 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
   }, [api, portal]);
 
   useEffect(() => { load(); }, [load]);
+
+  const saveEmailDomainRouting = async (patch) => {
+    if (portal !== "invest") return;
+    setRoutingSaving(true);
+    setLoadError("");
+    setMsg("");
+    try {
+      const r = await api("/admin/settings/email-routing", { method: "PUT", body: patch });
+      setEmailRouting(r.routing);
+      setMsg(patch.enabled === false ? "Invest email reverted to @akshayaexim.in addresses." : "Invest email now routes through additional domain.");
+      await load();
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setRoutingSaving(false);
+    }
+  };
+
+  const applyAdditionalDomainEmails = async () => {
+    setRoutingSaving(true);
+    setLoadError("");
+    try {
+      await api("/admin/settings/mailboxes/apply-additional-domain", { method: "POST", body: {} });
+      setMsg("All 5 mailbox addresses updated to additional domain. Enter SMTP/IMAP passwords if needed, then save.");
+      await load();
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setRoutingSaving(false);
+    }
+  };
+
+  const revertSubdomainEmails = async () => {
+    if (!confirm("Revert all invest mailboxes to @akshayaexim.in and turn off additional-domain email routing?")) return;
+    setRoutingSaving(true);
+    try {
+      await api("/admin/settings/mailboxes/revert-subdomain-email", { method: "POST" });
+      setMsg("Mailboxes reverted to @akshayaexim.in addresses.");
+      await load();
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setRoutingSaving(false);
+    }
+  };
 
   const saveMailboxes = async () => {
     if (!mailboxes) return;
@@ -188,7 +243,9 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
     }));
   };
 
-  const grouped = base.groupOrder.map((group) => ({
+  const apiGroups = [...new Set(purposes.map((p) => purposeMeta[p]?.group).filter(Boolean))];
+  const allGroups = [...base.groupOrder, ...apiGroups.filter((g) => !base.groupOrder.includes(g))];
+  const grouped = allGroups.map((group) => ({
     group,
     items: purposes.filter((p) => purposeMeta[p]?.group === group),
   })).filter((g) => g.items.length);
@@ -221,10 +278,82 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
 
       {summary && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiStatCard tone="blue" label="Default (noreply)" value={summary.defaultMailbox || summary.smtp?.from || "—"} subValue={`@${domain}`} icon="📧" loading={loading} />
+          <KpiStatCard tone="blue" label="Default (noreply)" value={summary.defaultMailbox || summary.smtp?.from || "—"} subValue={`@${effectiveDomain}`} icon="📧" loading={loading} />
           <KpiStatCard tone="violet" label="Support Inbox" value={summary.inbox?.address || "—"} subValue="Mail desk / replies" icon="📥" loading={loading} />
           <KpiStatCard tone="amber" label="Mailboxes" value="5" subValue={`${mailboxes?.mailboxes?.filter((m) => m.smtp?.host && m.smtp?.user)?.length || 0} SMTP configured`} icon="✉️" loading={loading} />
           <KpiStatCard tone="emerald" label="Auto Emails" value={`${summary.autoEmailsEnabled}/${summary.autoEmailsTotal}`} subValue="Enabled events" icon="⚡" loading={loading} />
+        </div>
+      )}
+
+      {portal === "invest" && emailRouting && (
+        <div className="card space-y-4 p-4 sm:p-5">
+          <div>
+            <h3 className="font-bold text-navy dark:text-white">Additional domain email routing</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              When enabled, all five invest mailboxes send and receive through your additional domain (e.g. <span className="font-mono">@akshayainvest.com</span>) instead of <span className="font-mono">@akshayaexim.in</span>.
+              Set up email forwarding at your host so mail to <span className="font-mono">@akshayaexim.in</span> still reaches the additional-domain inboxes if needed.
+            </p>
+          </div>
+
+          {!emailRouting.canEnableRouting ? (
+            <Alert type="info">
+              No enabled additional domain found. Add one under <strong>Site &amp; API Settings → Additional invest domains</strong>, then return here to route email.
+            </Alert>
+          ) : (
+            <>
+              {emailRouting.availableDomains?.filter((d) => d.enabled).length > 1 && (
+                <Field label="Additional domain for email">
+                  <select
+                    className="input max-w-md"
+                    value={emailRouting.additionalDomainId || ""}
+                    disabled={routingSaving}
+                    onChange={(e) => saveEmailDomainRouting({ domainId: e.target.value })}
+                  >
+                    {emailRouting.availableDomains.filter((d) => d.enabled).map((d) => (
+                      <option key={d.id} value={d.id}>{d.hostname}{d.note ? ` — ${d.note}` : ""}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={emailRouting.routeEnabled === true}
+                  disabled={routingSaving || !emailRouting.canEnableRouting}
+                  onChange={(e) => saveEmailDomainRouting({ enabled: e.target.checked, domainId: emailRouting.additionalDomainId })}
+                />
+                <span>
+                  <span className="block text-sm font-semibold">Route invest email through additional domain</span>
+                  <span className="text-xs text-muted-foreground">
+                    {emailRouting.routingActive
+                      ? `Active — mailboxes use @${emailRouting.additionalDomain}`
+                      : `Off — mailboxes use @${emailRouting.subdomainDomain}`}
+                  </span>
+                </span>
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn-gold text-sm"
+                  disabled={routingSaving || !emailRouting.additionalDomain}
+                  onClick={applyAdditionalDomainEmails}
+                >
+                  {routingSaving ? "Applying…" : `Apply @${emailRouting.additionalDomain || "domain"} to all 5 mailboxes`}
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline text-sm"
+                  disabled={routingSaving}
+                  onClick={revertSubdomainEmails}
+                >
+                  Revert to @akshayaexim.in
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
