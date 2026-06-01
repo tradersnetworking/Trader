@@ -106,4 +106,51 @@ if (!existsSync(defaultTrade)) {
   console.log("Created default-trade.webp");
 }
 
+function categoryTileSvg(name, accent = "#D4AF37") {
+  const initial = (name.match(/[A-Za-z]/)?.[0] || "A").toUpperCase();
+  const safe = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").slice(0, 42);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#002366"/>
+        <stop offset="55%" stop-color="#0056b3"/>
+        <stop offset="100%" stop-color="#001433"/>
+      </linearGradient>
+      <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#FFD700"/>
+        <stop offset="100%" stop-color="${accent}"/>
+      </linearGradient>
+    </defs>
+    <rect width="800" height="600" fill="url(#bg)"/>
+    <circle cx="680" cy="120" r="160" fill="${accent}" opacity="0.12"/>
+    <circle cx="120" cy="520" r="120" fill="#FFD700" opacity="0.08"/>
+    <text x="400" y="250" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="120" font-weight="800" fill="url(#gold)">${initial}</text>
+    <text x="400" y="330" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">${safe}</text>
+    <text x="400" y="370" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="16" font-weight="500" fill="#94A3B8" letter-spacing="3">EXIM TRADE</text>
+  </svg>`;
+}
+
+function slugName(name) {
+  return String(name || "item")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80);
+}
+
+const accents = ["#D4AF37", "#FFD700", "#B8860B", "#0056b3", "#10b981", "#f59e0b"];
+const { TAXONOMY } = await import("../../server/src/data/categories.js");
+let createdCats = 0;
+for (let i = 0; i < TAXONOMY.length; i++) {
+  const c = TAXONOMY[i];
+  const dest = join(catDir, `${slugName(c.name)}.webp`);
+  if (!existsSync(dest)) {
+    await sharp(Buffer.from(categoryTileSvg(c.name, accents[i % accents.length])))
+      .webp({ quality: 84 })
+      .toFile(dest);
+    createdCats++;
+  }
+}
+if (createdCats) console.log(`Created ${createdCats} EXIM category images`);
+
 console.log("Brand assets ready.");

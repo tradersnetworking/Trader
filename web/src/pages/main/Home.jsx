@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
-import { Logo } from "../../components/ui.jsx";
+import BrandMark from "../../components/BrandMark.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
 import ProductImage from "../../components/ProductImage.jsx";
 import CategoryImage from "../../components/CategoryImage.jsx";
@@ -50,7 +50,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div>
-              <Logo variant="full" className="mb-4 h-12 w-auto max-w-[min(100%,11rem)] sm:h-14 sm:max-w-[12rem]" />
+              <BrandMark line1="Akshaya Exim" line2="Traders" subtitle="Global Export & Import" onDark compact className="mb-4" />
               <span className="badge bg-gold/20 text-gold-400">Global Export & Import • B2B & B2C</span>
               <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
                 Trade Agricultural, FMCG, Medical, Metals & Chemicals <span className="gold-text">across the globe</span>
@@ -86,10 +86,10 @@ export default function Home() {
       </section>
 
       {/* Trust strip */}
-      <section className="border-b bg-white">
+      <section className="border-b border-border bg-card">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-6 text-center md:grid-cols-4">
           {[["🌍", "Global Reach"], ["📦", "Bulk Supply"], ["✅", "Quality Assured"], ["⚡", "Fast Quotes"]].map(([i, t]) => (
-            <div key={t}><div className="text-2xl">{i}</div><div className="mt-1 text-sm font-semibold text-navy">{t}</div></div>
+            <div key={t}><div className="text-2xl">{i}</div><div className="mt-1 text-sm font-semibold text-navy dark:text-foreground">{t}</div></div>
           ))}
         </div>
       </section>
@@ -115,14 +115,14 @@ export default function Home() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCategories.map((c) => (
             <div key={c.id} className="card overflow-hidden">
-              <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-slate-100`}>
+              <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-muted`}>
                 <CategoryImage category={c} className="h-full w-full" />
               </div>
               <div className="p-4">
                 <h3 className="font-bold text-navy">{c.name}</h3>
                 <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
                   {(c.children || []).slice(0, 6).map((s) => (
-                    <Link key={s.id} to={`/products?categoryId=${s.id}`} className="badge bg-navy-50 text-navy hover:bg-navy hover:text-white">{s.name}</Link>
+                    <Link key={s.id} to={`/products?categoryId=${s.id}`} className="badge bg-navy/10 text-navy hover:bg-navy hover:text-white dark:bg-primary/15 dark:text-foreground dark:hover:bg-primary dark:hover:text-primary-foreground">{s.name}</Link>
                   ))}
                   {(c.children || []).length > 6 && <span className="badge bg-slate-100 text-slate-500">+{c.children.length - 6} more</span>}
                 </div>
@@ -133,7 +133,7 @@ export default function Home() {
       </section>
 
       {/* Featured products */}
-      <section className="bg-white">
+      <section className="bg-muted/40">
         <div className="mx-auto max-w-7xl px-4 py-12">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-extrabold text-navy">Featured Listings</h2>
@@ -142,12 +142,12 @@ export default function Home() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((p) => (
               <div key={p.id} className="card flex flex-col overflow-hidden">
-                <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-slate-100">
+                <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-muted">
                   <ProductImage product={p} className="h-full w-full" aspect={false} />
                   <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
                 </Link>
                 <div className="flex flex-1 flex-col p-4">
-                  <Link to={`/products/${p.slug}`} className="font-semibold text-navy hover:text-gold-600 line-clamp-2">{p.name}</Link>
+                  <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2">{p.name}</Link>
                   <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
                   <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
                   <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>

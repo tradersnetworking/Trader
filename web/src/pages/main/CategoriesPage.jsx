@@ -41,7 +41,7 @@ export default function CategoriesPage() {
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((c) => (
           <div key={c.id} className="card overflow-hidden">
-            <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-slate-100`}>
+            <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-muted`}>
               <CategoryImage category={c} className="h-full w-full" />
             </div>
             <div className="p-4">

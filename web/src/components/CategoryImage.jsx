@@ -1,27 +1,21 @@
 import { useState } from "react";
-import { categoryImageUrl } from "../lib/img.js";
+import { categoryImageUrl, DEFAULT_CATEGORY_IMAGE } from "../lib/img.js";
 
 export default function CategoryImage({ category, name, className = "", imgClassName = "object-cover" }) {
-  const [failed, setFailed] = useState(false);
+  const [srcIndex, setSrcIndex] = useState(0);
   const label = typeof category === "string" ? category : category?.name || name || "Category";
-  const url = failed ? null : categoryImageUrl(category || name);
-
-  if (!url) {
-    return (
-      <div className={`flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-3xl ${className}`}>
-        🏷️
-      </div>
-    );
-  }
+  const primary = categoryImageUrl(category || name);
+  const candidates = [primary, DEFAULT_CATEGORY_IMAGE].filter((u, i, a) => u && a.indexOf(u) === i);
+  const src = candidates[srcIndex] || DEFAULT_CATEGORY_IMAGE;
 
   return (
     <img
-      src={url}
+      src={src}
       alt={label}
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
-      className={`${imgClassName} ${className}`}
+      onError={() => setSrcIndex((i) => (i + 1 < candidates.length ? i + 1 : candidates.length))}
+      className={`h-full w-full ${imgClassName} ${className}`}
     />
   );
 }

@@ -32,7 +32,7 @@ export default function Products() {
         <h1 className="text-2xl font-extrabold text-navy">Products</h1>
         <div className="ml-auto flex gap-2">
           {["", "EXPORT", "IMPORT"].map((t) => (
-            <button key={t || "all"} onClick={() => setParam("listingType", t)} className={`badge ${listingType === t ? "bg-navy text-white" : "bg-slate-100 text-slate-600"}`}>
+            <button key={t || "all"} onClick={() => setParam("listingType", t)} className={`badge ${listingType === t ? "main-filter-active" : "main-filter"}`}>
               {t === "" ? "All" : t === "EXPORT" ? "Available to Export" : "Import Requirements"}
             </button>
           ))}
@@ -47,12 +47,12 @@ export default function Products() {
       <div className="mt-6 grid gap-6 md:grid-cols-[240px_1fr]">
         <aside className="card h-fit p-4">
           <h3 className="mb-2 text-sm font-bold text-navy">Categories</h3>
-          <button onClick={() => setParam("categoryId", "")} className={`block w-full rounded px-2 py-1 text-left text-sm ${!categoryId ? "bg-navy text-white" : "hover:bg-slate-50"}`}>All</button>
+          <button onClick={() => setParam("categoryId", "")} className={`block w-full rounded px-2 py-1 text-left text-sm ${!categoryId ? "main-filter-active" : "hover:bg-muted"}`}>All</button>
           {categories.map((c) => (
             <div key={c.id} className="mt-2">
-              <div className="text-xs font-bold uppercase text-slate-400">{c.name}</div>
+              <div className="text-xs font-bold uppercase text-muted-foreground">{c.name}</div>
               {(c.children || []).map((s) => (
-                <button key={s.id} onClick={() => setParam("categoryId", s.id)} className={`block w-full rounded px-2 py-1 text-left text-sm ${categoryId === s.id ? "bg-navy text-white" : "hover:bg-slate-50"}`}>{s.name}</button>
+                <button key={s.id} onClick={() => setParam("categoryId", s.id)} className={`block w-full rounded px-2 py-1 text-left text-sm ${categoryId === s.id ? "main-filter-active" : "hover:bg-muted"}`}>{s.name}</button>
               ))}
             </div>
           ))}
@@ -62,12 +62,12 @@ export default function Products() {
           {products.length === 0 && <p className="text-slate-400">No products found.</p>}
           {products.map((p) => (
             <div key={p.id} className="card flex flex-col overflow-hidden">
-              <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-slate-100">
+              <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-muted">
                 <ProductImage product={p} className="h-full w-full" aspect={false} />
                 <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
               </Link>
               <div className="flex flex-1 flex-col p-4">
-                <Link to={`/products/${p.slug}`} className="font-semibold text-navy hover:text-gold-600 line-clamp-2">{p.name}</Link>
+                <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2">{p.name}</Link>
                 <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>
                 <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>

@@ -237,7 +237,7 @@ export default function InvestDashboardShell({
     );
 
   return (
-    <div className="invest-shell flex h-[100dvh] overflow-hidden bg-background">
+    <div className="invest-shell flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background">
       <aside
         className={`invest-sidebar hidden h-full min-h-0 shrink-0 flex-col border-r shadow-sm backdrop-blur-xl md:flex ${
           collapsed ? "w-[4.75rem]" : "w-64 lg:w-72"
@@ -256,29 +256,29 @@ export default function InvestDashboardShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="invest-header sticky top-0 z-30 shrink-0 border-b backdrop-blur-md">
-          <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <div className="md:hidden">
-                <BrandMark
-                  to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-                  line1="Akshaya Exim"
-                  line2="Invest"
-                  subtitle={pageTitle || (role === "admin" ? "Admin Portal" : "Investor Portal")}
-                  compact
-                  className="min-w-0 max-w-full"
-                />
-                {pageSubtitle && (
-                  <p className="mt-0.5 truncate pl-9 text-[10px] text-muted-foreground sm:pl-10">{pageSubtitle}</p>
-                )}
-              </div>
-              <div className="hidden min-w-0 md:block">
-                <h1 className="page-title truncate">{pageTitle}</h1>
-                {pageSubtitle && <p className="page-subtitle truncate">{pageSubtitle}</p>}
-              </div>
+        <header className="invest-header sticky top-0 z-30 shrink-0 overflow-x-clip border-b backdrop-blur-md">
+          {/* Mobile — brand on its own row so actions never squeeze it off-screen */}
+          <div className="border-b border-border/50 px-3 py-2 md:hidden">
+            <BrandMark
+              to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
+              line1="Akshaya Exim"
+              line2="Invest"
+              subtitle={pageTitle || (role === "admin" ? "Admin Portal" : "Investor Portal")}
+              compact
+              className="min-w-0 max-w-full"
+            />
+            {pageSubtitle && (
+              <p className="mt-0.5 truncate pl-9 text-[10px] text-muted-foreground sm:pl-10">{pageSubtitle}</p>
+            )}
+          </div>
+
+          <div className="flex min-w-0 items-center gap-1 px-2 py-2 sm:gap-2 sm:px-4 sm:py-3">
+            <div className="hidden min-w-0 flex-1 overflow-hidden md:block">
+              <h1 className="page-title truncate">{pageTitle}</h1>
+              {pageSubtitle && <p className="page-subtitle truncate">{pageSubtitle}</p>}
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+            <div className="ml-auto flex max-w-full shrink-0 items-center gap-0.5 sm:gap-1.5">
               {headerActions && role === "investor" && (
                 <div className="hidden xs:flex items-center gap-1 sm:flex">{headerActions}</div>
               )}
@@ -300,7 +300,11 @@ export default function InvestDashboardShell({
                   <div className="text-sm font-bold text-info-tone">{inr(platformInvested)}</div>
                 </div>
               )}
-              {role === "admin" && user?.role && <Badge status={user.role} />}
+              {role === "admin" && user?.role && (
+                <span className="hidden sm:inline-flex">
+                  <Badge status={user.role} />
+                </span>
+              )}
               <button
                 type="button"
                 onClick={onNotificationsClick}
@@ -316,7 +320,9 @@ export default function InvestDashboardShell({
               </button>
               <ThemeToggle compact className="md:hidden" />
               <ThemeToggle className="hidden md:inline-flex" />
-              <LanguageSelector compact />
+              <span className="hidden min-[480px]:inline-flex">
+                <LanguageSelector compact />
+              </span>
               <div className="relative">
                 <button type="button" onClick={() => setUserOpen((v) => !v)} aria-label="Account">
                   <UserAvatar user={user} size={36} />

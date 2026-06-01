@@ -1,28 +1,19 @@
 import { useState } from "react";
-import { productImageUrl, IMAGE_SIZES } from "../lib/img.js";
+import { productImageCandidates, IMAGE_SIZES } from "../lib/img.js";
 
 export default function ProductImage({ product, className = "", aspect = true }) {
-  const [failed, setFailed] = useState(false);
-  const url = productImageUrl(product);
-
-  if (failed || !url) {
-    return (
-      <div
-        className={`flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-4xl ${aspect ? IMAGE_SIZES.product : ""} ${className}`}
-      >
-        📦
-      </div>
-    );
-  }
+  const candidates = productImageCandidates(product);
+  const [srcIndex, setSrcIndex] = useState(0);
+  const src = candidates[srcIndex] || candidates[candidates.length - 1];
 
   return (
     <img
-      src={url}
+      src={src}
       alt={product?.name || "Product"}
       loading="lazy"
       decoding="async"
-      onError={() => setFailed(true)}
-      className={`object-cover ${aspect ? `${IMAGE_SIZES.product} w-full` : ""} ${className}`}
+      onError={() => setSrcIndex((i) => (i + 1 < candidates.length ? i + 1 : i))}
+      className={`object-cover ${aspect ? `${IMAGE_SIZES.product} w-full` : "h-full w-full"} ${className}`}
     />
   );
 }

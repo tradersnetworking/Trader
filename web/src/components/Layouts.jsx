@@ -135,7 +135,7 @@ export function MarketplaceLayout({ children }) {
   );
 
   return (
-    <div className="app-shell site-main-shell">
+    <div className="app-shell site-main-shell overflow-x-clip">
       <Shell
         homeTo="/"
         brandLine1="Akshaya Exim"
