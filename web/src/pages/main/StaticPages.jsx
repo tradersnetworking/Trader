@@ -16,7 +16,7 @@ export function AboutUs() {
       <p>We serve both <strong>B2B</strong> buyers and sellers across India and international markets, and <strong>B2C</strong> buyers within India. Our platform connects verified suppliers with bulk buyers and helps importers source required products efficiently.</p>
       <h2 className="text-xl font-bold text-navy">What We Do</h2>
       <ul className="list-disc space-y-1 pl-5">
-        <li>Export-grade product listings across 37+ trade categories</li>
+        <li>Export-grade product listings across agriculture, metals, chemicals, medical and pharmaceutical categories</li>
         <li>Import requirement listings for bulk procurement</li>
         <li>Instant quote requests (RFQ) for buyers and supply offers from sellers</li>
         <li>Secure payments via UPI, bank transfer, cards and multiple gateways</li>

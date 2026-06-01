@@ -55,7 +55,7 @@ export default function Home() {
               <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
                 Trade Agricultural, FMCG, Medical, Metals & Chemicals <span className="gold-text">across the globe</span>
               </h1>
-              <p className="mt-4 max-w-lg text-slate-300">Bulk export & import across 37+ categories. B2B sellers and buyers in India and abroad. B2C buyers in India.</p>
+              <p className="mt-4 max-w-lg text-slate-300">Bulk B2B export & import across agriculture, metals, chemicals, medical, and pharma categories. Trade with verified suppliers in India and abroad.</p>
               <form onSubmit={onSearch} className="mt-6 flex flex-col gap-2 sm:flex-row">
                 <input
                   className="input flex-1 border-0 text-navy shadow-lg"
@@ -99,14 +99,14 @@ export default function Home() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-2xl font-extrabold text-navy">Browse by Category</h2>
-            <p className="text-sm text-slate-500">Search 37 trade categories — Amazon-style sub-categories</p>
+            <p className="text-sm text-slate-500">Search EXIM categories — food grains, metals, chemicals, medical & more</p>
           </div>
           <Link to="/categories" className="text-sm font-semibold text-navy hover:underline">View all categories →</Link>
         </div>
         <div className="mt-4 flex gap-2">
           <input
             className="input max-w-md"
-            placeholder="Filter categories… e.g. Agriculture, Metals, Textiles"
+            placeholder="Filter categories… e.g. Agriculture, Metals, Chemicals"
             value={catFilter}
             onChange={(e) => setCatFilter(e.target.value)}
           />
@@ -164,7 +164,7 @@ export default function Home() {
         <div className="hero-gradient flex flex-col items-center justify-between gap-4 rounded-2xl p-8 text-white md:flex-row">
           <div>
             <h3 className="text-2xl font-extrabold">Buy & Sell in Bulk • B2B & B2C • India & Abroad</h3>
-            <p className="text-slate-300">List your products, request quotes, and trade across 37+ categories with Akshaya Exim Traders.</p>
+            <p className="text-slate-300">List your products, request quotes, and trade across agriculture, metals, chemicals, medical and pharma categories with Akshaya Exim Traders.</p>
           </div>
           <Link to="/products" className="btn-gold whitespace-nowrap">Explore All Products →</Link>
         </div>

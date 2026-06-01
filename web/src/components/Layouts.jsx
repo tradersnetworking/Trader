@@ -304,7 +304,12 @@ function MarketplaceFooter() {
               </Link>
             </li>
           </ul>
-          <p className="mt-4 text-xs text-slate-400">akshayaexim.com · akshayaexim.in</p>
+          <p className="mt-4 text-xs text-slate-400">
+            akshayaexim.com · akshayaexim.in ·{" "}
+            <a href="https://invest.akshayaexim.com" className="hover:text-gold">
+              invest.akshayaexim.com
+            </a>
+          </p>
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">

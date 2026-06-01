@@ -174,37 +174,8 @@ async function copyFallback(name, kind, fallbackPath) {
   console.log(`  ↳ fallback copy for ${name}`);
 }
 
-// Categories from server taxonomy
-const { TAXONOMY } = await import("../../server/src/data/categories.js");
-
-const PRODUCTS = [
-  "Turmeric Finger (Export Grade)",
-  "1121 Basmati Rice",
-  "Organic Moringa Leaf Powder",
-  "Cold Pressed Fruit Juice (Bulk)",
-  "Iron Ore Fines Fe 62%",
-  "Aluminium Ingots 99.7%",
-  "Copper Cathode 99.99% (Import)",
-  "Urea 46% Nitrogen (Import Requirement)",
-  "Paracetamol 500mg Tablets",
-  "Fresh Red Onion",
-  "Copper Power Cable (Import)",
-  "Acrylic Fabric Rolls",
-];
-
-const SUB_WITH_PRODUCTS = [
-  "Agro Products & Commodities",
-  "Ayurvedic & Herbal Powder",
-  "Beverages",
-  "Base Metals & Articles",
-  "Aluminum & Aluminum Products",
-  "Aluminium Scrap",
-  "Agro Chemicals",
-  "Anti Infective Drugs & Medicines",
-  "Agriculture Product Stocks",
-  "Cables/Cable Accessories & Conductors",
-  "Acrylic Fabric",
-];
+// Categories from server EXIM taxonomy
+const { TAXONOMY, flattenCatalogProducts } = await import("../../server/src/data/categories.js");
 
 console.log("Fetching marketplace images…");
 console.log(env.GOOGLE_CSE_API_KEY ? "Using Google Custom Search API" : "Using Wikimedia + DuckDuckGo image search");
@@ -217,41 +188,24 @@ for (const c of TAXONOMY) {
   await sleep(350);
 }
 
-for (const s of SUB_WITH_PRODUCTS) {
-  await fetchOne(s, "category", { width: 800, height: 600 });
-  manifest.subcategories[s] = `/assets/categories/${slug(s)}.webp`;
-  await sleep(350);
+// Fetch images for a representative sample of subcategories (first sub per top category)
+for (const c of TAXONOMY) {
+  const firstSub = c.sub[0];
+  if (!firstSub) continue;
+  await fetchOne(firstSub.name, "category", { width: 800, height: 600 });
+  manifest.subcategories[firstSub.name] = `/assets/categories/${slug(firstSub.name)}.webp`;
+  await sleep(300);
 }
 
-for (const p of PRODUCTS) {
+// Fetch a small sample of product images (first product per top category)
+const sampleProducts = TAXONOMY.map((c) => c.sub[0]?.products?.[0]).filter(Boolean);
+for (const p of sampleProducts) {
   await fetchOne(p, "product", { width: 800, height: 800 });
   manifest.products[p] = `/assets/products/${slug(p)}.webp`;
   await sleep(300);
 }
 
-// Retry failed category/subcategory downloads
-const RETRY = [
-  ["Computer Hardware & Software", "computer hardware"],
-  ["Construction & Real Estate", "construction building materials"],
-  ["Consumer Electronics", "consumer electronics gadgets"],
-  ["Electronics & Electrical Supplies", "electrical cables supplies"],
-  ["Energy & Power", "energy power solar"],
-  ["Packaging & Paper", "packaging paper boxes"],
-  ["Aluminium Scrap", "aluminium scrap metal"],
-  ["Agro Chemicals", "agro fertilizer chemicals"],
-  ["Anti Infective Drugs & Medicines", "pharmaceutical medicine tablets"],
-  ["Agriculture Product Stocks", "agriculture produce warehouse"],
-  ["Cables/Cable Accessories & Conductors", "electric power cable"],
-  ["Acrylic Fabric", "acrylic textile fabric rolls"],
-];
-for (const [name, alt] of RETRY) {
-  const kind = PRODUCTS.includes(name) ? "product" : "category";
-  const size = kind === "product" ? { width: 800, height: 800 } : { width: 800, height: 600 };
-  await fetchOne(name, kind, size, { force: true, altQueries: [alt] });
-  await sleep(300);
-}
-
-// Fill any remaining gaps from default
+// Fill any remaining parent category gaps from default
 const defaultDest = join(catDir, "default-trade.webp");
 if (!existsSync(defaultDest)) {
   const urls = await findImageUrls("global trade shipping containers port");
@@ -263,10 +217,7 @@ for (const c of TAXONOMY) {
   const p = join(catDir, `${slug(c.name)}.webp`);
   if (!existsSync(p) && existsSync(defaultDest)) await copyFallback(c.name, "category", defaultDest);
 }
-for (const s of SUB_WITH_PRODUCTS) {
-  const p = join(catDir, `${slug(s)}.webp`);
-  if (!existsSync(p) && existsSync(defaultDest)) await copyFallback(s, "category", defaultDest);
-}
 
 writeFileSync(join(assetsRoot, "image-manifest.json"), JSON.stringify(manifest, null, 2));
-console.log("\nDone. Manifest: public/assets/image-manifest.json");
+console.log(`\nDone. ${Object.keys(manifest.categories).length} category images. Manifest: public/assets/image-manifest.json`);
+console.log(`Catalog has ${flattenCatalogProducts().length} products (most use category/default image fallback).`);

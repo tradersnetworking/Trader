@@ -2,7 +2,7 @@ import { mainDb, investDb } from "./db.js";
 import { hashPassword } from "./utils/auth.js";
 import { config } from "./config.js";
 import { nanoid } from "nanoid";
-import { TAXONOMY } from "./data/categories.js";
+import { TAXONOMY, unitForSub, getCatalogStats } from "./data/categories.js";
 import { imageForProduct, imageForCategory } from "./data/productImages.js";
 import { generateReferralCode } from "./services/referral.js";
 import { seedDefaultPaymentGateways, ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
@@ -10,20 +10,19 @@ import { buildPlanCatalog, catalogKey } from "./data/investmentPlans.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 
-const SAMPLE_PRODUCTS = [
-  { cat: "Agro Products & Commodities", name: "Turmeric Finger (Export Grade)", listingType: "EXPORT", unit: "kg", min: 500, price: 95, origin: "India" },
-  { cat: "Agro Products & Commodities", name: "1121 Basmati Rice", listingType: "EXPORT", unit: "MT", min: 18, price: 78000, origin: "India" },
-  { cat: "Ayurvedic & Herbal Powder", name: "Organic Moringa Leaf Powder", listingType: "EXPORT", unit: "kg", min: 100, price: 320, origin: "Tamil Nadu" },
-  { cat: "Beverages", name: "Cold Pressed Fruit Juice (Bulk)", listingType: "EXPORT", unit: "litre", min: 200, price: 120, origin: "India" },
-  { cat: "Base Metals & Articles", name: "Iron Ore Fines Fe 62%", listingType: "EXPORT", unit: "MT", min: 1000, price: 8500, origin: "India" },
-  { cat: "Aluminum & Aluminum Products", name: "Aluminium Ingots 99.7%", listingType: "EXPORT", unit: "MT", min: 5, price: 215000, origin: "India" },
-  { cat: "Aluminium Scrap", name: "Copper Cathode 99.99% (Import)", listingType: "IMPORT", unit: "MT", min: 5, price: 820000, origin: "Required" },
-  { cat: "Agro Chemicals", name: "Urea 46% Nitrogen (Import Requirement)", listingType: "IMPORT", unit: "MT", min: 500, price: 32000, origin: "Required" },
-  { cat: "Anti Infective Drugs & Medicines", name: "Paracetamol 500mg Tablets", listingType: "EXPORT", unit: "box", min: 200, price: 45, origin: "India" },
-  { cat: "Agriculture Product Stocks", name: "Fresh Red Onion", listingType: "EXPORT", unit: "MT", min: 25, price: 18000, origin: "Maharashtra" },
-  { cat: "Cables/Cable Accessories & Conductors", name: "Copper Power Cable (Import)", listingType: "IMPORT", unit: "km", min: 10, price: 145000, origin: "Required" },
-  { cat: "Acrylic Fabric", name: "Acrylic Fabric Rolls", listingType: "EXPORT", unit: "MT", min: 2, price: 240000, origin: "India" },
-];
+function defaultMinOrder(unit) {
+  if (unit === "MT" || unit === "Container" || unit === "Truck Load") return 1;
+  if (unit === "Quintal") return 5;
+  if (unit === "Drum" || unit === "Barrel") return 10;
+  if (unit === "Piece") return 10;
+  if (unit === "Box" || unit === "Carton") return 50;
+  return 100;
+}
+
+function productDescription(name, listingType, parentName, subName) {
+  const trade = listingType === "IMPORT" ? "Import requirement" : "Available for export";
+  return `${trade} — bulk B2B ${name} under ${subName} (${parentName}). Request a quotation for MOQ, FOB/CIF terms, and quality certificates.`;
+}
 
 // Sync investment plans: category (capital tier) × sub-category (lock-in months).
 async function syncInvestmentPlans() {
@@ -174,11 +173,11 @@ async function seedMain() {
     create: { email: "user@akshayaexim.com", name: "Demo Buyer", passwordHash: hashPassword("User@123"), role: "USER", accountType: "B2B", companyName: "Demo Trading Co.", emailVerified: true },
   });
 
-  // Reset catalog so the full taxonomy is (re)applied on every seed run.
+  // Reset catalog so the full EXIM taxonomy is (re)applied on every seed run.
   await mainDb.product.deleteMany({});
   await mainDb.category.deleteMany({});
-  const subMap = {};
-  const subToParent = {};
+  let productCount = 0;
+
   for (const c of TAXONOMY) {
     const parent = await mainDb.category.create({
       data: { name: c.name, slug: slug(c.name), image: imageForCategory(c.name) },
@@ -186,29 +185,40 @@ async function seedMain() {
     for (const s of c.sub) {
       const child = await mainDb.category.create({
         data: {
-          name: s,
-          slug: slug(s),
+          name: s.name,
+          slug: slug(s.name),
           parentId: parent.id,
-          image: imageForCategory(s),
+          image: imageForCategory(s.name),
+          description: `${s.name} — B2B import/export listings under ${c.name}.`,
         },
       });
-      if (!subMap[s]) subMap[s] = child.id;
-      subToParent[s] = c.name;
+
+      const unit = unitForSub(c, s);
+      const listingType = s.listingType || c.listingType || "EXPORT";
+      for (const productName of s.products) {
+        const img = imageForProduct(productName, s.name, c.name);
+        await mainDb.product.create({
+          data: {
+            name: productName,
+            slug: slug(productName),
+            listingType,
+            tradeType: "B2B",
+            unit,
+            minOrderQty: defaultMinOrder(unit),
+            basePrice: 0,
+            origin: listingType === "IMPORT" ? "Required" : "India",
+            categoryId: child.id,
+            images: JSON.stringify(img ? [img] : []),
+            description: productDescription(productName, listingType, c.name, s.name),
+          },
+        });
+        productCount += 1;
+      }
     }
   }
-  for (const p of SAMPLE_PRODUCTS) {
-    const img = imageForProduct(p.name, p.cat, subToParent[p.cat]);
-    await mainDb.product.create({
-      data: {
-        name: p.name, slug: slug(p.name), listingType: p.listingType, tradeType: "BOTH",
-        unit: p.unit, minOrderQty: p.min, basePrice: p.price, origin: p.origin,
-        categoryId: subMap[p.cat] || null,
-        images: JSON.stringify(img ? [img] : []),
-        description: `${p.listingType === "EXPORT" ? "Available for export" : "Import requirement"} - bulk ${p.name}. Request a quote for best bulk pricing.`,
-      },
-    });
-  }
-  console.log(`  MAIN done. ${TAXONOMY.length} categories seeded.`);
+
+  const stats = getCatalogStats();
+  console.log(`  MAIN done. ${stats.topCategories} top categories, ${stats.subCategories} subcategories, ${productCount} products seeded.`);
 }
 
 async function seedInvest() {

@@ -6,6 +6,7 @@ import { config } from "../config.js";
 import { listGateways, createOrder } from "../payments/gateways.js";
 import { payoutGatewayStatus } from "../payments/payouts.js";
 import { upload, fileUrl } from "../utils/upload.js";
+import { BULK_QUANTITY_UNITS, getCatalogStats } from "../data/categories.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -14,6 +15,14 @@ const isAdmin = requireRole("ADMIN", "SUPERADMIN");
 function slugify(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 }
+
+router.get("/meta", (_req, res) => {
+  res.json({
+    units: BULK_QUANTITY_UNITS,
+    catalog: getCatalogStats(),
+    shippingTerms: ["FOB", "CIF", "EXW", "CFR", "CPT"],
+  });
+});
 
 /* ---------------- Categories ---------------- */
 router.get(

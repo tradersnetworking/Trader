@@ -29,11 +29,15 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      - main_db:/app/server/prisma/main.db
+      - seed_flag:/app/data
       - uploads:/app/server/uploads
     ports:
       - "127.0.0.1:4000:4000"
-    command: sh -c "npm run db:push:postgres && node src/index.js"
+    entrypoint: ["/app/deploy/entrypoint-postgres.sh"]
 
 volumes:
   pgdata:
+  main_db:
+  seed_flag:
   uploads:

@@ -23,6 +23,8 @@ import { ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./servi
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(geoBlockMiddleware());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "5mb" }));
@@ -46,8 +48,8 @@ app.use("/api/invest/webhooks", investWebhooks);
 // Serve built frontend in production
 const webDist = path.join(__dirname, "..", "..", "web", "dist");
 
-function hostKind(hostname) {
-  const h = (hostname || "").toLowerCase();
+function hostKind(req) {
+  const h = (req.hostname || req.headers.host || "").toLowerCase().split(":")[0];
   if (h.startsWith("invest.")) return "invest";
   if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return "local";
   return "main";
@@ -59,7 +61,7 @@ if (fs.existsSync(webDist)) {
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
 
-    const kind = hostKind(req.hostname);
+    const kind = hostKind(req);
     const isLocal = kind === "local";
 
     // Invest subdomain: strip legacy /invest prefix → clean paths
@@ -89,6 +91,8 @@ if (fs.existsSync(webDist)) {
 
     res.sendFile(path.join(webDist, "index.html"));
   });
+} else if (config.env === "production") {
+  console.warn(`[warn] web/dist not found at ${webDist} — UI will not be served. Run: npm run build`);
 }
 
 app.use(errorHandler);

@@ -26,7 +26,7 @@ export default function CategoriesPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-3xl font-extrabold text-navy">Product Categories</h1>
-      <p className="text-sm text-slate-500">B2B sellers & buyers — India & abroad · B2C — India · 37 trade categories</p>
+      <p className="text-sm text-slate-500">B2B import-export marketplace · Agriculture · Metals · Chemicals · Medical · Pharma</p>
 
       <div className="mt-6 flex gap-2">
         <input
