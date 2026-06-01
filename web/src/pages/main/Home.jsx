@@ -2,9 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
+import { Logo } from "../../components/ui.jsx";
 import QuoteModal from "../../components/QuoteModal.jsx";
 import ProductImage from "../../components/ProductImage.jsx";
-import { categoryImageUrl } from "../../lib/img.js";
+import CategoryImage from "../../components/CategoryImage.jsx";
+import { IMAGE_SIZES } from "../../lib/img.js";
 
 export default function Home() {
   const nav = useNavigate();
@@ -48,6 +50,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div>
+              <Logo variant="full" className="mb-4 h-12 w-auto max-w-[min(100%,11rem)] sm:h-14 sm:max-w-[12rem]" />
               <span className="badge bg-gold/20 text-gold-400">Global Export & Import • B2B & B2C</span>
               <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
                 Trade Agricultural, FMCG, Medical, Metals & Chemicals <span className="gold-text">across the globe</span>
@@ -71,7 +74,9 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-3">
               {heroCategories.map((c) => (
                 <Link key={c.id} to={`/products?q=${encodeURIComponent(c.name)}`} className="card overflow-hidden bg-white/5 transition hover:ring-2 hover:ring-gold/50">
-                  <img src={categoryImageUrl(c.name)} alt={c.name} loading="lazy" className="h-28 w-full object-cover sm:h-36" />
+                  <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-white/10`}>
+                    <CategoryImage category={c} className="h-full w-full" />
+                  </div>
                   <div className="truncate px-3 py-2 text-sm font-semibold">{c.name}</div>
                 </Link>
               ))}
@@ -110,7 +115,9 @@ export default function Home() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCategories.map((c) => (
             <div key={c.id} className="card overflow-hidden">
-              <img src={categoryImageUrl(c.name)} alt={c.name} loading="lazy" className="h-28 w-full object-cover" />
+              <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-slate-100`}>
+                <CategoryImage category={c} className="h-full w-full" />
+              </div>
               <div className="p-4">
                 <h3 className="font-bold text-navy">{c.name}</h3>
                 <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
@@ -135,8 +142,8 @@ export default function Home() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((p) => (
               <div key={p.id} className="card flex flex-col overflow-hidden">
-                <Link to={`/products/${p.slug}`} className="relative block">
-                  <ProductImage product={p} className="h-40 w-full" />
+                <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-slate-100">
+                  <ProductImage product={p} className="h-full w-full" aspect={false} />
                   <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
                 </Link>
                 <div className="flex flex-1 flex-col p-4">

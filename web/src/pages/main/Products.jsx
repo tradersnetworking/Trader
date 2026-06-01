@@ -62,8 +62,8 @@ export default function Products() {
           {products.length === 0 && <p className="text-slate-400">No products found.</p>}
           {products.map((p) => (
             <div key={p.id} className="card flex flex-col overflow-hidden">
-              <Link to={`/products/${p.slug}`} className="relative block">
-                <ProductImage product={p} className="h-44 w-full" />
+              <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-slate-100">
+                <ProductImage product={p} className="h-full w-full" aspect={false} />
                 <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
               </Link>
               <div className="flex flex-1 flex-col p-4">

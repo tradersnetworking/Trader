@@ -1,17 +1,75 @@
+import crypto from "crypto";
 import { config } from "../config.js";
 import { nanoid } from "nanoid";
+import { getSetting } from "../services/investSettings.js";
+import { BANK_PROVIDERS, createBankDepositOrder, isBankConfigured } from "./bankApis.js";
 
-// Unified collection gateway interface.
-// Each adapter exposes createOrder({ amount, currency, receipt, customer }).
-// When credentials are not configured the adapter returns a MOCK order so the
-// full flow remains testable; wiring real SDK calls only requires filling keys.
+function sha512(str) {
+  return crypto.createHash("sha512").update(str).digest("hex");
+}
 
-const SUPPORTED = ["razorpay", "cashfree", "payu", "juspay", "eximpe", "upi"];
+function depositReturnUrls() {
+  const base = (config.investPortalUrl || `${config.clientOrigin}/invest`).replace(/\/$/, "");
+  return {
+    success: `${base}/dashboard?tab=money&moneyTab=deposit&status=success`,
+    failure: `${base}/dashboard?tab=money&moneyTab=deposit&status=failed`,
+  };
+}
 
-function configured(name) {
-  const g = config.gateways[name];
-  if (!g) return name === "upi";
-  return Object.values(g).some((v) => v && v.length > 0);
+const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
+
+const SETTING_KEYS = {
+  razorpay: { keyId: "gateway_razorpay_key_id", keySecret: "gateway_razorpay_key_secret" },
+  cashfree: { appId: "gateway_cashfree_app_id", secret: "gateway_cashfree_secret" },
+  payu: { key: "gateway_payu_key", salt: "gateway_payu_salt" },
+  easebuzz: { key: "gateway_easebuzz_key", salt: "gateway_easebuzz_salt" },
+  juspay: { merchantId: "gateway_juspay_merchant_id" },
+  eximpe: { apiKey: "gateway_eximpe_api_key" },
+};
+
+async function resolveCreds(name) {
+  const env = config.gateways[name] || {};
+  const keys = SETTING_KEYS[name];
+  if (!keys) return env;
+  const out = { ...env };
+  for (const [field, settingKey] of Object.entries(keys)) {
+    const dbVal = await getSetting(settingKey);
+    if (dbVal) out[field === "keyId" ? "keyId" : field === "keySecret" ? "keySecret" : field] = dbVal;
+  }
+  if (name === "razorpay") {
+    out.keyId = (await getSetting("gateway_razorpay_key_id")) || env.keyId;
+    out.keySecret = (await getSetting("gateway_razorpay_key_secret")) || env.keySecret;
+  }
+  if (name === "cashfree") {
+    out.appId = (await getSetting("gateway_cashfree_app_id")) || env.appId;
+    out.secret = (await getSetting("gateway_cashfree_secret")) || env.secret;
+  }
+  if (name === "payu") {
+    out.key = (await getSetting("gateway_payu_key")) || env.key;
+    out.salt = (await getSetting("gateway_payu_salt")) || env.salt;
+  }
+  if (name === "easebuzz") {
+    out.key = (await getSetting("gateway_easebuzz_key")) || env.key;
+    out.salt = (await getSetting("gateway_easebuzz_salt")) || env.salt;
+  }
+  if (name === "juspay") {
+    out.merchantId = (await getSetting("gateway_juspay_merchant_id")) || env.merchantId;
+  }
+  return out;
+}
+
+async function isConfigured(name) {
+  if (BANK_PROVIDERS.includes(name)) return isBankConfigured(name);
+  if (name === "upi") return Boolean(config.upi.vpa);
+  if (name === "phonepe") {
+    const creds = await resolveCreds("phonepe");
+    return Boolean(process.env.PHONEPE_MERCHANT_ID || creds.merchantId);
+  }
+  if (name === "paypal") {
+    return Boolean(process.env.PAYPAL_CLIENT_ID || (await getSetting("gateway_paypal_client_id")));
+  }
+  const creds = await resolveCreds(name);
+  return Object.values(creds).some((v) => v && String(v).length > 0);
 }
 
 function mockOrder(gateway, amount, currency, receipt) {
@@ -22,36 +80,34 @@ function mockOrder(gateway, amount, currency, receipt) {
     amount,
     currency,
     receipt,
-    // Frontend uses this to know it should show a simulated checkout.
     checkout: { simulate: true },
   };
 }
 
 const adapters = {
   async razorpay({ amount, currency, receipt }) {
-    if (!configured("razorpay")) return mockOrder("razorpay", amount, currency, receipt);
-    // Real integration: POST https://api.razorpay.com/v1/orders
-    const auth = Buffer.from(
-      `${config.gateways.razorpay.keyId}:${config.gateways.razorpay.keySecret}`
-    ).toString("base64");
+    const creds = await resolveCreds("razorpay");
+    if (!creds.keyId || !creds.keySecret) return mockOrder("razorpay", amount, currency, receipt);
+    const auth = Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString("base64");
     const res = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
       body: JSON.stringify({ amount: Math.round(amount * 100), currency, receipt }),
     });
     const data = await res.json();
-    return { gateway: "razorpay", orderId: data.id, keyId: config.gateways.razorpay.keyId, amount, currency, raw: data };
+    return { gateway: "razorpay", orderId: data.id, keyId: creds.keyId, amount, currency, raw: data };
   },
 
   async cashfree({ amount, currency, receipt, customer }) {
-    if (!configured("cashfree")) return mockOrder("cashfree", amount, currency, receipt);
+    const creds = await resolveCreds("cashfree");
+    if (!creds.appId || !creds.secret) return mockOrder("cashfree", amount, currency, receipt);
     const res = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-version": "2023-08-01",
-        "x-client-id": config.gateways.cashfree.appId,
-        "x-client-secret": config.gateways.cashfree.secret,
+        "x-client-id": creds.appId,
+        "x-client-secret": creds.secret,
       },
       body: JSON.stringify({
         order_amount: amount,
@@ -65,43 +121,139 @@ const adapters = {
       }),
     });
     const data = await res.json();
-    return { gateway: "cashfree", orderId: data.order_id, paymentSessionId: data.payment_session_id, amount, currency, raw: data };
+    const mode = process.env.CASHFREE_ENV === "production" ? "production" : "sandbox";
+    return {
+      gateway: "cashfree",
+      orderId: data.order_id,
+      paymentSessionId: data.payment_session_id,
+      cashfreeMode: mode,
+      amount,
+      currency,
+      raw: data,
+    };
   },
 
-  async payu({ amount, currency, receipt }) {
-    // PayU uses a hashed form post; here we return params for the frontend form.
-    if (!configured("payu")) return mockOrder("payu", amount, currency, receipt);
+  async payu({ amount, currency, receipt, customer }) {
+    const creds = await resolveCreds("payu");
+    if (!creds.key || !creds.salt) return mockOrder("payu", amount, currency, receipt);
+    const urls = depositReturnUrls();
+    const txnid = receipt;
+    const productinfo = "Wallet deposit";
+    const firstname = (customer?.name || "Investor").split(" ")[0] || "Investor";
+    const email = customer?.email || "investor@akshayaexim.com";
+    const phone = customer?.phone || "9999999999";
+    const hashStr = `${creds.key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${creds.salt}`;
     return {
       gateway: "payu",
-      orderId: receipt,
-      key: config.gateways.payu.key,
+      orderId: txnid,
       amount,
       currency,
       action: "https://secure.payu.in/_payment",
+      formFields: {
+        key: creds.key,
+        txnid,
+        amount: String(amount),
+        productinfo,
+        firstname,
+        email,
+        phone,
+        surl: urls.success,
+        furl: urls.failure,
+        hash: sha512(hashStr),
+      },
+    };
+  },
+
+  async easebuzz({ amount, currency, receipt, customer }) {
+    const creds = await resolveCreds("easebuzz");
+    if (!creds.key || !creds.salt) return mockOrder("easebuzz", amount, currency, receipt);
+    const urls = depositReturnUrls();
+    const txnid = receipt;
+    const productinfo = "Wallet deposit";
+    const firstname = (customer?.name || "Investor").split(" ")[0] || "Investor";
+    const email = customer?.email || "investor@akshayaexim.com";
+    const phone = customer?.phone || "9999999999";
+    const udf = ["", "", "", "", "", "", "", "", "", ""];
+    const hashStr = [creds.key, txnid, amount, productinfo, firstname, email, ...udf, creds.salt].join("|");
+    return {
+      gateway: "easebuzz",
+      orderId: txnid,
+      amount,
+      currency,
+      action: "https://pay.easebuzz.in/pay/secure",
+      formFields: {
+        key: creds.key,
+        txnid,
+        amount: String(amount),
+        productinfo,
+        firstname,
+        email,
+        phone,
+        surl: urls.success,
+        furl: urls.failure,
+        hash: sha512(hashStr),
+      },
     };
   },
 
   async juspay({ amount, currency, receipt }) {
-    if (!configured("juspay")) return mockOrder("juspay", amount, currency, receipt);
-    return { gateway: "juspay", orderId: receipt, merchantId: config.gateways.juspay.merchantId, amount, currency };
+    const creds = await resolveCreds("juspay");
+    if (!creds.merchantId) return mockOrder("juspay", amount, currency, receipt);
+    return { gateway: "juspay", orderId: receipt, merchantId: creds.merchantId, amount, currency };
   },
 
   async eximpe({ amount, currency, receipt }) {
-    if (!configured("eximpe")) return mockOrder("eximpe", amount, currency, receipt);
+    const creds = await resolveCreds("eximpe");
+    if (!creds.apiKey) return mockOrder("eximpe", amount, currency, receipt);
     return { gateway: "eximpe", orderId: receipt, amount, currency };
   },
 
+  async hdfc(payload) {
+    return createBankDepositOrder("hdfc", payload);
+  },
+  async axis(payload) {
+    return createBankDepositOrder("axis", payload);
+  },
+  async icici(payload) {
+    return createBankDepositOrder("icici", payload);
+  },
+  async yesbank(payload) {
+    return createBankDepositOrder("yesbank", payload);
+  },
+
   async upi({ amount, currency, receipt }) {
-    // Intent URL for any UPI app.
     const url = `upi://pay?pa=${encodeURIComponent(config.upi.vpa)}&pn=${encodeURIComponent(
       config.upi.payeeName
     )}&am=${amount}&cu=${currency}&tn=${encodeURIComponent(receipt)}`;
     return { gateway: "upi", orderId: receipt, amount, currency, intentUrl: url, vpa: config.upi.vpa, payeeName: config.upi.payeeName };
   },
+
+  async phonepe({ amount, currency, receipt, depositId, customer }) {
+    const { createPhonePeOrder } = await import("../services/paymentWebhooks.js");
+    const txnId = `PP${(depositId || receipt || "").slice(-12)}${Date.now().toString(36)}`;
+    const origin = config.investOrigin || config.clientOrigin;
+    return createPhonePeOrder({
+      amount,
+      merchantTransactionId: txnId,
+      redirectUrl: `${origin}${origin.includes("5173") ? "/invest" : ""}/dashboard?tab=money&moneyTab=deposit&status=phonepe`,
+    });
+  },
+
+  async paypal({ amount, currency, receipt, depositId, customer }) {
+    const { createPayPalOrder } = await import("../services/paymentWebhooks.js");
+    return createPayPalOrder({
+      amount: Number(amount),
+      currency: "INR",
+      depositId: depositId || receipt,
+    });
+  },
 };
 
-export function listGateways() {
-  return SUPPORTED.map((name) => ({ name, configured: configured(name) }));
+export async function listGateways() {
+  const rows = await Promise.all(
+    SUPPORTED.map(async (name) => ({ name, configured: await isConfigured(name) }))
+  );
+  return rows;
 }
 
 export async function createOrder(gateway, payload) {

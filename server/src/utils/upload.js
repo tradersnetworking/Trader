@@ -16,9 +16,25 @@ const storage = multer.diskStorage({
   },
 });
 
+const KYC_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
 export const upload = multer({
   storage,
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mime = (file.mimetype || "").toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const ok =
+      KYC_MIMES.has(mime) ||
+      [".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"].includes(ext);
+    cb(ok ? null : new Error("Only images (JPG, PNG, WebP) and PDF files are allowed"), ok);
+  },
 });
 
 export const fileUrl = (filename) => (filename ? `/uploads/${filename}` : null);

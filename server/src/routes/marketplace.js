@@ -4,6 +4,7 @@ import { mainDb } from "../db.js";
 import { asyncH, authRequired, requireRole, optionalAuth } from "../middleware.js";
 import { config } from "../config.js";
 import { listGateways, createOrder } from "../payments/gateways.js";
+import { payoutGatewayStatus } from "../payments/payouts.js";
 import { upload, fileUrl } from "../utils/upload.js";
 
 const router = Router();
@@ -68,7 +69,7 @@ router.get(
     if (q) where.name = { contains: String(q) };
     const products = await mainDb.product.findMany({
       where,
-      include: { category: true },
+      include: { category: { include: { parent: true } } },
       orderBy: { createdAt: "desc" },
       take: Number(take),
       skip: Number(skip),
@@ -220,7 +221,7 @@ router.put(
 );
 
 /* ---------------- Orders + payments ---------------- */
-router.get("/payments/gateways", (_req, res) => res.json({ gateways: listGateways() }));
+router.get("/payments/gateways", asyncH(async (_req, res) => res.json({ gateways: await listGateways() })));
 
 router.post(
   "/orders",
@@ -267,6 +268,35 @@ router.get(
   })
 );
 
+// Admin can create marketplace user accounts only (not STAFF / ADMIN / SUPERADMIN)
+router.post(
+  "/admin/users",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const { email, name, password, accountType, companyName, phone } = req.body;
+    if (!email || !name || !password) return res.status(400).json({ error: "Email, name and password are required" });
+    const normalized = email.toLowerCase();
+    if (await mainDb.user.findUnique({ where: { email: normalized } })) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+    const { hashPassword } = await import("../utils/auth.js");
+    const user = await mainDb.user.create({
+      data: {
+        email: normalized,
+        name,
+        passwordHash: hashPassword(password),
+        role: "USER",
+        accountType: accountType || "B2B",
+        companyName: companyName || null,
+        phone: phone || null,
+      },
+    });
+    const { passwordHash, ...u } = user;
+    res.json({ user: u });
+  })
+);
+
 // Only super admin can create staff/admin accounts
 router.post(
   "/admin/staff",
@@ -280,7 +310,7 @@ router.post(
         email: email.toLowerCase(),
         name,
         passwordHash: hashPassword(password),
-        role: ["STAFF", "ADMIN", "SUPERADMIN"].includes(role) ? role : "STAFF",
+        role: ["STAFF", "ADMIN"].includes(role) ? role : "STAFF",
       },
     });
     const { passwordHash, ...u } = user;
@@ -317,5 +347,14 @@ router.get(
 );
 
 router.get("/bank-details", (_req, res) => res.json({ bank: config.bank, upi: config.upi }));
+
+router.get(
+  "/admin/gateways",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (_req, res) => {
+    res.json({ collection: await listGateways(), payouts: await payoutGatewayStatus() });
+  })
+);
 
 export default router;

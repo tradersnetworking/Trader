@@ -1,0 +1,45 @@
+import { runMaturityNotificationJob } from "./maturityNotifications.js";
+import { runRoiEngineCycle } from "../services/roiEngine.js";
+import { runReconciliation } from "../services/treasury.js";
+import { syncSupportInbox } from "../services/supportMail.js";
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+let roiRunning = false;
+let treasuryRunning = false;
+let mailRunning = false;
+
+async function safeRun(name, fn) {
+  try {
+    const result = await fn();
+    console.log(`[job:${name}]`, result);
+  } catch (e) {
+    console.error(`[job:${name}]`, e.message);
+  }
+}
+
+export function startBackgroundJobs() {
+  const maturityInterval = Number(process.env.MATURITY_JOB_INTERVAL_MS || 6 * HOUR);
+  setInterval(() => safeRun("maturity", runMaturityNotificationJob), maturityInterval);
+  safeRun("maturity", runMaturityNotificationJob);
+
+  setInterval(async () => {
+    if (roiRunning) return;
+    roiRunning = true;
+    try { await safeRun("roi-engine", runRoiEngineCycle); } finally { roiRunning = false; }
+  }, HOUR);
+  safeRun("roi-engine", runRoiEngineCycle);
+
+  setInterval(async () => {
+    if (treasuryRunning) return;
+    treasuryRunning = true;
+    try { await safeRun("treasury", runReconciliation); } finally { treasuryRunning = false; }
+  }, DAY);
+
+  setInterval(async () => {
+    if (mailRunning) return;
+    mailRunning = true;
+    try { await safeRun("support-mail", syncSupportInbox); } finally { mailRunning = false; }
+  }, 5 * 60 * 1000);
+}

@@ -1,0 +1,120 @@
+name: Invest CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup database
+        run: npm run setup
+        working-directory: .
+
+      - name: Seed invest data
+        run: npm run seed
+
+      - name: Build web
+        run: npm run build
+
+      - name: Start API server
+        run: |
+          node server/src/index.js &
+          echo $! > server.pid
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4000/api/health && exit 0
+            sleep 2
+          done
+          echo "API failed to start"
+          exit 1
+        env:
+          JWT_SECRET: ci-test-secret
+          NODE_ENV: test
+
+      - name: Smoke test invest API
+        run: npm run smoke:invest
+        env:
+          API_BASE: http://localhost:4000
+
+      - name: Stop API server
+        if: always()
+        run: kill $(cat server.pid) 2>/dev/null || true
+
+  playwright:
+    runs-on: ubuntu-latest
+    needs: build-and-smoke
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Setup & seed
+        run: npm run setup && npm run seed
+
+      - name: Build web
+        run: npm run build
+
+      - name: Start API
+        run: |
+          node server/src/index.js &
+          echo $! > server.pid
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4000/api/health && exit 0
+            sleep 2
+          done
+          exit 1
+        env:
+          JWT_SECRET: ci-test-secret
+
+      - name: Start web dev server
+        run: |
+          npm run dev:web &
+          echo $! > web.pid
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:5173/invest/ && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Run Playwright (API + UI)
+        run: npx playwright test e2e/invest.spec.js
+        env:
+          PLAYWRIGHT_SKIP_WEBSERVER: "1"
+          PLAYWRIGHT_BASE_URL: http://localhost:5173/invest/
+          API_BASE: http://localhost:4000
+          E2E_INVESTOR_EMAIL: investor@akshayaexim.com
+          E2E_INVESTOR_PASSWORD: Investor@123
+
+      - name: Stop web server
+        if: always()
+        run: kill $(cat web.pid) 2>/dev/null || true
+
+      - name: Stop API
+        if: always()
+        run: kill $(cat server.pid) 2>/dev/null || true

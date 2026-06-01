@@ -6,3 +6,8 @@ dist/
 server/uploads/*
 !server/uploads/.gitkeep
 .DS_Store
+test-results/
+playwright-report/
+*.log
+web/public/assets/logo-tmp.png
+web/public/assets/logo-resized.png

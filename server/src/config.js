@@ -5,6 +5,9 @@ export const config = {
   port: Number(process.env.PORT || 4000),
   env: process.env.NODE_ENV || "development",
   clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  investPortalUrl: process.env.INVEST_PORTAL_URL || `${process.env.CLIENT_ORIGIN || "http://localhost:5173"}/invest`,
+  investOrigin: process.env.INVEST_ORIGIN || process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  maturityReminderDays: Number(process.env.MATURITY_REMINDER_DAYS || 7),
   jwtSecret: process.env.JWT_SECRET || "dev-secret",
   jwtExpires: process.env.JWT_EXPIRES || "7d",
   smtp: {
@@ -33,6 +36,7 @@ export const config = {
     razorpay: { keyId: process.env.RAZORPAY_KEY_ID || "", keySecret: process.env.RAZORPAY_KEY_SECRET || "" },
     cashfree: { appId: process.env.CASHFREE_APP_ID || "", secret: process.env.CASHFREE_SECRET || "" },
     payu: { key: process.env.PAYU_KEY || "", salt: process.env.PAYU_SALT || "" },
+    easebuzz: { key: process.env.EASEBUZZ_KEY || "", salt: process.env.EASEBUZZ_SALT || "" },
     juspay: { apiKey: process.env.JUSPAY_API_KEY || "", merchantId: process.env.JUSPAY_MERCHANT_ID || "" },
     eximpe: { apiKey: process.env.EXIMPE_API_KEY || "" },
   },
@@ -45,6 +49,28 @@ export const config = {
     cashfree: {
       clientId: process.env.CASHFREE_PAYOUT_CLIENT_ID || "",
       clientSecret: process.env.CASHFREE_PAYOUT_CLIENT_SECRET || "",
+    },
+  },
+  bankApis: {
+    hdfc: {
+      clientId: process.env.HDFC_CLIENT_ID || "",
+      clientSecret: process.env.HDFC_CLIENT_SECRET || "",
+      corporateId: process.env.HDFC_CORPORATE_ID || "",
+    },
+    axis: {
+      clientId: process.env.AXIS_CLIENT_ID || "",
+      clientSecret: process.env.AXIS_CLIENT_SECRET || "",
+      channelId: process.env.AXIS_CHANNEL_ID || "",
+    },
+    icici: {
+      apiKey: process.env.ICICI_API_KEY || "",
+      apiSecret: process.env.ICICI_API_SECRET || "",
+      corporateId: process.env.ICICI_CORPORATE_ID || "",
+    },
+    yesbank: {
+      clientId: process.env.YESBANK_CLIENT_ID || "",
+      clientSecret: process.env.YESBANK_CLIENT_SECRET || "",
+      merchantKey: process.env.YESBANK_MERCHANT_KEY || "",
     },
   },
   seed: {

@@ -1,0 +1,488 @@
+// INVEST SUBDOMAIN DATABASE (invest.akshayaexim.com / .in)
+// Investors, investment plans, subscriptions, wallet/ledger, KYC, deposits, payouts
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/invest-pg"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("INVEST_DATABASE_URL")
+}
+
+model Investor {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  phone         String?
+  passwordHash  String?
+  name          String
+  // role: SUPERADMIN, ADMIN, INVESTOR
+  role          String   @default("INVESTOR")
+  googleId      String?
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  resetToken    String?
+  resetExpires  DateTime?
+  // payout details
+  upiId         String?
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  referralCode  String?  @unique
+  referredById  String?
+  referredBy    Investor?  @relation("InvestorReferrals", fields: [referredById], references: [id])
+  referrals     Investor[] @relation("InvestorReferrals")
+  profilePicture String?
+  locale        String   @default("en")
+  totpSecret    String?
+  totpEnabled   Boolean  @default(false)
+  backupCodes   String?  // JSON array of hashed codes
+  onboardingStep Int     @default(0)
+  onboardingComplete Boolean @default(false)
+  customPermissions String? // JSON override for admin permissions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  kyc           Kyc?
+  webauthnCredentials WebAuthnCredential[]
+  otpTokens     OtpToken[]
+  pushSubscriptions PushSubscription[]
+  onboardingDraft OnboardingDraft?
+  roiPayouts    RoiPayout[]
+  wallet        Wallet?
+  subscriptions Subscription[]
+  ledger        LedgerEntry[]
+  deposits      Deposit[]
+  payouts       Payout[]
+  maturityPayouts MaturityPayout[]
+  agreements    Agreement[]
+  referralEarnings ReferralEarning[]
+  tickets          SupportTicket[]
+  notifications    Notification[]
+  promoUsages      PromoUsage[]
+}
+
+model ReferralEarning {
+  id          String   @id @default(cuid())
+  referrerId  String
+  referrer    Investor @relation(fields: [referrerId], references: [id])
+  referredId  String?
+  amount      Float    @default(0)
+  status      String   @default("PENDING")
+  note        String?
+  createdAt   DateTime @default(now())
+}
+
+model Plan {
+  id            String  @id @default(cuid())
+  // planType: STARTER, BRONZE, SILVER, GOLD, PLATINUM, DIAMOND
+  planType      String
+  name          String
+  // lockInDays must be a multiple of 30
+  lockInDays    Int     @default(30)
+  minInvestment Float   @default(10000)
+  maxInvestment Float   @default(10000000)
+  // profit share percentage per month (== monthly ROI %)
+  profitSharePct Float  @default(10)
+  monthlyRoiPct Float   @default(10)
+  annualRoiPct  Float   @default(120)
+  // settlementCycles allowed: comma list e.g. "WEEKLY,MONTHLY"
+  settlementCycles String @default("MONTHLY")
+  color         String   @default("#0a3d91")
+  description   String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id              String   @id @default(cuid())
+  investorId      String
+  investor        Investor @relation(fields: [investorId], references: [id])
+  planId          String
+  plan            Plan     @relation(fields: [planId], references: [id])
+  amount          Float
+  settlementCycle String   @default("MONTHLY")
+  monthlyRoiPct   Float
+  lockInDays      Int
+  compounding     Boolean  @default(false)
+  startDate       DateTime @default(now())
+  maturityDate    DateTime
+  // status: PENDING (awaiting payment/approval), ACTIVE, MATURED, CANCELLED
+  status          String   @default("PENDING")
+  totalPaidOut    Float    @default(0)
+  lastRoiPaidAt   DateTime?
+  maturityReminderSent Boolean @default(false)
+  maturedNotifiedAt    DateTime?
+  maturityChoicePromptSent Boolean @default(false)
+  maturityAction    String?  // WALLET, WITHDRAW, REINVEST
+  maturityActionAt  DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  maturityPayouts MaturityPayout[]
+  agreements      Agreement[]
+  roiPayouts      RoiPayout[]
+}
+
+model Wallet {
+  id         String   @id @default(cuid())
+  investorId String   @unique
+  investor   Investor @relation(fields: [investorId], references: [id])
+  // balances
+  available  Float    @default(0)
+  invested   Float    @default(0)
+  earnings   Float    @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+model LedgerEntry {
+  id         String   @id @default(cuid())
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id])
+  // type: DEPOSIT, INVESTMENT, RETURN, PAYOUT, ADJUSTMENT, REFUND
+  type       String
+  // direction: CREDIT or DEBIT (relative to investor wallet)
+  direction  String
+  amount     Float
+  balanceAfter Float
+  reference  String?
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model Kyc {
+  id            String   @id @default(cuid())
+  investorId    String   @unique
+  investor      Investor @relation(fields: [investorId], references: [id])
+  fullName      String?
+  dob           String?
+  phone         String?
+  country       String?  @default("India")
+  city          String?
+  state         String?
+  address       String?
+  idType        String?  // PAN, AADHAAR, PASSPORT, DRIVERS_LICENSE
+  idNumber      String?
+  panNumber     String?
+  aadhaarNumber String?
+  bankName      String?
+  bankAccount   String?
+  ifscCode      String?
+  branchName    String?
+  upiId         String?
+  taxId         String?
+  panDocument   String?
+  aadhaarDocument String?
+  aadhaarFront  String?
+  aadhaarBack   String?
+  passportDocument String?
+  addressProof  String?
+  photo         String?
+  selfie        String?
+  signature     String?
+  cancelledCheque String?
+  // status: NOT_SUBMITTED, PENDING, APPROVED, REJECTED
+  status        String   @default("PENDING")
+  remarks       String?
+  verifiedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Deposit {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id])
+  amount      Float
+  // method: UPI, IMPS, NEFT, RTGS, RAZORPAY, CASHFREE, PAYU, JUSPAY, EXIMPE
+  method      String
+  reference   String?
+  proofImage  String?
+  // status: PENDING, APPROVED, REJECTED
+  status      String   @default("PENDING")
+  remarks     String?
+  // optional link to a plan to subscribe upon approval
+  planId      String?
+  gatewayRef  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payout {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id])
+  amount      Float
+  // mode: UPI or BANK
+  mode        String
+  destination String   // upi id or masked account
+  gateway     String   @default("RAZORPAYX") // RAZORPAYX, CASHFREE, JUSPAY
+  gatewayRef  String?
+  status      String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  remarks     String?
+  reference   String?  // e.g. MATURITY:subscriptionId:maturityPayoutId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PaymentGateway {
+  id            String   @id @default(cuid())
+  name          String
+  // type: upi, bank, online
+  type          String
+  upiId         String?
+  accountHolder String?
+  bankName      String?
+  accountNumber String?
+  ifsc          String?
+  branchName    String?
+  qrCodeUrl     String?
+  provider      String?  // razorpay, cashfree, payu, juspay, eximpe for online
+  minAmount     Float    @default(100)
+  maxAmount     Float?
+  isEnabled     Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  extraConfig   String?  // JSON
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model InvestSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+}
+
+model MaturityPayout {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  investorId     String
+  profitAmount   Float
+  principal      Float    @default(0)
+  investorChoice String   @default("WALLET") // WALLET, WITHDRAW, REINVEST
+  status         String   @default("PENDING") // PENDING, APPROVED, COMPLETED, REJECTED
+  dueDate        DateTime
+  remarks        String?
+  processedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  investor       Investor     @relation(fields: [investorId], references: [id])
+}
+
+model AgreementTemplate {
+  id        String   @id @default(cuid())
+  type      String   @unique // investment, profit_sharing, risk_disclosure, aml_kyc, terms_conditions, withdrawal_policy
+  title     String
+  version   String   @default("1.0")
+  content   String   // markdown with {{PLACEHOLDERS}}
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agreements Agreement[]
+}
+
+model Agreement {
+  id              String   @id @default(cuid())
+  investorId      String
+  investor        Investor @relation(fields: [investorId], references: [id])
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  templateId      String?
+  template        AgreementTemplate? @relation(fields: [templateId], references: [id])
+  agreementUid    String?  @unique
+  type            String
+  title           String
+  content         String
+  filledData      String?  // JSON snapshot of placeholder values
+  triggerEvent    String?  // subscription_created, maturity_settled
+  status          String   @default("PENDING_SIGNATURE") // PENDING_SIGNATURE, SIGNED, REVOKED, PURGED
+  signatureData   String?
+  signedAt        DateTime?
+  purgedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SupportTicket {
+  id         String   @id @default(cuid())
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id])
+  subject    String
+  message    String
+  category   String   @default("GENERAL")
+  status     String   @default("OPEN")
+  priority   String   @default("NORMAL")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  replies    TicketReply[]
+}
+
+model TicketReply {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String?
+  authorName String?
+  authorRole String        @default("INVESTOR")
+  message    String
+  createdAt  DateTime      @default(now())
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  investorId String
+  investor   Investor  @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  type       String    @default("INFO")
+  link       String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model PromoCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  bonusPct    Float    @default(0)
+  bonusFlat   Float    @default(0)
+  maxUses     Int?
+  usedCount   Int      @default(0)
+  minAmount   Float    @default(0)
+  appliesTo   String   @default("DEPOSIT")
+  isActive    Boolean  @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  usages      PromoUsage[]
+}
+
+model PromoUsage {
+  id         String    @id @default(cuid())
+  promoId    String
+  promo      PromoCode @relation(fields: [promoId], references: [id])
+  investorId String
+  investor   Investor  @relation(fields: [investorId], references: [id])
+  amount     Float
+  bonus      Float     @default(0)
+  createdAt  DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorRole String?
+  actorName String?
+  action    String
+  entity    String?
+  entityId  String?
+  meta      String?
+  createdAt DateTime @default(now())
+}
+
+model SitePartner {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  website   String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  investorId   String
+  investor     Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String
+  counter      Int      @default(0)
+  deviceName   String?
+  createdAt    DateTime @default(now())
+}
+
+model OtpToken {
+  id         String    @id @default(cuid())
+  investorId String
+  investor   Investor  @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  purpose    String    // withdrawal_confirm, login, email_verify
+  codeHash   String
+  token      String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model RoiPayout {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  investorId     String
+  investor       Investor     @relation(fields: [investorId], references: [id])
+  amount         Float
+  cycle          String       // WEEKLY, MONTHLY
+  periodStart    DateTime
+  periodEnd      DateTime
+  status         String       @default("CREDITED")
+  createdAt      DateTime     @default(now())
+}
+
+model RolePermission {
+  id         String  @id @default(cuid())
+  role       String
+  permission String
+  granted    Boolean @default(true)
+
+  @@unique([role, permission])
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  investorId String
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  endpoint   String
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now())
+
+  @@unique([investorId, endpoint])
+}
+
+model TreasurySnapshot {
+  id                  String   @id @default(cuid())
+  totalLiabilities    Float    @default(0)
+  totalAvailable      Float    @default(0)
+  totalInvested       Float    @default(0)
+  totalEarnings       Float    @default(0)
+  pendingDeposits     Float    @default(0)
+  pendingWithdrawals  Float    @default(0)
+  driftAmount         Float    @default(0)
+  meta                String?
+  createdAt           DateTime @default(now())
+}
+
+model SupportMailMessage {
+  id         String   @id @default(cuid())
+  messageId  String?  @unique
+  fromEmail  String
+  subject    String
+  body       String
+  category   String?
+  ticketId   String?
+  status     String   @default("OPEN")
+  receivedAt DateTime
+  syncedAt   DateTime @default(now())
+}
+
+model OnboardingDraft {
+  investorId String   @id
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  step       Int      @default(1)
+  data       String   // JSON
+  updatedAt  DateTime @updatedAt
+}

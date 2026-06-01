@@ -13,9 +13,13 @@
     "dev:web": "npm --workspace web run dev",
     "setup": "npm --workspace server run db:setup",
     "seed": "npm --workspace server run seed",
-    "build": "npm --workspace web run build"
+    "build": "npm --workspace web run build",
+    "smoke:invest": "node scripts/smoke-invest.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "concurrently": "^9.1.0"
   }
 }

@@ -80,10 +80,10 @@ export default function UserDashboard() {
       )}
 
       {tab === "payment" && bank && (
-        <div className="mt-4 grid gap-6 md:grid-cols-2">
-          <div className="card p-5">
+        <div className="mt-4 grid min-w-0 gap-6 md:grid-cols-2">
+          <div className="card min-w-0 overflow-hidden p-5">
             <h3 className="mb-3 font-bold text-navy">Bank Transfer (IMPS / NEFT / RTGS)</h3>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Copyable label="Bank Name" value={bank.bank.name} />
               <Copyable label="Account Name" value={bank.bank.accountName} />
               <Copyable label="Account Number" value={bank.bank.accountNumber} />
@@ -93,7 +93,7 @@ export default function UserDashboard() {
               <Copyable label="Branch" value={bank.bank.branch} />
             </div>
           </div>
-          <div className="card p-5">
+          <div className="card min-w-0 overflow-hidden p-5">
             <h3 className="mb-3 font-bold text-navy">UPI</h3>
             <Copyable label="UPI ID" value={bank.upi.vpa} />
             <p className="mt-3 text-sm text-slate-500">Supported gateways: Razorpay, EximPe, Juspay, Cashfree, PayU, UPI. Cards: Visa, Mastercard, RuPay. E-wallets: Paytm, PhonePe, GPay, Amazon Pay.</p>

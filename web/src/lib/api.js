@@ -30,3 +30,4 @@ export async function api(scope, path, { method = "GET", body, isForm } = {}) {
 
 export const mainApi = (path, opts) => api("main", path, opts);
 export const investApi = (path, opts) => api("invest", path, opts);
+export const investSecurityApi = (path, opts) => api("invest", `/security${path}`, opts);

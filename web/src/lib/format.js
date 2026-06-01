@@ -3,6 +3,10 @@ export function inr(n) {
   return "₹" + v.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 
+/** Alias — all platform amounts display in INR only */
+export const money = inr;
+export const formatInr = inr;
+
 export function compact(n) {
   const v = Number(n || 0);
   if (v >= 10000000) return "₹" + (v / 10000000).toFixed(2) + " Cr";
@@ -10,9 +14,12 @@ export function compact(n) {
   return inr(v);
 }
 
-export function dateStr(d) {
+export function dateStr(d, withTime = false) {
   if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const opts = withTime
+    ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
+    : { day: "2-digit", month: "short", year: "numeric" };
+  return new Date(d).toLocaleDateString("en-IN", opts);
 }
 
 export function daysLeft(d) {

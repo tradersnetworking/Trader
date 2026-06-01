@@ -1,0 +1,78 @@
+import { useState } from "react";
+import { getToken, investApi } from "../../lib/api.js";
+import { inr } from "../../lib/format.js";
+import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
+import KpiStatCard from "./InvestDashboardWidgets.jsx";
+import WalletQuickActions from "./WalletQuickActions.jsx";
+import { DepositPanel, WithdrawPanel } from "./WalletFinancePanels.jsx";
+import TransactionsPanel from "./TransactionsPanel.jsx";
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "deposit", label: "Deposit" },
+  { id: "withdraw", label: "Withdraw" },
+  { id: "history", label: "History" },
+];
+
+export default function MoneyHubPanel({ wallet, onRefresh, initialSubTab = "overview" }) {
+  const [sub, setSub] = useState(initialSubTab);
+
+  const downloadStatement = async () => {
+    const res = await fetch("/api/invest/wallet/statement.csv", {
+      headers: { Authorization: `Bearer ${getToken("invest")}` },
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wallet-statement.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="page-stack">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Money Hub</h2>
+          <p className="text-sm text-muted-foreground">Deposit, withdraw, and track your wallet in one place.</p>
+        </div>
+        <WalletQuickActions compact layout="inline" onDeposit={() => setSub("deposit")} onWithdraw={() => setSub("withdraw")} />
+      </div>
+
+      <div className="flex flex-wrap gap-2 border-b border-border pb-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setSub(t.id)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${sub === t.id ? "bg-primary/15 text-accent-tone" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {sub === "overview" && (
+        <>
+          <div className={INVEST_STAT_GRID}>
+            <KpiStatCard tone="emerald" icon="👛" label="Available" value={inr(wallet?.available || 0)} />
+            <KpiStatCard tone="blue" icon="💎" label="Invested" value={inr(wallet?.invested || 0)} />
+            <KpiStatCard tone="violet" icon="✨" label="Earnings" value={inr(wallet?.earnings || 0)} />
+            <KpiStatCard tone="amber" icon="💼" label="Total Balance" value={inr((wallet?.available || 0) + (wallet?.invested || 0) + (wallet?.earnings || 0))} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-gold text-sm" onClick={() => setSub("deposit")}>Add Funds</button>
+            <button type="button" className="btn-outline text-sm" onClick={() => setSub("withdraw")}>Withdraw</button>
+            <button type="button" className="btn-outline text-sm" onClick={downloadStatement}>Download Statement (CSV)</button>
+          </div>
+        </>
+      )}
+
+      {sub === "deposit" && <DepositPanel onRefresh={onRefresh} />}
+      {sub === "withdraw" && <WithdrawPanel wallet={wallet} onRefresh={onRefresh} />}
+      {sub === "history" && <TransactionsPanel />}
+    </div>
+  );
+}

@@ -21,7 +21,7 @@ export default function ProductDetail() {
       <Link to="/products" className="text-sm text-slate-500 hover:underline">← Back to products</Link>
       <div className="mt-4 grid gap-8 md:grid-cols-2">
         <div className="card aspect-square overflow-hidden">
-          <ProductImage product={p} className="h-full w-full" size={800} />
+          <ProductImage product={p} className="h-full w-full" aspect={false} />
         </div>
         <div>
           <span className={`badge ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType === "EXPORT" ? "Available to Export" : "Import Requirement"}</span>

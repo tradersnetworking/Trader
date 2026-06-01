@@ -1,11 +1,20 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { api, getToken, setToken } from "./api.js";
+import { getHostKind, useSiteMode } from "./site.js";
 
 const AuthContext = createContext(null);
+
+function shouldLoadScope(scope, mode, kind) {
+  if (kind === "local") return true;
+  if (scope === "main") return mode === "main";
+  return mode === "invest";
+}
 
 export function AuthProvider({ children }) {
   const [main, setMain] = useState({ user: null, loading: true });
   const [invest, setInvest] = useState({ user: null, loading: true });
+  const mode = useSiteMode();
+  const kind = getHostKind();
 
   const loadMe = useCallback(async (scope, setter) => {
     if (!getToken(scope)) return setter({ user: null, loading: false });
@@ -19,9 +28,17 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    loadMe("main", setMain);
-    loadMe("invest", setInvest);
-  }, [loadMe]);
+    if (shouldLoadScope("main", mode, kind)) {
+      loadMe("main", setMain);
+    } else {
+      setMain({ user: null, loading: false });
+    }
+    if (shouldLoadScope("invest", mode, kind)) {
+      loadMe("invest", setInvest);
+    } else {
+      setInvest({ user: null, loading: false });
+    }
+  }, [loadMe, mode, kind]);
 
   const value = {
     main: main.user,
@@ -39,4 +56,16 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () =>
+  useContext(AuthContext) || {
+    main: null,
+    invest: null,
+    mainLoading: false,
+    investLoading: false,
+    loginMain: () => {},
+    loginInvest: () => {},
+    logoutMain: () => {},
+    logoutInvest: () => {},
+    refreshMain: () => {},
+    refreshInvest: () => {},
+  };

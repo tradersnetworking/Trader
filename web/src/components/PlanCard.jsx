@@ -1,39 +1,76 @@
-import { inr } from "../lib/format.js";
+import { useMemo } from "react";
+import { inr, dateStr } from "../lib/format.js";
+import { lockInCategoryLabel, DEFAULT_LOCK_IN_MONTHS } from "../lib/plan-types.js";
+import { planCalcPreview } from "../lib/plan-calc.js";
+import ShareProfitButton from "./invest/ShareProfitButton.jsx";
 
-const ICONS = {
-  STARTER: "🌱", BRONZE: "🥉", SILVER: "🥈", GOLD: "👑", PLATINUM: "💎", DIAMOND: "💠",
+const ICONS = { STARTER: "🌱", BRONZE: "🥉", SILVER: "🥈", GOLD: "👑", PLATINUM: "💎", DIAMOND: "💠" };
+const TIER_GRADIENT = {
+  STARTER: "from-emerald-600 to-emerald-800",
+  BRONZE: "from-amber-700 to-amber-900",
+  SILVER: "from-slate-500 to-slate-700",
+  GOLD: "from-yellow-500 to-amber-700",
+  PLATINUM: "from-blue-600 to-indigo-800",
+  DIAMOND: "from-violet-600 to-purple-900",
 };
 
-export default function PlanCard({ plan, onSubscribe }) {
+export default function PlanCard({ plan, onSubscribe, featured, previewAmount }) {
+  const isFeatured = featured ?? DEFAULT_LOCK_IN_MONTHS[plan.planType] === Math.round(plan.lockInDays / 30);
+  const grad = TIER_GRADIENT[plan.planType] || "from-primary to-brand-blue";
+  const amount = previewAmount ?? plan.minInvestment;
+  const calc = useMemo(() => planCalcPreview(amount, plan, "MONTHLY"), [amount, plan]);
+  const annualPct = plan.annualRoiPct ?? plan.monthlyRoiPct * 12;
+
   return (
-    <div className="card overflow-hidden">
-      <div className="px-5 py-4 text-white" style={{ background: `linear-gradient(135deg, ${plan.color}, ${plan.color}dd)` }}>
-        <div className="flex items-center justify-between">
-          <span className="text-2xl">{ICONS[plan.planType] || "⭐"}</span>
-          <span className="badge bg-white/20 text-white">{plan.planType}</span>
+    <article className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${isFeatured ? "ring-2 ring-gold/60" : ""}`}>
+      {isFeatured && (
+        <div className="absolute right-3 top-3 z-10 rounded-full bg-gold px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow">Popular</div>
+      )}
+      <div className={`bg-gradient-to-br ${grad} px-5 py-5 text-white`}>
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-3xl drop-shadow">{ICONS[plan.planType] || "⭐"}</span>
+          <span className="rounded-lg bg-white/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider">{plan.planType}</span>
         </div>
-        <h3 className="mt-2 text-xl font-extrabold">{plan.name}</h3>
-        <p className="text-xs text-white/80">Lock-in {plan.lockInDays} days ({Math.round(plan.lockInDays / 30)} months)</p>
+        <h3 className="mt-3 text-xl font-extrabold leading-tight">{plan.name}</h3>
+        <p className="mt-1 text-xs text-white/80">{lockInCategoryLabel(plan.lockInDays)} lock-in</p>
       </div>
-      <div className="space-y-3 p-5">
-        <div className="grid grid-cols-2 gap-3 text-center">
-          <div className="rounded-lg bg-slate-50 p-3">
-            <div className="text-2xl font-extrabold text-navy">{plan.monthlyRoiPct}%</div>
-            <div className="text-[11px] uppercase text-slate-400">Monthly ROI</div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-xl bg-muted/50 p-3 dark:bg-white/5">
+            <div className="text-2xl font-extrabold text-foreground">{plan.monthlyRoiPct}%</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Monthly ROI</div>
           </div>
-          <div className="rounded-lg bg-slate-50 p-3">
-            <div className="text-2xl font-extrabold text-gold-600">{plan.annualRoiPct}%</div>
-            <div className="text-[11px] uppercase text-slate-400">Annual ROI</div>
+          <div className="rounded-xl bg-gold/10 p-3">
+            <div className="text-2xl font-extrabold text-gold-600">{annualPct}%</div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Annual ROI</div>
           </div>
         </div>
-        <ul className="space-y-1.5 text-sm text-slate-600">
-          <li className="flex justify-between"><span>Min Investment</span><b className="text-navy">{inr(plan.minInvestment)}</b></li>
-          <li className="flex justify-between"><span>Max Investment</span><b className="text-navy">{inr(plan.maxInvestment)}</b></li>
-          <li className="flex justify-between"><span>Profit Share / month</span><b className="text-navy">{plan.profitSharePct}%</b></li>
-          <li className="flex justify-between"><span>Settlement</span><b className="text-navy">{plan.settlementCycles.replace(",", " / ")}</b></li>
+
+        <ul className="mt-4 flex-1 space-y-1.5 text-xs sm:text-sm">
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Min investment</span><b>{inr(plan.minInvestment)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Max investment</span><b>{inr(plan.maxInvestment)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Monthly return @ min</span><b className="text-emerald-600">{inr(calc.monthlyReturn)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Annual return @ min</span><b>{inr(calc.monthlyReturn * 12)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Expected @ lock-in</span><b className="text-emerald-600">{inr(calc.totalSimpleProfit)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Capital return date</span><b>{dateStr(calc.maturityDate)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Settlement</span><b className="text-right">{plan.settlementCycles.replace(/,/g, " · ")}</b></li>
+          <li className="flex justify-between gap-2"><span className="text-muted-foreground">Compounding</span><b className="text-right text-[11px]">At maturity only</b></li>
         </ul>
-        <button onClick={() => onSubscribe(plan)} className="btn-gold w-full">Subscribe</button>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <button type="button" onClick={() => onSubscribe(plan)} className="btn-gold flex-1 py-2.5 text-sm font-bold">Invest Now</button>
+          <ShareProfitButton
+            type="investment"
+            amount={inr(amount)}
+            planName={plan.name}
+            monthlyRoiPct={plan.monthlyRoiPct}
+            lockInDays={plan.lockInDays}
+            label="Share"
+            className="flex-1 justify-center sm:flex-none"
+          />
+        </div>
       </div>
-    </div>
+    </article>
   );
 }

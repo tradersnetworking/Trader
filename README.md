@@ -37,10 +37,17 @@ npm run dev
 
 Then open **http://localhost:5173**
 
-- Marketplace: `/`
-- Investor portal: `/invest`
+- **Marketplace (main):** `/` — products, login, dashboard
+- **Invest portal (local only):** `/invest` — plans, investor login, dashboard
 
-> In production, point `akshayaexim.com` at the SPA root and `invest.akshayaexim.com` at `/invest`. The frontend also detects host names.
+In **production**, each domain is separate:
+
+| Domain | Routes |
+| --- | --- |
+| `akshayaexim.com` / `.in` | `/`, `/products`, `/login`, `/dashboard`, … |
+| `invest.akshayaexim.com` / `.in` | `/`, `/login`, `/dashboard`, `/admin`, … (no `/invest` prefix) |
+
+Visiting `/invest` on the main domain redirects to the invest subdomain. The app detects the hostname and loads only the matching portal (separate routes, auth, and theme).
 
 ---
 

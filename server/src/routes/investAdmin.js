@@ -1,17 +1,70 @@
 import { Router } from "express";
 import { investDb } from "../db.js";
-import { asyncH, authRequired, requireRole } from "../middleware.js";
+import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
 import { hashPassword } from "../utils/auth.js";
-import { annualRoiPct } from "../utils/invest.js";
+import { annualRoiPct, PLAN_TYPES, PLAN_CAPITAL, lockInDaysFromMonths, normalizePlanRoi } from "../utils/invest.js";
 import { disburse, payoutGatewayStatus } from "../payments/payouts.js";
+import { listGateways } from "../payments/gateways.js";
+import {
+  listPaymentGateways,
+  createPaymentGateway,
+  updatePaymentGateway,
+  deletePaymentGateway,
+} from "../services/paymentGateways.js";
+import { logAudit, listAuditLogs } from "../services/auditLog.js";
+import { broadcastNotification, notifyInvestor } from "../services/notifications.js";
+import { listPromoCodes, applyPromoCode } from "../services/promoCodes.js";
+import { getAdminDashboard, getPlatformLedger } from "../services/investDashboard.js";
+import { getFinancialReports } from "../services/financialReports.js";
+import {
+  notifyDepositApproved,
+  notifyDepositRejected,
+  notifyKycDecision,
+  notifyWithdrawalReleased,
+  notifyWithdrawalRejected,
+  notifyWithdrawalRequested,
+} from "../services/investNotifications.js";
 import { addLedger } from "./investInvestor.js";
+import {
+  getTodayMaturityStats,
+  getTodayPendingPayments,
+  getUpcomingPayments,
+  approveMaturityPayout,
+  rejectMaturityPayout,
+  onMaturityPayoutReleased,
+} from "../services/maturityPayments.js";
+import { getAllSettings, setSettings } from "../services/investSettings.js";
+import {
+  getEmailCommunicationBundle,
+  saveEmailCommunicationConfig,
+  sendPurposeTestEmail,
+} from "../services/emailCommunication.js";
+import {
+  getTemplates,
+  updateTemplate,
+  listAllAgreements,
+  revokeAgreement,
+  adminGenerateForInvestor,
+  AGREEMENT_TYPES,
+} from "../services/agreements.js";
 
 const router = Router();
 const SCOPE = "invest";
 const adminOnly = requireRole("ADMIN", "SUPERADMIN");
 const superOnly = requireRole("SUPERADMIN");
 
-const PLAN_TYPES = ["STARTER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
+router.get(
+  "/permissions",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    const { getPermissionsForInvestor } = await import("../services/rbac.js");
+    res.json({ permissions: await getPermissionsForInvestor(investor), role: investor?.role });
+  })
+);
+
+const PLAN_TYPES_LIST = PLAN_TYPES;
 
 /* ---------------- Plans CRUD (super admin only) ---------------- */
 router.get(
@@ -19,34 +72,43 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    const plans = await investDb.plan.findMany({ orderBy: { minInvestment: "asc" } });
-    res.json({ plans, planTypes: PLAN_TYPES });
+    const plans = await investDb.plan.findMany({ orderBy: { lockInDays: "asc" } });
+    res.json({
+      plans: plans.map(normalizePlanRoi),
+      planTypes: PLAN_TYPES_LIST,
+      planCapital: PLAN_CAPITAL,
+      lockInMonthsOptions: Array.from({ length: 60 }, (_, i) => i + 1),
+    });
   })
 );
 
 router.post(
   "/plans",
   authRequired(SCOPE),
-  superOnly,
+  adminOnly,
+  requirePermission("manage_plans"),
   asyncH(async (req, res) => {
     const b = req.body;
-    if (!PLAN_TYPES.includes(b.planType)) return res.status(400).json({ error: "Invalid plan type" });
-    const lockInDays = Number(b.lockInDays);
-    if (lockInDays % 30 !== 0) return res.status(400).json({ error: "Lock-in period must be a multiple of 30 days" });
-    const monthlyRoiPct = Number(b.monthlyRoiPct ?? b.profitSharePct);
+    if (!PLAN_TYPES_LIST.includes(b.planType)) return res.status(400).json({ error: "Invalid plan category" });
+    const cap = PLAN_CAPITAL[b.planType];
+    const lockInMonths = Number(b.lockInMonths ?? b.lockInDays / 30 ?? 12);
+    if (lockInMonths < 1 || lockInMonths > 60) return res.status(400).json({ error: "Lock-in must be 1–60 months" });
+    const lockInDays = lockInDaysFromMonths(lockInMonths);
+    const monthlyRoiPct = Number(b.monthlyRoiPct ?? b.profitSharePct ?? cap.monthlyRoiPct);
+    const names = { STARTER: "Starter", BRONZE: "Bronze", SILVER: "Silver", GOLD: "Gold", PLATINUM: "Platinum", DIAMOND: "Diamond" };
     const plan = await investDb.plan.create({
       data: {
         planType: b.planType,
-        name: b.name || `${b.planType} Plan`,
+        name: b.name || `${names[b.planType]} • ${lockInMonths} Month${lockInMonths > 1 ? "s" : ""}`,
         lockInDays,
-        minInvestment: Number(b.minInvestment),
-        maxInvestment: Number(b.maxInvestment),
+        minInvestment: cap.min,
+        maxInvestment: cap.max,
         profitSharePct: Number(b.profitSharePct ?? monthlyRoiPct),
         monthlyRoiPct,
         annualRoiPct: Number(b.annualRoiPct ?? annualRoiPct(monthlyRoiPct)),
         settlementCycles: b.settlementCycles || "MONTHLY",
-        color: b.color || "#0a3d91",
-        description: b.description || null,
+        color: b.color || cap.color,
+        description: b.description || `${cap.label} • ${lockInMonths}-month lock-in sub-category`,
         isActive: b.isActive !== false,
       },
     });
@@ -57,23 +119,31 @@ router.post(
 router.put(
   "/plans/:id",
   authRequired(SCOPE),
-  superOnly,
+  adminOnly,
+  requirePermission("manage_plans"),
   asyncH(async (req, res) => {
     const b = req.body;
     const data = {};
-    if (b.planType && PLAN_TYPES.includes(b.planType)) data.planType = b.planType;
-    if (b.name !== undefined) data.name = b.name;
-    if (b.lockInDays !== undefined) {
-      if (Number(b.lockInDays) % 30 !== 0) return res.status(400).json({ error: "Lock-in must be multiple of 30 days" });
-      data.lockInDays = Number(b.lockInDays);
+    if (b.planType && PLAN_TYPES_LIST.includes(b.planType)) {
+      data.planType = b.planType;
+      const cap = PLAN_CAPITAL[b.planType];
+      data.minInvestment = cap.min;
+      data.maxInvestment = cap.max;
+      if (!b.color) data.color = cap.color;
     }
-    if (b.minInvestment !== undefined) data.minInvestment = Number(b.minInvestment);
-    if (b.maxInvestment !== undefined) data.maxInvestment = Number(b.maxInvestment);
+    if (b.lockInMonths !== undefined || b.lockInDays !== undefined) {
+      const m = Number(b.lockInMonths ?? b.lockInDays / 30);
+      if (m < 1 || m > 60) return res.status(400).json({ error: "Lock-in must be 1–60 months" });
+      data.lockInDays = lockInDaysFromMonths(m);
+    }
+    if (b.name !== undefined) data.name = b.name;
+    if (b.minInvestment !== undefined && b.planType) { /* capital fixed by category */ }
+    if (b.maxInvestment !== undefined && b.planType) { /* capital fixed by category */ }
     if (b.monthlyRoiPct !== undefined) {
       data.monthlyRoiPct = Number(b.monthlyRoiPct);
-      data.annualRoiPct = b.annualRoiPct !== undefined ? Number(b.annualRoiPct) : annualRoiPct(Number(b.monthlyRoiPct));
+      data.profitSharePct = Number(b.profitSharePct ?? b.monthlyRoiPct);
+      data.annualRoiPct = annualRoiPct(Number(b.monthlyRoiPct));
     }
-    if (b.profitSharePct !== undefined) data.profitSharePct = Number(b.profitSharePct);
     if (b.settlementCycles !== undefined) data.settlementCycles = b.settlementCycles;
     if (b.color !== undefined) data.color = b.color;
     if (b.description !== undefined) data.description = b.description;
@@ -86,7 +156,8 @@ router.put(
 router.delete(
   "/plans/:id",
   authRequired(SCOPE),
-  superOnly,
+  adminOnly,
+  requirePermission("manage_plans"),
   asyncH(async (req, res) => {
     await investDb.plan.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
@@ -107,7 +178,152 @@ router.get(
   })
 );
 
-// Only super admin can create admin/staff accounts on the portal
+router.get(
+  "/investors/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const inv = await investDb.investor.findUnique({
+      where: { id: req.params.id },
+      include: {
+        wallet: true,
+        kyc: true,
+        subscriptions: { include: { plan: true }, orderBy: { createdAt: "desc" }, take: 20 },
+        deposits: { orderBy: { createdAt: "desc" }, take: 10 },
+        payouts: { orderBy: { createdAt: "desc" }, take: 10 },
+        tickets: { orderBy: { updatedAt: "desc" }, take: 5 },
+        _count: { select: { referrals: true, subscriptions: true } },
+      },
+    });
+    if (!inv) return res.status(404).json({ error: "Not found" });
+    const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = inv;
+    res.json({ investor: user });
+  })
+);
+
+router.patch(
+  "/investors/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const inv = await investDb.investor.findUnique({ where: { id: req.params.id } });
+    if (!inv) return res.status(404).json({ error: "Not found" });
+    if (["SUPERADMIN"].includes(inv.role) && req.user.role !== "SUPERADMIN") {
+      return res.status(403).json({ error: "Cannot modify super admin accounts" });
+    }
+    const data = {};
+    if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
+    if (req.body.name !== undefined) data.name = String(req.body.name).trim();
+    if (req.body.phone !== undefined) data.phone = req.body.phone || null;
+    const updated = await investDb.investor.update({ where: { id: inv.id }, data });
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "INVESTOR_UPDATE", entity: "Investor", entityId: inv.id, meta: JSON.stringify(data) });
+    const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = updated;
+    res.json({ investor: user });
+  })
+);
+
+router.post(
+  "/wallet/adjust",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { investorId, amount, direction, bucket, note } = req.body;
+    const amt = Number(amount);
+    if (!investorId || !Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "Invalid adjustment" });
+    const dir = direction === "DEBIT" ? "DEBIT" : "CREDIT";
+    const target = bucket === "earnings" ? "earnings" : bucket === "invested" ? "invested" : "available";
+    const wallet = await investDb.wallet.findUnique({ where: { investorId } });
+    if (!wallet) return res.status(404).json({ error: "Wallet not found" });
+    if (dir === "DEBIT" && wallet[target] < amt) return res.status(400).json({ error: `Insufficient ${target} balance` });
+    const inc = dir === "CREDIT" ? amt : -amt;
+    await investDb.wallet.update({ where: { investorId }, data: { [target]: { increment: inc } } });
+    if (target === "available") {
+      await addLedger(investorId, { type: "ADJUSTMENT", direction: dir, amount: amt, note: note || `Admin ${dir.toLowerCase()} adjustment` });
+    }
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "WALLET_ADJUST", entity: "Wallet", entityId: investorId, meta: JSON.stringify({ amount: amt, direction: dir, bucket: target, note }) });
+    const updated = await investDb.wallet.findUnique({ where: { investorId } });
+    res.json({ wallet: updated });
+  })
+);
+
+router.get(
+  "/notifications/recent",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const notifications = await investDb.notification.findMany({
+      include: { investor: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    res.json({ notifications });
+  })
+);
+
+router.post(
+  "/notifications/send",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("broadcast_notifications"),
+  asyncH(async (req, res) => {
+    const { investorId, title, body, type, link } = req.body;
+    if (!investorId || !title) return res.status(400).json({ error: "investorId and title required" });
+    const n = await notifyInvestor(investorId, title, body || "", { type: type || "INFO", link: link || null });
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "NOTIFY_USER", entity: "Notification", entityId: n?.id, meta: JSON.stringify({ investorId, title }) });
+    res.json({ notification: n });
+  })
+);
+
+router.get(
+  "/export",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const [investors, plans, subscriptions, deposits, payouts, ledger, tickets, auditLogs] = await Promise.all([
+      investDb.investor.findMany({ select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true } }),
+      investDb.plan.findMany(),
+      investDb.subscription.findMany({ select: { id: true, investorId: true, planId: true, amount: true, status: true, startDate: true, maturityDate: true, createdAt: true } }),
+      investDb.deposit.findMany({ select: { id: true, investorId: true, amount: true, status: true, method: true, createdAt: true } }),
+      investDb.payout.findMany({ select: { id: true, investorId: true, amount: true, status: true, mode: true, createdAt: true } }),
+      investDb.ledgerEntry.findMany({ orderBy: { createdAt: "desc" }, take: 5000 }),
+      investDb.supportTicket.findMany({ select: { id: true, investorId: true, subject: true, status: true, createdAt: true } }),
+      investDb.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 1000 }),
+    ]);
+    res.json({
+      exportedAt: new Date().toISOString(),
+      counts: { investors: investors.length, plans: plans.length, subscriptions: subscriptions.length },
+      data: { investors, plans, subscriptions, deposits, payouts, ledger, tickets, auditLogs },
+    });
+  })
+);
+
+// Admin can create investor accounts only (not ADMIN / SUPERADMIN)
+router.post(
+  "/users",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const { email, name, password } = req.body;
+    if (!email || !name || !password) return res.status(400).json({ error: "Email, name and password are required" });
+    const normalized = email.toLowerCase();
+    if (await investDb.investor.findUnique({ where: { email: normalized } })) {
+      return res.status(400).json({ error: "Email already registered" });
+    }
+    const inv = await investDb.investor.create({
+      data: { email: normalized, name, passwordHash: hashPassword(password), role: "INVESTOR" },
+    });
+    await investDb.wallet.create({ data: { investorId: inv.id } });
+    const { passwordHash, ...u } = inv;
+    res.json({ user: u });
+  })
+);
+
+// Only super admin can create admin accounts on the portal
 router.post(
   "/staff",
   authRequired(SCOPE),
@@ -119,7 +335,7 @@ router.post(
         email: email.toLowerCase(),
         name,
         passwordHash: hashPassword(password),
-        role: ["ADMIN", "SUPERADMIN"].includes(role) ? role : "ADMIN",
+        role: "ADMIN",
       },
     });
     const { passwordHash, ...u } = inv;
@@ -143,13 +359,23 @@ router.post(
   "/deposits/:id/approve",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("approve_deposits"),
   asyncH(async (req, res) => {
-    const dep = await investDb.deposit.findUnique({ where: { id: req.params.id } });
+    const dep = await investDb.deposit.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!dep) return res.status(404).json({ error: "Not found" });
     if (dep.status === "APPROVED") return res.status(400).json({ error: "Already approved" });
-    await investDb.deposit.update({ where: { id: dep.id }, data: { status: "APPROVED", remarks: req.body.remarks || null } });
-    // Credit the investor wallet
+    await investDb.deposit.update({ where: { id: dep.id }, data: { status: "APPROVED", remarks: req.body.remarks || dep.remarks } });
     await addLedger(dep.investorId, { type: "DEPOSIT", direction: "CREDIT", amount: dep.amount, reference: dep.id, note: `Deposit via ${dep.method} approved` });
+    if (dep.remarks?.startsWith("__promo__:")) {
+      const [, code, bonusStr] = dep.remarks.split(":");
+      const promo = await investDb.promoCode.findUnique({ where: { code } });
+      const bonus = Number(bonusStr);
+      if (promo && bonus > 0) {
+        await applyPromoCode(promo.id, dep.investorId, dep.amount, bonus);
+        await addLedger(dep.investorId, { type: "BONUS", direction: "CREDIT", amount: bonus, reference: promo.id, note: `Promo ${code} bonus` });
+      }
+    }
+    notifyDepositApproved(dep.investor, { ...dep, status: "APPROVED" });
     res.json({ ok: true });
   })
 );
@@ -159,7 +385,11 @@ router.post(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (req, res) => {
-    await investDb.deposit.update({ where: { id: req.params.id }, data: { status: "REJECTED", remarks: req.body.remarks || "Rejected" } });
+    const dep = await investDb.deposit.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!dep) return res.status(404).json({ error: "Not found" });
+    const remarks = req.body.remarks || "Rejected";
+    await investDb.deposit.update({ where: { id: req.params.id }, data: { status: "REJECTED", remarks } });
+    if (dep.investor) notifyDepositRejected(dep.investor, { ...dep, status: "REJECTED" }, remarks);
     res.json({ ok: true });
   })
 );
@@ -180,17 +410,68 @@ router.post(
   "/kyc/:id/decision",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("review_kyc"),
   asyncH(async (req, res) => {
-    const { status, remarks } = req.body; // APPROVED | REJECTED
+    const { status, remarks } = req.body;
+    const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
     const kyc = await investDb.kyc.update({
       where: { id: req.params.id },
-      data: { status: status === "APPROVED" ? "APPROVED" : "REJECTED", remarks },
+      data: {
+        status: status === "APPROVED" ? "APPROVED" : "REJECTED",
+        remarks,
+        verifiedAt: status === "APPROVED" ? new Date() : null,
+      },
     });
+    if (existing.investor) notifyKycDecision(existing.investor, kyc);
     res.json({ kyc });
   })
 );
 
 /* ---------------- Payouts: release to UPI/bank via gateway ---------------- */
+router.post(
+  "/payouts/direct",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("approve_withdrawals"),
+  asyncH(async (req, res) => {
+    const { investorId, amount, mode, remarks } = req.body;
+    const inv = await investDb.investor.findUnique({ where: { id: investorId } });
+    if (!inv) return res.status(404).json({ error: "Investor not found" });
+    const payoutMode = (mode || "UPI").toUpperCase() === "BANK" ? "BANK" : "UPI";
+    const destination = payoutMode === "UPI" ? inv.upiId : inv.accountNumber;
+    if (!destination) {
+      return res.status(400).json({ error: `Investor has no ${payoutMode} payout details on file.` });
+    }
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return res.status(400).json({ error: "Invalid amount" });
+    const wallet = await investDb.wallet.findUnique({ where: { investorId } });
+    if (!wallet || wallet.available < amt) {
+      return res.status(400).json({ error: "Insufficient available balance" });
+    }
+    const payout = await investDb.payout.create({
+      data: {
+        investorId,
+        amount: amt,
+        mode: payoutMode,
+        destination,
+        status: "PENDING",
+        remarks: remarks || "Admin-initiated withdrawal",
+      },
+    });
+    await addLedger(investorId, {
+      type: "PAYOUT",
+      direction: "DEBIT",
+      amount: amt,
+      reference: payout.id,
+      note: "Admin-initiated withdrawal",
+    });
+    notifyWithdrawalRequested(inv, payout);
+    const full = await investDb.payout.findUnique({ where: { id: payout.id }, include: { investor: true } });
+    res.json({ payout: full });
+  })
+);
+
 router.get(
   "/payouts",
   authRequired(SCOPE),
@@ -198,7 +479,7 @@ router.get(
   asyncH(async (req, res) => {
     const where = req.query.status ? { status: String(req.query.status) } : {};
     const payouts = await investDb.payout.findMany({ where, include: { investor: true }, orderBy: { createdAt: "desc" } });
-    res.json({ payouts, gateways: payoutGatewayStatus() });
+    res.json({ payouts, gateways: await payoutGatewayStatus() });
   })
 );
 
@@ -207,16 +488,25 @@ router.post(
   "/payouts/:id/release",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("approve_withdrawals"),
   asyncH(async (req, res) => {
     const { gateway } = req.body; // RAZORPAYX | CASHFREE
     const payout = await investDb.payout.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!payout) return res.status(404).json({ error: "Not found" });
     if (payout.status === "SUCCESS") return res.status(400).json({ error: "Already paid" });
     await investDb.payout.update({ where: { id: payout.id }, data: { status: "PROCESSING", gateway: gateway || "RAZORPAYX" } });
+    const bankAccount =
+      payout.mode === "BANK" && payout.investor
+        ? {
+            name: payout.investor.name,
+            account_number: payout.investor.accountNumber || payout.destination,
+            ifsc: payout.investor.ifsc,
+          }
+        : payout.destination;
     const result = await disburse(gateway || "RAZORPAYX", {
       amount: payout.amount,
       mode: payout.mode,
-      destination: payout.destination,
+      destination: payout.mode === "UPI" ? payout.destination : bankAccount,
       reference: payout.id,
     });
     const status = result.ok ? result.status || "SUCCESS" : "FAILED";
@@ -224,6 +514,10 @@ router.post(
       where: { id: payout.id },
       data: { status, gatewayRef: result.gatewayRef, remarks: result.mock ? "Processed in mock mode" : null },
     });
+    if (status === "SUCCESS" && payout.investor) {
+      notifyWithdrawalReleased(payout.investor, updated);
+      await onMaturityPayoutReleased(updated);
+    }
     res.json({ payout: updated, result });
   })
 );
@@ -233,12 +527,40 @@ router.post(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (req, res) => {
-    const payout = await investDb.payout.findUnique({ where: { id: req.params.id } });
+    const payout = await investDb.payout.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!payout) return res.status(404).json({ error: "Not found" });
-    await investDb.payout.update({ where: { id: payout.id }, data: { status: "FAILED", remarks: req.body.remarks || "Rejected" } });
-    // refund the held amount back to wallet
+    const remarks = req.body.remarks || "Rejected";
+    await investDb.payout.update({ where: { id: payout.id }, data: { status: "FAILED", remarks } });
     await addLedger(payout.investorId, { type: "REFUND", direction: "CREDIT", amount: payout.amount, reference: payout.id, note: "Withdrawal rejected - refunded" });
+    if (payout.investor) notifyWithdrawalRejected(payout.investor, { ...payout, status: "FAILED" }, remarks);
     res.json({ ok: true });
+  })
+);
+
+router.get(
+  "/subscriptions",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const where = {};
+    if (req.query.status) where.status = String(req.query.status).toUpperCase();
+    if (req.query.investorId) where.investorId = String(req.query.investorId);
+    const subs = await investDb.subscription.findMany({
+      where,
+      include: {
+        plan: true,
+        investor: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.min(Number(req.query.limit) || 200, 500),
+    });
+    const stats = {
+      total: subs.length,
+      active: subs.filter((s) => s.status === "ACTIVE").length,
+      totalAmount: subs.reduce((n, s) => n + s.amount, 0),
+    };
+    res.json({ subscriptions: subs, stats });
   })
 );
 
@@ -255,7 +577,227 @@ router.post(
   })
 );
 
-/* ---------------- Stats ---------------- */
+/* ---------------- Payment gateways status ---------------- */
+router.get(
+  "/gateways",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ collection: await listGateways(), payouts: await payoutGatewayStatus() });
+  })
+);
+
+router.get(
+  "/payment-gateways",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ gateways: await listPaymentGateways() });
+  })
+);
+
+router.post(
+  "/payment-gateways",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_gateways"),
+  asyncH(async (req, res) => {
+    const g = await createPaymentGateway(req.body);
+    res.json({ gateway: g });
+  })
+);
+
+router.patch(
+  "/payment-gateways/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_gateways"),
+  asyncH(async (req, res) => {
+    const g = await updatePaymentGateway(req.params.id, req.body);
+    res.json({ gateway: g });
+  })
+);
+
+router.delete(
+  "/payment-gateways/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_gateways"),
+  asyncH(async (req, res) => {
+    res.json(await deletePaymentGateway(req.params.id));
+  })
+);
+
+/* ---------------- Dashboard & ledger ---------------- */
+router.get(
+  "/dashboard",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    res.json(await getAdminDashboard(req.query));
+  })
+);
+
+router.get(
+  "/ledger",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    res.json(await getPlatformLedger({
+      type: req.query.type,
+      limit: req.query.limit,
+      investorId: req.query.investorId,
+    }));
+  })
+);
+
+router.get(
+  "/financial-reports",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("treasury"),
+  asyncH(async (_req, res) => {
+    res.json(await getFinancialReports());
+  })
+);
+
+/* ---------------- Maturity profit payments ---------------- */
+router.get(
+  "/maturity-payments/today",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const stats = await getTodayMaturityStats();
+    res.json(stats);
+  })
+);
+
+router.get(
+  "/maturity-payments/pending",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const payouts = await getTodayPendingPayments();
+    res.json({ payouts });
+  })
+);
+
+router.get(
+  "/maturity-payments/upcoming",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const payouts = await getUpcomingPayments(6);
+    res.json({ payouts });
+  })
+);
+
+router.post(
+  "/maturity-payments/:id/approve",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const payout = await approveMaturityPayout(req.params.id, req.body.remarks);
+    res.json({ payout });
+  })
+);
+
+router.post(
+  "/maturity-payments/:id/reject",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const payout = await rejectMaturityPayout(req.params.id, req.body.remarks);
+    res.json({ payout });
+  })
+);
+
+/* ---------------- Notifications summary ---------------- */
+router.get(
+  "/notifications",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const [today, pendingDeposits, pendingKyc, pendingPayouts, openTickets] = await Promise.all([
+      getTodayMaturityStats(),
+      investDb.deposit.count({ where: { status: "PENDING" } }),
+      investDb.kyc.count({ where: { status: "PENDING" } }),
+      investDb.payout.count({ where: { status: "PENDING" } }),
+      investDb.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+    ]);
+    res.json({
+      count: today.count + pendingDeposits + pendingKyc + pendingPayouts + openTickets,
+      maturityToday: today.count,
+      pendingDeposits,
+      pendingKyc,
+      pendingPayouts,
+      todayMaturityTotal: today.totalDue,
+    });
+  })
+);
+
+/* ---------------- Site / SMTP / API settings (super admin) ---------------- */
+router.get(
+  "/settings",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json({ settings: await getAllSettings(false) });
+  })
+);
+
+router.put(
+  "/settings",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const settings = await setSettings(req.body);
+    res.json({ settings });
+  })
+);
+
+router.get(
+  "/settings/email-communication",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json(await getEmailCommunicationBundle());
+  })
+);
+
+router.post(
+  "/settings/email-communication",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const config = await saveEmailCommunicationConfig(req.body.config || req.body);
+    const bundle = await getEmailCommunicationBundle();
+    res.json({ config, ...bundle });
+  })
+);
+
+router.post(
+  "/settings/email-communication/test",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const { purpose, testTo } = req.body;
+    if (!testTo?.trim()) return res.status(400).json({ error: "testTo email required" });
+    try {
+      const result = await sendPurposeTestEmail(purpose || "generic", testTo.trim());
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ ok: false, message: e.message || "Send failed" });
+    }
+  })
+);
+
+/* ---------------- Stats (legacy) ---------------- */
 router.get(
   "/stats",
   authRequired(SCOPE),
@@ -273,6 +815,420 @@ router.get(
     res.json({
       stats: { investors, plans, activeSubs, pendingKyc, pendingDeposits, pendingPayouts, totalInvested: invested._sum.amount || 0 },
     });
+  })
+);
+
+/* ---------------- Agreements (admin) ---------------- */
+router.get(
+  "/agreements",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const agreements = await listAllAgreements({ status: req.query.status });
+    res.json({ agreements });
+  })
+);
+
+router.get(
+  "/agreement-templates",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ templates: await getTemplates(), types: AGREEMENT_TYPES });
+  })
+);
+
+router.put(
+  "/agreement-templates/:type",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const template = await updateTemplate(req.params.type, req.body);
+    res.json({ template });
+  })
+);
+
+router.post(
+  "/agreements/generate",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const { investorId, type } = req.body;
+    const agreement = await adminGenerateForInvestor(investorId, type);
+    res.json({ agreement });
+  })
+);
+
+router.post(
+  "/agreements/:id/revoke",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const agreement = await revokeAgreement(req.params.id);
+    res.json({ agreement });
+  })
+);
+
+/* ---------------- Support tickets (admin) ---------------- */
+router.get(
+  "/tickets",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (req, res) => {
+    const where = req.query.status ? { status: req.query.status } : {};
+    const tickets = await investDb.supportTicket.findMany({
+      where,
+      include: { investor: { select: { id: true, name: true, email: true } }, replies: { orderBy: { createdAt: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json({ tickets });
+  })
+);
+
+router.post(
+  "/tickets/:id/reply",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (req, res) => {
+    const ticket = await investDb.supportTicket.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!ticket) return res.status(404).json({ error: "Not found" });
+    const reply = await investDb.ticketReply.create({
+      data: {
+        ticketId: ticket.id,
+        authorId: req.user.id,
+        authorName: req.user.name,
+        authorRole: req.user.role,
+        message: String(req.body.message || "").trim(),
+      },
+    });
+    await investDb.supportTicket.update({
+      where: { id: ticket.id },
+      data: { status: "IN_PROGRESS", updatedAt: new Date() },
+    });
+    await notifyInvestor(ticket.investorId, "Support reply", `New reply on: ${ticket.subject}`, { type: "INFO", link: "support" });
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "TICKET_REPLY", entity: "SupportTicket", entityId: ticket.id });
+    res.json({ reply });
+  })
+);
+
+router.post(
+  "/tickets/:id/close",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (req, res) => {
+    const ticket = await investDb.supportTicket.update({
+      where: { id: req.params.id },
+      data: { status: "CLOSED" },
+    });
+    res.json({ ticket });
+  })
+);
+
+/* ---------------- Promo codes (super admin) ---------------- */
+router.get(
+  "/promo-codes",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json({ promos: await listPromoCodes() });
+  })
+);
+
+router.post(
+  "/promo-codes",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const b = req.body;
+    const promo = await investDb.promoCode.create({
+      data: {
+        code: String(b.code).trim().toUpperCase(),
+        description: b.description || null,
+        bonusPct: Number(b.bonusPct || 0),
+        bonusFlat: Number(b.bonusFlat || 0),
+        maxUses: b.maxUses != null ? Number(b.maxUses) : null,
+        minAmount: Number(b.minAmount || 0),
+        appliesTo: (b.appliesTo || "DEPOSIT").toUpperCase(),
+        isActive: b.isActive !== false,
+        expiresAt: b.expiresAt ? new Date(b.expiresAt) : null,
+      },
+    });
+    res.json({ promo });
+  })
+);
+
+router.patch(
+  "/promo-codes/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const data = {};
+    if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
+    if (req.body.description !== undefined) data.description = req.body.description;
+    const promo = await investDb.promoCode.update({ where: { id: req.params.id }, data });
+    res.json({ promo });
+  })
+);
+
+router.delete(
+  "/promo-codes/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    await investDb.promoCode.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  })
+);
+
+/* ---------------- Broadcast notifications ---------------- */
+router.post(
+  "/notifications/broadcast",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("broadcast_notifications"),
+  asyncH(async (req, res) => {
+    const { title, body, type, link } = req.body;
+    const result = await broadcastNotification({ title, body, type, link });
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "BROADCAST", entity: "Notification", meta: { title, count: result.count } });
+    res.json(result);
+  })
+);
+
+/* ---------------- Audit logs ---------------- */
+router.get(
+  "/audit-logs",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("view_audit"),
+  asyncH(async (req, res) => {
+    res.json({ logs: await listAuditLogs({ limit: req.query.limit, entity: req.query.entity }) });
+  })
+);
+
+/* ---------------- Homepage partners CMS ---------------- */
+router.get(
+  "/partners",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ partners: await investDb.sitePartner.findMany({ orderBy: { sortOrder: "asc" } }) });
+  })
+);
+
+router.post(
+  "/partners",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const b = req.body;
+    const partner = await investDb.sitePartner.create({
+      data: { name: b.name, logoUrl: b.logoUrl || null, website: b.website || null, sortOrder: Number(b.sortOrder || 0), isActive: b.isActive !== false },
+    });
+    res.json({ partner });
+  })
+);
+
+router.patch(
+  "/partners/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const b = req.body;
+    const partner = await investDb.sitePartner.update({
+      where: { id: req.params.id },
+      data: {
+        ...(b.name !== undefined && { name: b.name }),
+        ...(b.logoUrl !== undefined && { logoUrl: b.logoUrl }),
+        ...(b.website !== undefined && { website: b.website }),
+        ...(b.sortOrder !== undefined && { sortOrder: Number(b.sortOrder) }),
+        ...(b.isActive !== undefined && { isActive: Boolean(b.isActive) }),
+      },
+    });
+    res.json({ partner });
+  })
+);
+
+router.delete(
+  "/partners/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    await investDb.sitePartner.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  })
+);
+
+/* ---------------- Referral earnings payout (admin) ---------------- */
+router.post(
+  "/referral-earnings/:id/pay",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const earning = await investDb.referralEarning.findUnique({ where: { id: req.params.id } });
+    if (!earning || earning.status !== "PENDING") return res.status(400).json({ error: "Invalid earning" });
+    await addLedger(earning.referrerId, {
+      type: "RETURN",
+      direction: "CREDIT",
+      amount: earning.amount,
+      note: "Referral commission paid",
+    });
+    await investDb.wallet.update({
+      where: { investorId: earning.referrerId },
+      data: { earnings: { increment: earning.amount } },
+    });
+    await investDb.referralEarning.update({ where: { id: earning.id }, data: { status: "PAID" } });
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "REFERRAL_PAY", entity: "ReferralEarning", entityId: earning.id });
+    res.json({ ok: true });
+  })
+);
+
+router.get(
+  "/referral-earnings",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const earnings = await investDb.referralEarning.findMany({
+      include: { referrer: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    res.json({ earnings });
+  })
+);
+
+router.get(
+  "/referral-analytics",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    const [clicks, registrations, recent] = await Promise.all([
+      investDb.auditLog.count({ where: { action: "REFERRAL_CLICK" } }),
+      investDb.auditLog.count({ where: { action: "REFERRAL_REGISTER" } }),
+      investDb.auditLog.findMany({
+        where: { action: { startsWith: "REFERRAL_" } },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+    ]);
+    const conversionRate = clicks > 0 ? Math.round((registrations / clicks) * 1000) / 10 : 0;
+    res.json({ clicks, registrations, conversionRate, recent });
+  })
+);
+
+/* ---------------- Treasury & reconciliation ---------------- */
+router.get(
+  "/treasury",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("treasury"),
+  asyncH(async (_req, res) => {
+    const { getTreasurySnapshot } = await import("../services/treasury.js");
+    res.json(await getTreasurySnapshot());
+  })
+);
+
+router.post(
+  "/treasury/reconcile",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("treasury"),
+  asyncH(async (req, res) => {
+    const { runReconciliation } = await import("../services/treasury.js");
+    const result = await runReconciliation();
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "TREASURY_RECONCILE", entity: "TreasurySnapshot", entityId: result.snapshot.id });
+    res.json(result);
+  })
+);
+
+/* ---------------- Cohort analytics ---------------- */
+router.get(
+  "/analytics/cohorts",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("analytics"),
+  asyncH(async (req, res) => {
+    const { getCohortAnalytics } = await import("../services/cohortAnalytics.js");
+    res.json(await getCohortAnalytics(Number(req.query.months) || 12));
+  })
+);
+
+/* ---------------- RBAC ---------------- */
+router.get(
+  "/rbac",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    const { getRoleMatrix } = await import("../services/rbac.js");
+    res.json(await getRoleMatrix());
+  })
+);
+
+router.put(
+  "/rbac",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { setPermission } = await import("../services/rbac.js");
+    const { role, permission, granted } = req.body;
+    await setPermission(role, permission, Boolean(granted));
+    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "RBAC_UPDATE", entity: "RolePermission", meta: JSON.stringify({ role, permission, granted }) });
+    res.json({ ok: true });
+  })
+);
+
+/* ---------------- Support mail desk ---------------- */
+router.get(
+  "/support-mail",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (_req, res) => {
+    const { listMailMessages } = await import("../services/supportMail.js");
+    res.json({ messages: await listMailMessages() });
+  })
+);
+
+router.post(
+  "/support-mail/sync",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (_req, res) => {
+    const { syncSupportInbox } = await import("../services/supportMail.js");
+    res.json(await syncSupportInbox());
+  })
+);
+
+router.post(
+  "/support-mail/:id/reply",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  asyncH(async (req, res) => {
+    const { replySupportMail } = await import("../services/supportMail.js");
+    res.json(await replySupportMail(req.params.id, req.body));
+  })
+);
+
+/* ---------------- Manual ROI run ---------------- */
+router.post(
+  "/roi/run",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { runRoiEngineCycle } = await import("../services/roiEngine.js");
+    res.json(await runRoiEngineCycle());
   })
 );
 

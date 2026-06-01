@@ -1,4 +1,5 @@
 import { verifyToken } from "./utils/auth.js";
+import { investDb } from "./db.js";
 
 export const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -32,6 +33,20 @@ export function requireRole(...roles) {
     }
     next();
   };
+}
+
+export function requirePermission(permission) {
+  return asyncH(async (req, res, next) => {
+    if (!req.user) return res.status(401).json({ error: "Authentication required" });
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    if (!investor) return res.status(401).json({ error: "User not found" });
+    const { investorHasPermission } = await import("./services/rbac.js");
+    if (!(await investorHasPermission(investor, permission))) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    req.staff = investor;
+    next();
+  });
 }
 
 export function optionalAuth(req, _res, next) {

@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
-import { categoryImageUrl } from "../../lib/img.js";
+import CategoryImage from "../../components/CategoryImage.jsx";
+import { IMAGE_SIZES } from "../../lib/img.js";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
@@ -40,7 +41,9 @@ export default function CategoriesPage() {
       <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((c) => (
           <div key={c.id} className="card overflow-hidden">
-            <img src={categoryImageUrl(c.name)} alt={c.name} loading="lazy" className="h-36 w-full object-cover" />
+            <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-slate-100`}>
+              <CategoryImage category={c} className="h-full w-full" />
+            </div>
             <div className="p-4">
               <h2 className="text-lg font-bold text-navy">{c.name}</h2>
               <div className="mt-2 flex flex-wrap gap-1.5">

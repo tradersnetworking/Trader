@@ -3,12 +3,13 @@ import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
 import { Stat, Badge, Modal, Field, Alert } from "../../components/ui.jsx";
+import PaymentGatewaysPanel from "../../components/PaymentGatewaysPanel.jsx";
 
 export default function AdminDashboard() {
   const { main } = useAuth();
   const isSuper = main?.role === "SUPERADMIN";
   const [tab, setTab] = useState("overview");
-  const tabs = [["overview", "Overview"], ["products", "Products"], ["categories", "Categories"], ["quotes", "Quotes / RFQ"], ["users", "Users"]];
+  const tabs = [["overview", "Overview"], ["products", "Products"], ["categories", "Categories"], ["quotes", "Quotes / RFQ"], ["users", "Users"], ["gateways", "Payment Gateways"]];
   if (isSuper) tabs.push(["staff", "Staff & Roles"]);
 
   return (
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
         {tab === "categories" && <CategoriesAdmin />}
         {tab === "quotes" && <QuotesAdmin />}
         {tab === "users" && <UsersAdmin isSuper={isSuper} />}
+        {tab === "gateways" && <PaymentGatewaysPanel fetchGateways={() => mainApi("/admin/gateways")} />}
         {tab === "staff" && isSuper && <StaffAdmin />}
       </div>
     </div>
@@ -204,11 +206,30 @@ function QuotesAdmin() {
 
 function UsersAdmin({ isSuper }) {
   const [users, setUsers] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", accountType: "B2B", companyName: "" });
+  const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
   const load = () => mainApi("/admin/users").then((d) => setUsers(d.users)).catch(() => {});
   useEffect(() => { load(); }, []);
   const update = async (id, body) => { await mainApi(`/admin/users/${id}`, { method: "PUT", body }); load(); };
+  const createUser = async (e) => {
+    e.preventDefault(); setErr(""); setMsg("");
+    try {
+      await mainApi("/admin/users", { method: "POST", body: form });
+      setMsg(`Created user ${form.email}`);
+      setForm({ name: "", email: "", password: "", accountType: "B2B", companyName: "" });
+      setCreateOpen(false);
+      load();
+    } catch (e2) { setErr(e2.message); }
+  };
   return (
-    <div className="overflow-x-auto card">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-500">Admins can create buyer/seller accounts. Staff and Admin roles are managed by Super Admin only.</p>
+        <button onClick={() => { setCreateOpen(true); setErr(""); setMsg(""); }} className="btn-primary">+ Create User</button>
+      </div>
+      {msg && <div className="mb-3"><Alert type="success">{msg}</Alert></div>}
+      <div className="overflow-x-auto card">
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th></tr></thead>
         <tbody>
@@ -225,6 +246,19 @@ function UsersAdmin({ isSuper }) {
           ))}
         </tbody>
       </table>
+      </div>
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create User Account">
+        <form onSubmit={createUser} className="space-y-3">
+          {err && <Alert type="error">{err}</Alert>}
+          <Field label="Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+          <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+          <Field label="Account Type"><select className="input" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}><option value="B2B">B2B</option><option value="B2C">B2C</option></select></Field>
+          <Field label="Company Name (optional)"><input className="input" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></Field>
+          <p className="text-xs text-slate-400">Creates a USER account. Admins cannot create Staff, Admin or Super Admin accounts.</p>
+          <button className="btn-gold w-full">Create User</button>
+        </form>
+      </Modal>
     </div>
   );
 }
@@ -236,13 +270,14 @@ function StaffAdmin() {
   return (
     <div className="max-w-md card p-6">
       <h3 className="mb-3 font-bold text-navy">Create Staff / Admin Account</h3>
+      <p className="mb-3 text-xs text-slate-400">Super Admin only. Cannot create Super Admin accounts from here.</p>
       <form onSubmit={save} className="space-y-3">
         {msg && <Alert type="success">{msg}</Alert>}
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
         <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
-        <Field label="Role"><select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{["STAFF", "ADMIN", "SUPERADMIN"].map((r) => <option key={r}>{r}</option>)}</select></Field>
+        <Field label="Role"><select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option></select></Field>
         <button className="btn-gold w-full">Create</button>
       </form>
     </div>

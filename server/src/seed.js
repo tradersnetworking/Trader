@@ -3,7 +3,10 @@ import { hashPassword } from "./utils/auth.js";
 import { config } from "./config.js";
 import { nanoid } from "nanoid";
 import { TAXONOMY } from "./data/categories.js";
-import { imageForProduct } from "./data/productImages.js";
+import { imageForProduct, imageForCategory } from "./data/productImages.js";
+import { generateReferralCode } from "./services/referral.js";
+import { seedDefaultPaymentGateways, ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
+import { buildPlanCatalog, catalogKey } from "./data/investmentPlans.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 
@@ -22,16 +25,135 @@ const SAMPLE_PRODUCTS = [
   { cat: "Acrylic Fabric", name: "Acrylic Fabric Rolls", listingType: "EXPORT", unit: "MT", min: 2, price: 240000, origin: "India" },
 ];
 
-// Investment plans matching the brochure image.
-// (Gold uses 360 days instead of 365 so every lock-in is a multiple of 30 days.)
-const PLANS = [
-  { planType: "STARTER",  name: "Starter Plan",  lockInDays: 30,   monthlyRoiPct: 10, annualRoiPct: 120, color: "#2e7d32" },
-  { planType: "BRONZE",   name: "Bronze Plan",   lockInDays: 90,   monthlyRoiPct: 12, annualRoiPct: 144, color: "#a9622b" },
-  { planType: "SILVER",   name: "Silver Plan",   lockInDays: 180,  monthlyRoiPct: 15, annualRoiPct: 180, color: "#8a9099" },
-  { planType: "GOLD",     name: "Gold Plan",     lockInDays: 360,  monthlyRoiPct: 17, annualRoiPct: 204, color: "#d4a017" },
-  { planType: "PLATINUM", name: "Platinum Plan", lockInDays: 720,  monthlyRoiPct: 19, annualRoiPct: 228, color: "#2f6db5" },
-  { planType: "DIAMOND",  name: "Diamond Plan",  lockInDays: 1080, monthlyRoiPct: 20, annualRoiPct: 240, color: "#7b3fb0" },
+// Sync investment plans: category (capital tier) × sub-category (lock-in months).
+async function syncInvestmentPlans() {
+  const catalog = buildPlanCatalog();
+  const keys = new Set(catalog.map((p) => catalogKey(p.planType, p.lockInDays)));
+
+  for (const p of catalog) {
+    const existing = await investDb.plan.findFirst({
+      where: { planType: p.planType, lockInDays: p.lockInDays },
+    });
+    const data = {
+      name: p.name,
+      minInvestment: p.minInvestment,
+      maxInvestment: p.maxInvestment,
+      profitSharePct: p.profitSharePct,
+      monthlyRoiPct: p.monthlyRoiPct,
+      annualRoiPct: p.annualRoiPct,
+      settlementCycles: p.settlementCycles,
+      color: p.color,
+      description: p.description,
+      isActive: p.isActive,
+    };
+    if (existing) {
+      await investDb.plan.update({ where: { id: existing.id }, data });
+    } else {
+      await investDb.plan.create({
+        data: { planType: p.planType, lockInDays: p.lockInDays, ...data },
+      });
+    }
+  }
+
+  const all = await investDb.plan.findMany({ include: { subscriptions: { take: 1 } } });
+  for (const plan of all) {
+    if (!keys.has(catalogKey(plan.planType, plan.lockInDays)) && plan.subscriptions.length === 0) {
+      await investDb.plan.delete({ where: { id: plan.id } });
+    }
+  }
+  console.log(`  Plans synced: ${catalog.length} (6 categories × ${catalog.length / 6} lock-in sub-categories)`);
+}
+
+const DEFAULT_INVEST_SETTINGS = [
+  { key: "support_email", value: "support@akshayaexim.com" },
+  { key: "mail_from", value: "Akshaya Exim <support@akshayaexim.com>" },
+  { key: "site_name", value: "Akshaya Exim Invest" },
+  { key: "maintenance_mode", value: "false" },
+  { key: "maintenance_message", value: "Platform under maintenance. Please check back soon." },
+  { key: "referral_commission_pct", value: "2" },
+  { key: "referral_level_1_pct", value: "2" },
+  { key: "referral_level_2_pct", value: "1" },
+  { key: "referral_level_3_pct", value: "0.5" },
+  { key: "referral_level_4_pct", value: "0" },
+  { key: "referral_level_5_pct", value: "0" },
+  { key: "min_withdraw_amount", value: "100" },
+  { key: "max_withdraw_amount", value: "500000" },
+  { key: "early_exit_enabled", value: "true" },
+  { key: "early_exit_penalty_pct", value: "10" },
+  { key: "early_exit_forfeit_roi", value: "true" },
+  { key: "homepage_hero_title", value: "Smart Investment • Secure Future • Grow Your Wealth" },
+  { key: "homepage_hero_subtitle", value: "Invest in Akshaya Exim Traders and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured." },
+  { key: "homepage_about_title", value: "About Akshaya Exim Invest" },
+  { key: "homepage_about_body", value: "Akshaya Exim Traders offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
+  { key: "homepage_show_calculator", value: "true" },
+  { key: "homepage_show_partners", value: "true" },
+  { key: "homepage_show_trust_stats", value: "true" },
+  { key: "about_company_name", value: "Akshaya Exim Traders" },
+  { key: "about_company_tagline", value: "Export • Import • Investment" },
+  { key: "about_company_credentials", value: "Registered export house • KYC-verified investors • Secure payment gateways" },
 ];
+
+async function seedInvestExtras() {
+  const promo = await investDb.promoCode.findUnique({ where: { code: "WELCOME5" } });
+  if (!promo) {
+    await investDb.promoCode.create({
+      data: {
+        code: "WELCOME5",
+        description: "5% bonus on first deposit (min ₹10,000)",
+        bonusPct: 5,
+        bonusFlat: 0,
+        minAmount: 10000,
+        appliesTo: "DEPOSIT",
+        maxUses: 500,
+      },
+    });
+  }
+  const partnerCount = await investDb.sitePartner.count();
+  if (partnerCount === 0) {
+    await investDb.sitePartner.createMany({
+      data: [
+        { name: "Akshaya Exim Traders", sortOrder: 1, website: "https://akshayaexim.com" },
+        { name: "Export Finance Partners", sortOrder: 2 },
+        { name: "Trade Desk India", sortOrder: 3 },
+      ],
+    });
+  }
+  for (const p of ["phonepe", "paypal"]) {
+    const exists = await investDb.paymentGateway.findFirst({ where: { provider: p } });
+    if (!exists) {
+      await investDb.paymentGateway.create({
+        data: {
+          name: p.charAt(0).toUpperCase() + p.slice(1),
+          type: "online",
+          provider: p,
+          minAmount: 100,
+          sortOrder: 10,
+          isEnabled: true,
+        },
+      });
+    }
+  }
+  await investDb.investor.updateMany({
+    where: { role: { in: ["ADMIN", "SUPERADMIN"] }, onboardingComplete: false },
+    data: { onboardingComplete: true },
+  });
+  await investDb.investor.updateMany({
+    where: { email: "investor@akshayaexim.com", onboardingComplete: false },
+    data: { onboardingComplete: true },
+  });
+  await investDb.investor.updateMany({
+    where: { role: { in: ["MANAGER", "SUPPORT", "STAFF"] } },
+    data: { role: "ADMIN" },
+  });
+  await investDb.investSetting.updateMany({
+    where: { key: "support_email", value: "manager@akshayaexim.com" },
+    data: { value: "support@akshayaexim.com" },
+  });
+  await investDb.investSetting.updateMany({
+    where: { key: "mail_from", value: "Akshaya Exim <manager@akshayaexim.com>" },
+    data: { value: "Akshaya Exim <support@akshayaexim.com>" },
+  });
+}
 
 async function seedMain() {
   console.log("Seeding MAIN (marketplace) database...");
@@ -58,9 +180,18 @@ async function seedMain() {
   const subMap = {};
   const subToParent = {};
   for (const c of TAXONOMY) {
-    const parent = await mainDb.category.create({ data: { name: c.name, slug: slug(c.name) } });
+    const parent = await mainDb.category.create({
+      data: { name: c.name, slug: slug(c.name), image: imageForCategory(c.name) },
+    });
     for (const s of c.sub) {
-      const child = await mainDb.category.create({ data: { name: s, slug: slug(s), parentId: parent.id } });
+      const child = await mainDb.category.create({
+        data: {
+          name: s,
+          slug: slug(s),
+          parentId: parent.id,
+          image: imageForCategory(s),
+        },
+      });
       if (!subMap[s]) subMap[s] = child.id;
       subToParent[s] = c.name;
     }
@@ -98,26 +229,44 @@ async function seedInvest() {
   let demo = await investDb.investor.findUnique({ where: { email: demoEmail } });
   if (!demo) {
     demo = await investDb.investor.create({
-      data: { email: demoEmail, name: "Demo Investor", passwordHash: hashPassword("Investor@123"), role: "INVESTOR", emailVerified: true, upiId: "demo@okhdfc", bankName: "HDFC", accountNumber: "1234567890", ifsc: "HDFC0001234" },
+      data: {
+        email: demoEmail,
+        name: "Demo Investor",
+        passwordHash: hashPassword("Investor@123"),
+        role: "INVESTOR",
+        emailVerified: true,
+        referralCode: generateReferralCode("Demo Investor"),
+        upiId: "demo@okhdfc",
+        bankName: "HDFC",
+        accountNumber: "1234567890",
+        ifsc: "HDFC0001234",
+      },
     });
     await investDb.wallet.create({ data: { investorId: demo.id, available: 100000 } });
     await investDb.kyc.create({ data: { investorId: demo.id, fullName: "Demo Investor", panNumber: "ABCDE1234F", status: "APPROVED" } });
     await investDb.ledgerEntry.create({ data: { investorId: demo.id, type: "DEPOSIT", direction: "CREDIT", amount: 100000, balanceAfter: 100000, note: "Seed balance" } });
+  } else if (!demo.referralCode) {
+    demo = await investDb.investor.update({
+      where: { id: demo.id },
+      data: { referralCode: generateReferralCode(demo.name) },
+    });
   }
 
-  if ((await investDb.plan.count()) === 0) {
-    for (const p of PLANS) {
-      await investDb.plan.create({
-        data: {
-          planType: p.planType, name: p.name, lockInDays: p.lockInDays,
-          minInvestment: 10000, maxInvestment: 50000000,
-          profitSharePct: p.monthlyRoiPct, monthlyRoiPct: p.monthlyRoiPct, annualRoiPct: p.annualRoiPct,
-          settlementCycles: "WEEKLY,MONTHLY", color: p.color,
-          description: `${p.name}: ${p.monthlyRoiPct}% monthly ROI, ${p.lockInDays}-day lock-in. Profit share ${p.monthlyRoiPct}% per month.`,
-        },
-      });
-    }
+  await syncInvestmentPlans();
+
+  for (const s of DEFAULT_INVEST_SETTINGS) {
+    await investDb.investSetting.upsert({
+      where: { key: s.key },
+      create: s,
+      update: {},
+    });
   }
+  await seedDefaultPaymentGateways();
+  await ensureMissingPaymentGateways();
+  await ensureDefaultBankAccounts();
+  await seedInvestExtras();
+  const { seedRolePermissions } = await import("./services/rbac.js");
+  await seedRolePermissions();
   console.log("  INVEST done.");
 }
 

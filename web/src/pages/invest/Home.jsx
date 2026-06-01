@@ -5,110 +5,257 @@ import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
 import PlanCard from "../../components/PlanCard.jsx";
 import SubscribeModal from "../../components/SubscribeModal.jsx";
+import { PLAN_TYPES, PLAN_CAPITAL } from "../../lib/plan-types.js";
+import { investPath } from "../../lib/site.js";
+import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
+import { useI18n } from "../../lib/i18n/context.jsx";
+import {
+  InvestLandingHero,
+  InvestLandingStats,
+  InvestLandingFeatures,
+  InvestLandingPaymentMethods,
+  InvestLandingTrustCta,
+} from "../../components/invest/landing/InvestLandingSections.jsx";
 
+/**
+ * Invest subdomain landing — Kuber layout, investment-only sections.
+ * Excludes: copy trading, MT4/MT5, staking, algo, EA, crypto exchange.
+ * Plan catalog: 42 plans from server (6 tiers × 7 lock-ins) — unchanged.
+ */
 export default function InvestHome() {
   const { invest } = useAuth();
+  const { t } = useI18n();
   const nav = useNavigate();
   const [plans, setPlans] = useState([]);
   const [sub, setSub] = useState(null);
+  const [maintenance, setMaintenance] = useState(null);
+  const [partners, setPartners] = useState([]);
+  const [cms, setCms] = useState(null);
 
-  useEffect(() => { investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {}); }, []);
+  useEffect(() => {
+    investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {});
+    investApi("/public/maintenance").then(setMaintenance).catch(() => {});
+    investApi("/public/partners").then((d) => setPartners(d.partners || [])).catch(() => {});
+    investApi("/public/homepage").then((d) => setCms(d.homepage || {})).catch(() => {});
+  }, []);
 
   const onSubscribe = (plan) => {
-    if (!invest) return nav("/invest/login");
+    if (!invest) return nav(investPath("/login"));
     setSub(plan);
   };
 
-  // group by plan type for the "types of plans" layout
   return (
-    <div>
-      <section className="hero-gradient text-white">
-        <div className="mx-auto max-w-7xl px-4 py-16 text-center">
-          <img src="/assets/logo.png" className="mx-auto mb-4 h-20 w-20 rounded-full bg-black/30 p-1" alt="logo" />
-          <h1 className="text-4xl font-extrabold md:text-5xl">Smart Investment • <span className="gold-text">Secure Future</span> • Grow Your Wealth</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-slate-300">Invest in Akshaya Exim Traders and earn consistent monthly returns. Flexible lock-in periods, transparent profit sharing, weekly or monthly settlements, and 100% capital secured.</p>
-          <div className="mt-6 flex justify-center gap-3">
-            <a href="#plans" className="btn-gold">View Plans</a>
-            <a href="#calculator" className="btn-outline border-white/30 bg-transparent text-white hover:bg-white/10">Returns Calculator</a>
+    <div className="min-w-0 overflow-x-clip">
+      {maintenance?.enabled && (
+        <div className="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-black">{maintenance.message}</div>
+      )}
+
+      <InvestLandingHero cms={cms} invest={invest} />
+      <InvestLandingStats cms={cms} />
+      <InvestLandingFeatures />
+
+      <section id="plans" className="mx-auto max-w-7xl px-4 py-14 sm:py-16">
+        <div className="text-center">
+          <span className="badge border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            {t("home.plansBadge")}
+          </span>
+          <h2 className="mt-4 text-2xl font-extrabold text-foreground sm:text-3xl md:text-4xl">
+            {t("home.plansTitle")} <span className="gold-text">{t("home.plansTitleGold")}</span>
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+            {t("home.plansSubtitle")}
+          </p>
+        </div>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {PLAN_TYPES.map((tierKey) => (
+            <span key={tierKey} className="badge bg-muted text-muted-foreground">
+              {tierKey}: {PLAN_CAPITAL[tierKey].label}
+            </span>
+          ))}
+        </div>
+        {PLAN_TYPES.map((tier) => {
+          const tierPlans = plans.filter((p) => p.planType === tier);
+          if (!tierPlans.length) return null;
+          return (
+            <div key={tier} className="mt-10">
+              <h3 className="mb-1 text-lg font-bold text-foreground">
+                {tier} • {PLAN_CAPITAL[tier].label}
+              </h3>
+              <p className="mb-4 text-xs text-muted-foreground">
+                {PLAN_CAPITAL[tier].monthlyRoiPct}% {t("home.monthlyRoi")} · {PLAN_CAPITAL[tier].monthlyRoiPct * 12}% {t("home.annualRoi")}
+              </p>
+              <div className="flex gap-4 overflow-x-auto pb-2 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3 xl:grid-cols-4">
+                {tierPlans.map((p) => (
+                  <div key={p.id} className="min-w-[17rem] shrink-0 snap-start sm:min-w-0">
+                    <PlanCard plan={p} onSubscribe={onSubscribe} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {plans.length === 0 && <p className="mt-8 text-center text-muted-foreground">{t("home.loadingPlans")}</p>}
+        <div className="mx-auto mt-10 max-w-md">
+          <MobileAppDownload compact />
+        </div>
+      </section>
+
+      {cms?.homepage_show_calculator !== "false" && <Calculator plans={plans} t={t} />}
+
+      <InvestLandingPaymentMethods />
+
+      {(cms?.homepage_about_title || cms?.homepage_about_body) && (
+        <section id="about" className="mx-auto max-w-3xl px-4 py-14 text-center">
+          <h2 className="text-2xl font-extrabold text-foreground sm:text-3xl">
+            {cms.homepage_about_title || "About Akshaya Exim Invest"}
+          </h2>
+          <p className="mt-4 text-muted-foreground">{cms.homepage_about_body}</p>
+          {cms.about_company_credentials && <p className="mt-3 text-sm text-muted-foreground">{cms.about_company_credentials}</p>}
+        </section>
+      )}
+
+      {cms?.homepage_show_partners !== "false" && partners.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-14">
+          <div className="text-center">
+            <h2 className="text-2xl font-extrabold text-foreground">{t("home.trustedPartners")}</h2>
+            <p className="text-muted-foreground">{t("home.partnersSubtitle")}</p>
           </div>
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[["10%–20%", "Monthly ROI"], ["120%–240%", "Annual ROI"], ["6", "Plan Tiers"], ["100%", "Capital Secured"]].map(([v, l]) => (
-              <div key={l} className="rounded-xl bg-white/5 p-4"><div className="text-2xl font-extrabold gold-text">{v}</div><div className="text-xs text-slate-300">{l}</div></div>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-8">
+            {partners.map((p) => (
+              <a
+                key={p.id}
+                href={p.website || "#"}
+                target={p.website ? "_blank" : undefined}
+                rel="noreferrer"
+                className="flex flex-col items-center gap-2 opacity-80 transition hover:opacity-100"
+              >
+                {p.logoUrl ? (
+                  <img src={p.logoUrl} alt={p.name} className="h-12 max-w-[8rem] object-contain" />
+                ) : (
+                  <span className="text-lg font-bold text-foreground">{p.name}</span>
+                )}
+              </a>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section id="plans" className="mx-auto max-w-7xl px-4 py-14">
-        <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-navy">Investment Plans</h2>
-          <p className="text-slate-500">Choose your plan • Invest • Earn • Repeat</p>
-        </div>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {plans.map((p) => <PlanCard key={p.id} plan={p} onSubscribe={onSubscribe} />)}
-        </div>
-      </section>
+      <InvestLandingTrustCta invest={invest} />
 
-      <Calculator plans={plans} />
-
-      <section className="mx-auto max-w-7xl px-4 py-14">
-        <div className="hero-gradient rounded-2xl p-8 text-center text-white">
-          <h3 className="text-2xl font-extrabold">Invest Wisely. Earn Consistently. Build Wealth.</h3>
-          <p className="mt-1 text-slate-300">Deposit via UPI, IMPS, NEFT, RTGS, cards, e-wallets & crypto. Withdraw directly to your bank/UPI.</p>
-          <Link to={invest ? "/invest/dashboard" : "/invest/register"} className="btn-gold mt-4">{invest ? "Go to Dashboard" : "Start Investing"}</Link>
-        </div>
-      </section>
-
-      {sub && <SubscribeModal plan={sub} onClose={() => setSub(null)} onDone={() => { setSub(null); nav("/invest/dashboard"); }} />}
+      {sub && (
+        <SubscribeModal
+          plan={sub}
+          onClose={() => setSub(null)}
+          onDone={() => {
+            setSub(null);
+            nav(investPath("/dashboard"));
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Calculator({ plans }) {
+function Calculator({ plans, t }) {
   const [planId, setPlanId] = useState("");
-  const [amount, setAmount] = useState(100000);
+  const [amount, setAmount] = useState("");
   const [result, setResult] = useState(null);
-
-  useEffect(() => { if (plans.length && !planId) setPlanId(plans[0].id); }, [plans]);
-  useEffect(() => {
-    if (!planId) return;
-    investApi(`/public/plans/${planId}/calc?amount=${amount}`).then(setResult).catch(() => {});
-  }, [planId, amount]);
-
+  const [amountErr, setAmountErr] = useState("");
   const plan = plans.find((p) => p.id === planId);
 
+  useEffect(() => {
+    if (plans.length && !planId) {
+      setPlanId(plans[0].id);
+      setAmount(String(plans[0].minInvestment));
+    }
+  }, [plans]);
+
+  useEffect(() => {
+    if (!planId || !plan) return;
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt < plan.minInvestment || amt > plan.maxInvestment) {
+      setAmountErr(
+        t("home.amountBetween").replace("{min}", inr(plan.minInvestment)).replace("{max}", inr(plan.maxInvestment))
+      );
+      setResult(null);
+      return;
+    }
+    setAmountErr("");
+    investApi(`/public/plans/${planId}/calc?amount=${amt}`).then(setResult).catch(() => setResult(null));
+  }, [planId, amount, plan]);
+
   return (
-    <section id="calculator" className="bg-white">
-      <div className="mx-auto max-w-5xl px-4 py-14">
-        <div className="text-center"><h2 className="text-3xl font-extrabold text-navy">Monthly Return Calculator</h2><p className="text-slate-500">See exactly how much you earn each month</p></div>
+    <section id="calculator" className="border-t border-border bg-muted/20 px-4 py-14 dark:bg-white/[0.02] sm:py-16">
+      <div className="mx-auto max-w-5xl">
+        <div className="text-center">
+          <h2 className="text-2xl font-extrabold text-foreground sm:text-3xl">{t("home.calculatorTitle")}</h2>
+          <p className="mt-2 text-muted-foreground">{t("home.calculatorSubtitle")}</p>
+        </div>
         <div className="mt-8 grid gap-6 md:grid-cols-2">
           <div className="card space-y-4 p-6">
-            <div><label className="label">Select Plan</label>
-              <select className="input" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-                {plans.map((p) => <option key={p.id} value={p.id}>{p.name} • {p.monthlyRoiPct}%/mo</option>)}
+            <div>
+              <label className="label">{t("home.selectPlan")}</label>
+              <select
+                className="input"
+                value={planId}
+                onChange={(e) => {
+                  const p = plans.find((x) => x.id === e.target.value);
+                  setPlanId(e.target.value);
+                  if (p) setAmount(String(p.minInvestment));
+                }}
+              >
+                {PLAN_TYPES.map((tier) => {
+                  const tierPlans = plans.filter((p) => p.planType === tier);
+                  if (!tierPlans.length) return null;
+                  return (
+                    <optgroup key={tier} label={`${tier} — ${PLAN_CAPITAL[tier].label}`}>
+                      {tierPlans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} • {p.monthlyRoiPct}%/mo
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
             </div>
-            <div><label className="label">Investment Amount</label>
-              <select className="input" value={amount} onChange={(e) => setAmount(Number(e.target.value))}>
-                {[100000, 500000, 1000000, 1500000, 2000000, 2500000, 3000000, 5000000].map((a) => <option key={a} value={a}>{inr(a)}</option>)}
-              </select>
-              <input className="input mt-2" type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} placeholder="Or enter amount" />
+            <div>
+              <label className="label">{t("home.investmentAmount")}</label>
+              <input
+                className="input"
+                type="number"
+                min={plan?.minInvestment}
+                max={plan?.maxInvestment}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder={plan ? `Min ${inr(plan.minInvestment)}` : "Enter amount"}
+              />
             </div>
-            {plan && <p className="text-xs text-slate-400">Min {inr(plan.minInvestment)} • Max {inr(plan.maxInvestment)} • Lock-in {plan.lockInDays} days</p>}
+            {plan && (
+              <p className="text-xs text-muted-foreground">
+                {t("home.calcMinMaxLock")
+                  .replace("{min}", inr(plan.minInvestment))
+                  .replace("{max}", inr(plan.maxInvestment))
+                  .replace("{days}", plan.lockInDays)}
+              </p>
+            )}
+            {amountErr && <p className="text-xs text-rose-500">{amountErr}</p>}
           </div>
           <div className="card p-6">
             {result ? (
               <div className="space-y-3">
-                <Row label="Monthly Return" value={inr(result.monthlyReturn)} big />
-                <Row label="Monthly ROI" value={`${result.monthlyRoiPct}%`} />
-                <Row label="Annual ROI" value={`${result.annualRoiPct}%`} />
-                <hr />
-                <Row label={`Simple total (${result.simple.months} mo)`} value={inr(result.simple.totalReturn)} />
-                <Row label="Maturity (simple)" value={inr(result.simple.maturityValue)} />
-                <Row label="Maturity (compounded)*" value={inr(result.compounded.maturityValue)} accent />
-                <p className="text-xs text-slate-400">*{result.note}</p>
+                <Row label={t("home.calcMonthlyReturn")} value={inr(result.monthlyReturn)} big />
+                <Row label={t("home.calcMonthlyRoi")} value={`${result.monthlyRoiPct}%`} />
+                <Row label={t("home.calcAnnualRoi")} value={`${result.annualRoiPct}%`} />
+                <hr className="border-border" />
+                <Row label={t("home.calcLockInProfit").replace("{months}", result.lockInMonths)} value={inr(result.totalSimpleProfit)} />
+                <Row label={t("home.calcMaturitySimple")} value={inr(result.simple.maturityValue)} />
+                <Row label={t("home.calcMaturityCompounded")} value={inr(result.compounded.maturityValue)} accent />
+                <p className="text-xs text-muted-foreground">*{result.note}</p>
               </div>
-            ) : <p className="text-slate-400">Select a plan…</p>}
+            ) : (
+              <p className="text-muted-foreground">{t("home.enterValidAmount")}</p>
+            )}
           </div>
         </div>
       </div>
@@ -118,9 +265,11 @@ function Calculator({ plans }) {
 
 function Row({ label, value, big, accent }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-slate-500">{label}</span>
-      <span className={`font-bold ${big ? "text-2xl text-navy" : accent ? "text-gold-600" : "text-navy"}`}>{value}</span>
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`font-bold ${big ? "text-xl text-foreground sm:text-2xl" : accent ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+        {value}
+      </span>
     </div>
   );
 }

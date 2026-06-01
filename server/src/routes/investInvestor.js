@@ -2,8 +2,36 @@ import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole } from "../middleware.js";
 import { upload, fileUrl } from "../utils/upload.js";
-import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn } from "../utils/invest.js";
+import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle } from "../utils/invest.js";
 import { createOrder } from "../payments/gateways.js";
+import { autoApproveDeposit } from "../services/paymentWebhooks.js";
+import { getInvestorDashboard, getWalletHistory } from "../services/investDashboard.js";
+import {
+  listInvestorAgreements,
+  generateAgreement,
+  generateSubscriptionAgreement,
+  signAgreement,
+  AGREEMENT_TYPES,
+} from "../services/agreements.js";
+import {
+  notifyDepositSubmitted,
+  notifyWithdrawalRequested,
+  notifyKycSubmitted,
+} from "../services/investNotifications.js";
+import { initiateWithdrawal, confirmWithdrawal } from "../services/withdrawalOtp.js";
+import { getInvestorMaturityChoices } from "../services/maturityPayments.js";
+import { getReferralStats, ensureReferralCode, creditReferralOnInvestment, getReferralLeaderboard } from "../services/referral.js";
+import { getCertificatePayload } from "../services/investCertificate.js";
+import { getInvestorAchievements } from "../services/achievements.js";
+import { previewEarlyExit, processEarlyExit } from "../services/earlyExit.js";
+import { validatePromoCode, applyPromoCode } from "../services/promoCodes.js";
+import {
+  listNotifications,
+  getUnreadCount,
+  markRead,
+  markAllRead,
+  notifyInvestor,
+} from "../services/notifications.js";
 
 const router = Router();
 const SCOPE = "invest";
@@ -26,18 +54,154 @@ export async function addLedger(investorId, { type, direction, amount, reference
   });
 }
 
+/* -------- dashboard summary -------- */
+router.get(
+  "/dashboard",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    res.json(await getInvestorDashboard(req.user.id, req.query));
+  })
+);
+
+/* -------- referral program -------- */
+router.get(
+  "/referral/stats",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    res.json(await getReferralStats(req.user.id));
+  })
+);
+
+router.get(
+  "/achievements",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    res.json(await getInvestorAchievements(req.user.id));
+  })
+);
+
+router.get(
+  "/referral/leaderboard",
+  authRequired(SCOPE),
+  asyncH(async (_req, res) => {
+    res.json({ leaderboard: await getReferralLeaderboard({ limit: 10 }) });
+  })
+);
+
+/* -------- maturity payout choice (1 day before) -------- */
+router.get(
+  "/maturity-choices",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const subs = await getInvestorMaturityChoices(req.user.id);
+    res.json({ subscriptions: subs });
+  })
+);
+
+router.post(
+  "/maturity/:subId/choice",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const { choice } = req.body; // WALLET | WITHDRAW | REINVEST
+    if (!["WALLET", "WITHDRAW", "REINVEST"].includes(choice)) {
+      return res.status(400).json({ error: "Invalid choice" });
+    }
+    const sub = await investDb.subscription.findFirst({
+      where: { id: req.params.subId, investorId: req.user.id, status: "ACTIVE" },
+    });
+    if (!sub) return res.status(404).json({ error: "Subscription not found" });
+    const updated = await investDb.subscription.update({
+      where: { id: sub.id },
+      data: { maturityAction: choice, maturityActionAt: new Date() },
+    });
+    await investDb.maturityPayout.updateMany({
+      where: { subscriptionId: sub.id },
+      data: { investorChoice: choice },
+    });
+    res.json({ subscription: updated });
+  })
+);
+
+router.get(
+  "/notifications",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const choices = await getInvestorMaturityChoices(req.user.id);
+    res.json({ count: choices.length, maturityChoices: choices.length });
+  })
+);
+
 /* -------- profile / payout details -------- */
 router.put(
   "/profile",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const { name, phone, upiId, bankName, accountNumber, ifsc } = req.body;
+    const { name, phone, upiId, bankName, accountNumber, ifsc, branchName } = req.body;
     const inv = await investDb.investor.update({
       where: { id: req.user.id },
       data: { name, phone, upiId, bankName, accountNumber, ifsc },
     });
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    if (kyc) {
+      await investDb.kyc.update({
+        where: { investorId: req.user.id },
+        data: {
+          upiId: upiId ?? kyc.upiId,
+          bankName: bankName ?? kyc.bankName,
+          bankAccount: accountNumber ?? kyc.bankAccount,
+          ifscCode: ifsc ?? kyc.ifscCode,
+          branchName: branchName ?? kyc.branchName,
+        },
+      });
+    }
     const { passwordHash, resetToken, ...u } = inv;
     res.json({ user: u });
+  })
+);
+
+router.put(
+  "/payout-details",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { upiId, bankName, accountNumber, ifsc, branchName } = req.body;
+    const inv = await investDb.investor.update({
+      where: { id: req.user.id },
+      data: {
+        upiId: upiId ?? undefined,
+        bankName: bankName ?? undefined,
+        accountNumber: accountNumber ?? undefined,
+        ifsc: ifsc ?? undefined,
+      },
+    });
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    if (kyc) {
+      await investDb.kyc.update({
+        where: { investorId: req.user.id },
+        data: {
+          upiId: upiId ?? kyc.upiId,
+          bankName: bankName ?? kyc.bankName,
+          bankAccount: accountNumber ?? kyc.bankAccount,
+          ifscCode: ifsc ?? kyc.ifscCode,
+          branchName: branchName ?? kyc.branchName,
+        },
+      });
+    } else {
+      await investDb.kyc.create({
+        data: {
+          investorId: req.user.id,
+          upiId,
+          bankName,
+          bankAccount: accountNumber,
+          ifscCode: ifsc,
+          branchName,
+          status: "NOT_SUBMITTED",
+        },
+      });
+    }
+    const { passwordHash, resetToken, ...u } = inv;
+    res.json({ user: u, message: "Payout details updated" });
   })
 );
 
@@ -54,27 +218,106 @@ router.get(
 router.post(
   "/kyc",
   authRequired(SCOPE),
-  upload.fields([{ name: "panDocument" }, { name: "aadhaarDocument" }, { name: "photo" }]),
+  upload.fields([
+    { name: "panDocument" },
+    { name: "aadhaarDocument" },
+    { name: "aadhaarFront" },
+    { name: "aadhaarBack" },
+    { name: "photo" },
+    { name: "selfie" },
+    { name: "addressProof" },
+    { name: "signature" },
+    { name: "cancelledCheque" },
+    { name: "passportDocument" },
+  ]),
   asyncH(async (req, res) => {
     const b = req.body;
     const files = req.files || {};
+    const existing = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+
+    const panNumber = b.panNumber ? String(b.panNumber).trim().toUpperCase() : "";
+    const aadhaarNumber = b.aadhaarNumber ? String(b.aadhaarNumber).replace(/\s/g, "") : "";
+
+    if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) {
+      return res.status(400).json({ error: "Invalid PAN format (e.g. ABCDE1234F)" });
+    }
+    if (aadhaarNumber && !/^\d{12}$/.test(aadhaarNumber)) {
+      return res.status(400).json({ error: "Aadhaar must be a 12-digit number" });
+    }
+    if (!b.fullName?.trim()) return res.status(400).json({ error: "Full name is required" });
+    if (!b.address?.trim()) return res.status(400).json({ error: "Address is required" });
+
     const data = {
-      panNumber: b.panNumber,
-      aadhaarNumber: b.aadhaarNumber,
-      fullName: b.fullName,
-      dob: b.dob,
-      address: b.address,
+      fullName: b.fullName?.trim(),
+      dob: b.dob || null,
+      phone: b.phone || null,
+      country: b.country || "India",
+      city: b.city || null,
+      state: b.state || null,
+      address: b.address?.trim(),
+      idType: b.idType || "PAN",
+      idNumber: b.idNumber || panNumber || aadhaarNumber || null,
+      panNumber: panNumber || null,
+      aadhaarNumber: aadhaarNumber || null,
+      bankName: b.bankName || null,
+      bankAccount: b.bankAccount || null,
+      ifscCode: b.ifscCode || null,
+      branchName: b.branchName || null,
+      upiId: b.upiId || null,
+      taxId: b.taxId || null,
       status: "PENDING",
       remarks: null,
     };
-    if (files.panDocument) data.panDocument = fileUrl(files.panDocument[0].filename);
-    if (files.aadhaarDocument) data.aadhaarDocument = fileUrl(files.aadhaarDocument[0].filename);
-    if (files.photo) data.photo = fileUrl(files.photo[0].filename);
+
+    const fileMap = {
+      panDocument: "panDocument",
+      aadhaarDocument: "aadhaarDocument",
+      aadhaarFront: "aadhaarFront",
+      aadhaarBack: "aadhaarBack",
+      photo: "photo",
+      selfie: "selfie",
+      addressProof: "addressProof",
+      signature: "signature",
+      cancelledCheque: "cancelledCheque",
+      passportDocument: "passportDocument",
+    };
+    for (const [field, key] of Object.entries(fileMap)) {
+      if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);
+      else if (existing?.[key]) data[key] = existing[key];
+    }
+
+    const hasPhoto = data.photo;
+    const hasPanDoc = data.panDocument;
+    const hasAadhaarDoc =
+      (data.aadhaarFront && data.aadhaarBack) || data.aadhaarDocument;
+
+    if (!hasPhoto) return res.status(400).json({ error: "Passport size photo is required" });
+    if (!panNumber) return res.status(400).json({ error: "PAN number is required" });
+    if (!hasPanDoc) return res.status(400).json({ error: "PAN card photocopy is required" });
+    if (!aadhaarNumber) return res.status(400).json({ error: "Aadhaar number is required" });
+    if (!hasAadhaarDoc) {
+      return res.status(400).json({ error: "Upload Aadhaar front & back, or a single Aadhaar PDF/image" });
+    }
+
     const kyc = await investDb.kyc.upsert({
       where: { investorId: req.user.id },
       create: { investorId: req.user.id, ...data },
       update: data,
     });
+    if (b.bankName || b.bankAccount || b.ifscCode || b.upiId) {
+      await investDb.investor.update({
+        where: { id: req.user.id },
+        data: {
+          bankName: b.bankName || undefined,
+          accountNumber: b.bankAccount || undefined,
+          ifsc: b.ifscCode || undefined,
+          upiId: b.upiId || undefined,
+          phone: b.phone || undefined,
+        },
+      });
+    }
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    notifyKycSubmitted(investor);
     res.json({ kyc });
   })
 );
@@ -93,8 +336,58 @@ router.get(
   "/ledger",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const entries = await investDb.ledgerEntry.findMany({ where: { investorId: req.user.id }, orderBy: { createdAt: "desc" } });
-    res.json({ ledger: entries });
+    const where = { investorId: req.user.id };
+    if (req.query.type) where.type = String(req.query.type).toUpperCase();
+    const [entries, total, summary] = await Promise.all([
+      investDb.ledgerEntry.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 }),
+      investDb.ledgerEntry.count({ where }),
+      investDb.ledgerEntry.groupBy({
+        by: ["type", "direction"],
+        where: { investorId: req.user.id },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+    res.json({
+      ledger: entries,
+      total,
+      summary: summary.map((s) => ({ type: s.type, direction: s.direction, count: s._count, volume: s._sum.amount || 0 })),
+    });
+  })
+);
+
+router.get(
+  "/wallet/history",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    res.json(await getWalletHistory(req.user.id, req.query));
+  })
+);
+
+/* -------- agreements -------- */
+router.get(
+  "/agreements",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    res.json({ agreements: await listInvestorAgreements(req.user.id), types: AGREEMENT_TYPES });
+  })
+);
+
+router.post(
+  "/agreements/generate",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const agreement = await generateAgreement(req.user.id, req.body.type);
+    res.json({ agreement });
+  })
+);
+
+router.post(
+  "/agreements/:id/sign",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const agreement = await signAgreement(req.user.id, req.params.id, req.body.signatureData);
+    res.json({ agreement });
   })
 );
 
@@ -104,7 +397,17 @@ router.post(
   authRequired(SCOPE),
   upload.single("proofImage"),
   asyncH(async (req, res) => {
-    const { amount, method, reference, planId } = req.body;
+    const { amount, method, reference, planId, promoCode } = req.body;
+    let remarks = null;
+    if (promoCode?.trim()) {
+      const result = await validatePromoCode(promoCode, {
+        amount: Number(amount),
+        appliesTo: "DEPOSIT",
+        investorId: req.user.id,
+      });
+      if (!result.ok) return res.status(400).json({ error: result.error });
+      remarks = `__promo__:${result.promo.code}:${result.bonus}`;
+    }
     const dep = await investDb.deposit.create({
       data: {
         investorId: req.user.id,
@@ -114,20 +417,33 @@ router.post(
         planId: planId || null,
         proofImage: req.file ? fileUrl(req.file.filename) : null,
         status: "PENDING",
+        remarks,
       },
     });
     // For online gateways, also create a payment order to checkout.
     let payment = null;
-    const onlineGateways = ["RAZORPAY", "CASHFREE", "PAYU", "JUSPAY", "EXIMPE", "UPI"];
+    const onlineGateways = ["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "HDFC", "AXIS", "ICICI", "YESBANK", "UPI", "PHONEPE", "PAYPAL"];
     if (onlineGateways.includes(dep.method)) {
       payment = await createOrder(dep.method.toLowerCase(), {
         amount: dep.amount,
-        currency: "INR",
+        currency: dep.method === "PAYPAL" ? "INR" : "INR",
         receipt: "DEP-" + dep.id.slice(-8),
-        customer: { id: req.user.id, email: req.user.email },
+        depositId: dep.id,
+        customer: { id: req.user.id, email: req.user.email, phone: req.user.phone, name: req.user.name },
       });
+      const gatewayRef = payment?.merchantTransactionId || payment?.orderId || payment?.data?.merchantTransactionId;
+      if (gatewayRef) {
+        await investDb.deposit.update({ where: { id: dep.id }, data: { gatewayRef: String(gatewayRef) } });
+        dep.gatewayRef = String(gatewayRef);
+      }
     }
-    res.json({ deposit: dep, payment });
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    notifyDepositSubmitted(investor, dep);
+    if (payment?.mock && onlineGateways.includes(dep.method)) {
+      await autoApproveDeposit(dep.id, payment.orderId || dep.gatewayRef);
+      dep.status = "APPROVED";
+    }
+    res.json({ deposit: dep, payment, autoApproved: dep.status === "APPROVED" && payment?.mock });
   })
 );
 
@@ -162,13 +478,15 @@ router.post(
     if (!kyc || kyc.status !== "APPROVED") {
       return res.status(403).json({ error: "KYC must be approved before investing." });
     }
+    const cycleCheck = validateSettlementCycle(plan, settlementCycle);
+    if (!cycleCheck.ok) return res.status(400).json({ error: cycleCheck.error });
     const start = new Date();
     const sub = await investDb.subscription.create({
       data: {
         investorId: req.user.id,
         planId: plan.id,
         amount: amt,
-        settlementCycle: (settlementCycle || "MONTHLY").toUpperCase(),
+        settlementCycle: cycleCheck.cycle,
         monthlyRoiPct: plan.monthlyRoiPct,
         lockInDays: plan.lockInDays,
         startDate: start,
@@ -179,7 +497,10 @@ router.post(
     // Move funds from available -> invested, record ledger
     await addLedger(req.user.id, { type: "INVESTMENT", direction: "DEBIT", amount: amt, reference: sub.id, note: `Invested in ${plan.name}` });
     await investDb.wallet.update({ where: { investorId: req.user.id }, data: { invested: { increment: amt } } });
-    res.json({ subscription: sub });
+    await creditReferralOnInvestment(req.user.id, amt, sub.id);
+    const agreement = await generateSubscriptionAgreement(req.user.id, sub.id);
+    await notifyInvestor(req.user.id, "Investment confirmed", `You invested ${amt} in ${plan.name}.`, { type: "SUCCESS", link: "investments" });
+    res.json({ subscription: sub, agreement });
   })
 );
 
@@ -203,24 +524,134 @@ router.get(
   })
 );
 
-/* -------- payout / withdrawal request -------- */
+router.get(
+  "/subscriptions/:id",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const sub = await investDb.subscription.findFirst({
+      where: { id: req.params.id, investorId: req.user.id },
+      include: {
+        plan: true,
+        roiPayouts: { orderBy: { createdAt: "desc" }, take: 24 },
+        maturityPayouts: { orderBy: { dueDate: "desc" }, take: 12 },
+        agreements: { orderBy: { createdAt: "desc" }, take: 5 },
+      },
+    });
+    if (!sub) return res.status(404).json({ error: "Investment not found" });
+    const matured = new Date() >= new Date(sub.maturityDate);
+    const projection = matured
+      ? compoundedMaturity(sub.amount, sub.monthlyRoiPct, sub.lockInDays)
+      : simpleMaturity(sub.amount, sub.monthlyRoiPct, sub.lockInDays);
+    const ledger = await investDb.ledgerEntry.findMany({
+      where: { investorId: req.user.id, reference: sub.id },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+    res.json({
+      subscription: {
+        ...sub,
+        matured,
+        monthlyReturn: monthlyReturn(sub.amount, sub.monthlyRoiPct),
+        projection,
+        totalRoiPaid: sub.roiPayouts.reduce((n, p) => n + p.amount, 0),
+      },
+      ledger,
+    });
+  })
+);
+
+router.get(
+  "/subscriptions/:id/early-exit/preview",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const result = await previewEarlyExit(req.params.id, req.user.id);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+
+router.post(
+  "/subscriptions/:id/early-exit",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const result = await processEarlyExit(req.params.id, req.user.id);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    await notifyInvestor(req.user.id, "Early exit processed", result.message, { type: "INFO", link: "money" });
+    res.json(result);
+  })
+);
+
+router.get(
+  "/subscriptions/:id/certificate",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const payload = await getCertificatePayload(req.params.id, req.user.id);
+    if (!payload) return res.status(404).json({ error: "Investment not found" });
+    res.json({ certificate: payload });
+  })
+);
+
+/* -------- payout / withdrawal request (2-step: initiate + confirm with email OTP) -------- */
+router.post(
+  "/payouts/initiate",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const { amount, mode, password, totpCode } = req.body;
+    const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    const destination = mode === "UPI" ? inv.upiId : inv.accountNumber;
+    if (!destination) return res.status(400).json({ error: `Please add your ${mode} payout details first.` });
+    const result = await initiateWithdrawal(inv, { amount, mode, destination, password, totpCode });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json(result);
+  })
+);
+
+router.post(
+  "/payouts/confirm",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const { confirmationToken, emailOtp, amount, mode, destination } = req.body;
+    const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    const confirmed = await confirmWithdrawal(inv, { confirmationToken, emailOtp, amount, mode, destination });
+    if (!confirmed.ok) return res.status(400).json({ error: confirmed.error });
+    const amt = confirmed.amount;
+    const wallet = await getOrCreateWallet(req.user.id);
+    if (wallet.available < amt) return res.status(400).json({ error: "Insufficient available balance" });
+    const dest = confirmed.destination || (mode === "UPI" ? inv.upiId : inv.accountNumber);
+    const payout = await investDb.payout.create({
+      data: { investorId: req.user.id, amount: amt, mode: mode === "UPI" ? "UPI" : "BANK", destination: dest, status: "PENDING" },
+    });
+    await addLedger(req.user.id, { type: "PAYOUT", direction: "DEBIT", amount: amt, reference: payout.id, note: "Withdrawal requested" });
+    notifyWithdrawalRequested(inv, payout);
+    res.json({ payout });
+  })
+);
+
 router.post(
   "/payouts",
   authRequired(SCOPE),
   investorOnly,
   asyncH(async (req, res) => {
-    const { amount, mode } = req.body;
-    const amt = Number(amount);
+    if (!req.body.confirmationToken) {
+      return res.status(400).json({ error: "Use POST /payouts/initiate then POST /payouts/confirm with email OTP" });
+    }
+    const { confirmationToken, emailOtp, amount, mode, destination } = req.body;
+    const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    const confirmed = await confirmWithdrawal(inv, { confirmationToken, emailOtp, amount, mode, destination });
+    if (!confirmed.ok) return res.status(400).json({ error: confirmed.error });
+    const amt = confirmed.amount;
     const wallet = await getOrCreateWallet(req.user.id);
     if (wallet.available < amt) return res.status(400).json({ error: "Insufficient available balance" });
-    const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
-    const destination = mode === "UPI" ? inv.upiId : inv.accountNumber;
-    if (!destination) return res.status(400).json({ error: `Please add your ${mode} payout details first.` });
+    const dest = confirmed.destination || (mode === "UPI" ? inv.upiId : inv.accountNumber);
     const payout = await investDb.payout.create({
-      data: { investorId: req.user.id, amount: amt, mode: mode === "UPI" ? "UPI" : "BANK", destination, status: "PENDING" },
+      data: { investorId: req.user.id, amount: amt, mode: mode === "UPI" ? "UPI" : "BANK", destination: dest, status: "PENDING" },
     });
-    // Hold the funds immediately
     await addLedger(req.user.id, { type: "PAYOUT", direction: "DEBIT", amount: amt, reference: payout.id, note: "Withdrawal requested" });
+    notifyWithdrawalRequested(inv, payout);
     res.json({ payout });
   })
 );
@@ -231,6 +662,124 @@ router.get(
   asyncH(async (req, res) => {
     const payouts = await investDb.payout.findMany({ where: { investorId: req.user.id }, orderBy: { createdAt: "desc" } });
     res.json({ payouts });
+  })
+);
+
+/* -------- support tickets -------- */
+router.get(
+  "/tickets",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const tickets = await investDb.supportTicket.findMany({
+      where: { investorId: req.user.id },
+      include: { replies: { orderBy: { createdAt: "asc" } } },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json({ tickets });
+  })
+);
+
+router.post(
+  "/tickets",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { subject, message, category, priority } = req.body;
+    if (!subject?.trim() || !message?.trim()) return res.status(400).json({ error: "Subject and message required" });
+    const ticket = await investDb.supportTicket.create({
+      data: {
+        investorId: req.user.id,
+        subject: subject.trim(),
+        message: message.trim(),
+        category: category || "GENERAL",
+        priority: priority || "NORMAL",
+      },
+    });
+    res.json({ ticket });
+  })
+);
+
+router.post(
+  "/tickets/:id/reply",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const ticket = await investDb.supportTicket.findFirst({ where: { id: req.params.id, investorId: req.user.id } });
+    if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+    const reply = await investDb.ticketReply.create({
+      data: {
+        ticketId: ticket.id,
+        authorId: req.user.id,
+        authorName: req.user.name,
+        authorRole: "INVESTOR",
+        message: String(req.body.message || "").trim(),
+      },
+    });
+    await investDb.supportTicket.update({ where: { id: ticket.id }, data: { updatedAt: new Date() } });
+    res.json({ reply });
+  })
+);
+
+/* -------- in-app notifications -------- */
+router.get(
+  "/notifications/list",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const notifications = await listNotifications(req.user.id);
+    const unreadCount = await getUnreadCount(req.user.id);
+    res.json({ notifications, unreadCount });
+  })
+);
+
+router.post(
+  "/notifications/:id/read",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    await markRead(req.user.id, req.params.id);
+    res.json({ ok: true });
+  })
+);
+
+router.post(
+  "/notifications/read-all",
+  authRequired(SCOPE),
+  asyncH(async (_req, res) => {
+    await markAllRead(req.user.id);
+    res.json({ ok: true });
+  })
+);
+
+/* -------- promo codes -------- */
+router.post(
+  "/promo/validate",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { code, amount, appliesTo } = req.body;
+    const result = await validatePromoCode(code, {
+      amount: Number(amount),
+      appliesTo: (appliesTo || "DEPOSIT").toUpperCase(),
+      investorId: req.user.id,
+    });
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ promo: result.promo, bonus: result.bonus });
+  })
+);
+
+/* -------- wallet statement CSV -------- */
+router.get(
+  "/wallet/statement.csv",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const entries = await investDb.ledgerEntry.findMany({
+      where: { investorId: req.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    const lines = ["Date,Type,Direction,Amount,Balance After,Note"];
+    for (const e of entries) {
+      lines.push([e.createdAt.toISOString(), e.type, e.direction, e.amount, e.balanceAfter, `"${(e.note || "").replace(/"/g, "'")}"`].join(","));
+    }
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=wallet-statement.csv");
+    res.send(lines.join("\n"));
   })
 );
 
