@@ -63,6 +63,8 @@ function initForm(kyc) {
 
     fullName: kyc?.fullName || "",
 
+    fatherName: kyc?.fatherName || "",
+
     dob: kyc?.dob || "",
 
     phone: kyc?.phone || "",
@@ -478,6 +480,12 @@ export default function KycPanel({ kyc, onRefresh }) {
               <Field label="Full Legal Name">
 
                 <input className="input" required value={form.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="As per PAN / Aadhaar" />
+
+              </Field>
+
+              <Field label="Father's Name">
+
+                <input className="input" value={form.fatherName} onChange={(e) => set("fatherName", e.target.value)} placeholder="As per official ID (for agreements)" />
 
               </Field>
 

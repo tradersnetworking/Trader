@@ -256,6 +256,7 @@ router.post(
 
     const data = {
       fullName: b.fullName?.trim(),
+      fatherName: b.fatherName?.trim() || null,
       dob: b.dob || null,
       phone: b.phone || null,
       country: b.country || "India",

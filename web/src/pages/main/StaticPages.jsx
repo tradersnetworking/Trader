@@ -1,5 +1,22 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "../../components/ui.jsx";
+import { mainApi } from "../../lib/api.js";
+
+const DEFAULT_CONTACT = {
+  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
+  desks: [
+    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
+    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
+    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
+    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
+  ],
+  office: {
+    name: "Akshaya Exim Traders",
+    address: "Mumbai, Maharashtra, India",
+    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
+  },
+};
 
 export function StaticPage({ title, children, showLogo = true }) {
   return (
@@ -93,25 +110,49 @@ export function TermsOfService() {
 }
 
 export function ContactUs() {
+  const [contact, setContact] = useState(DEFAULT_CONTACT);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    mainApi("/public/site-config")
+      .then((d) => {
+        if (d.config?.contact) setContact(d.config.contact);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const desks = contact.desks?.length ? contact.desks : DEFAULT_CONTACT.desks;
+  const office = contact.office || DEFAULT_CONTACT.office;
+
   return (
     <StaticPage title="Contact Us">
-      <p>Reach our trade desk for export, import, bulk quotes and supplier partnerships.</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[
-          ["General Enquiries", "info@akshayaexim.com", "+91 98765 43210"],
-          ["Export Desk", "export@akshayaexim.com", "+91 98765 43211"],
-          ["Import Desk", "import@akshayaexim.com", "+91 98765 43212"],
-          ["Support", "support@akshayaexim.com", "+91 98765 43213"],
-        ].map(([t, e, p]) => (
-          <div key={t} className="card p-4">
-            <h3 className="font-bold text-navy">{t}</h3>
-            <p className="mt-1 text-sm"><a href={`mailto:${e}`} className="text-navy underline">{e}</a></p>
-            <p className="text-sm text-slate-500">{p}</p>
-          </div>
-        ))}
-      </div>
+      <p>{contact.intro || DEFAULT_CONTACT.intro}</p>
+      {loading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="card h-24 animate-pulse bg-muted" />)}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {desks.map((desk) => (
+            <div key={desk.id || desk.title} className="card p-4">
+              <h3 className="font-bold text-navy">{desk.title}</h3>
+              {desk.email && (
+                <p className="mt-1 text-sm">
+                  <a href={`mailto:${desk.email}`} className="text-navy underline">{desk.email}</a>
+                </p>
+              )}
+              {desk.phone && <p className="text-sm text-slate-500">{desk.phone}</p>}
+            </div>
+          ))}
+        </div>
+      )}
       <h2 className="text-xl font-bold text-navy">Office</h2>
-      <p>Akshaya Exim Traders<br />Mumbai, Maharashtra, India<br />Mon–Sat, 9:00 AM – 7:00 PM IST</p>
+      <p>
+        {office.name}
+        {office.address && (<><br />{office.address}</>)}
+        {office.hours && (<><br />{office.hours}</>)}
+      </p>
     </StaticPage>
   );
 }

@@ -19,7 +19,23 @@ export const MAIN_SITE_KEYS = [
   "main_site_name",
   "main_sitemap_last_ping",
   "main_json_ld_description",
+  "main_contact_page",
 ];
+
+const DEFAULT_CONTACT_PAGE = {
+  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
+  desks: [
+    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
+    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
+    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
+    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
+  ],
+  office: {
+    name: "Akshaya Exim Traders",
+    address: "Mumbai, Maharashtra, India",
+    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
+  },
+};
 
 const DEFAULTS = {
   main_google_login_enabled: "false",
@@ -41,6 +57,7 @@ const DEFAULTS = {
   main_sitemap_last_ping: "",
   main_json_ld_description:
     "Global export, import and trade marketplace for agricultural, FMCG, metals, chemicals and industrial products.",
+  main_contact_page: JSON.stringify(DEFAULT_CONTACT_PAGE),
 };
 
 async function getRaw(key) {
@@ -56,17 +73,47 @@ async function getMap(keys = MAIN_SITE_KEYS) {
   return map;
 }
 
+export function parseContactPage(raw) {
+  if (!raw) return JSON.parse(JSON.stringify(DEFAULT_CONTACT_PAGE));
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return {
+      intro: parsed.intro ?? DEFAULT_CONTACT_PAGE.intro,
+      desks: Array.isArray(parsed.desks) && parsed.desks.length
+        ? parsed.desks.map((d, i) => ({
+            id: d.id || DEFAULT_CONTACT_PAGE.desks[i]?.id || `desk-${i}`,
+            title: d.title || "",
+            email: d.email || "",
+            phone: d.phone || "",
+          }))
+        : DEFAULT_CONTACT_PAGE.desks,
+      office: { ...DEFAULT_CONTACT_PAGE.office, ...(parsed.office || {}) },
+    };
+  } catch {
+    return JSON.parse(JSON.stringify(DEFAULT_CONTACT_PAGE));
+  }
+}
+
+export async function getContactPageConfig() {
+  const raw = await getRaw("main_contact_page");
+  return parseContactPage(raw);
+}
+
 export async function getMainSiteSettings() {
-  return getMap(MAIN_SITE_KEYS);
+  const settings = await getMap(MAIN_SITE_KEYS);
+  return settings;
 }
 
 export async function setMainSiteSettings(pairs) {
   for (const [key, value] of Object.entries(pairs)) {
     if (!MAIN_SITE_KEYS.includes(key) || value === undefined) continue;
+    const stored = key === "main_contact_page" && typeof value === "object"
+      ? JSON.stringify(parseContactPage(value))
+      : String(value);
     await investDb.investSetting.upsert({
       where: { key },
-      create: { key, value: String(value) },
-      update: { value: String(value) },
+      create: { key, value: stored },
+      update: { value: stored },
     });
   }
   return getMainSiteSettings();
@@ -108,6 +155,7 @@ export async function getPublicMainSiteConfig() {
       bing: s.main_bing_site_verification || "",
     },
     robotsAllowIndex: s.main_robots_allow_index !== "false",
+    contact: parseContactPage(s.main_contact_page),
   };
 }
 

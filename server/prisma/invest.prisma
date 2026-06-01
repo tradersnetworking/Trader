@@ -160,6 +160,7 @@ model Kyc {
   investorId    String   @unique
   investor      Investor @relation(fields: [investorId], references: [id])
   fullName      String?
+  fatherName    String?
   dob           String?
   phone         String?
   phoneCountryCode String? @default("+91")

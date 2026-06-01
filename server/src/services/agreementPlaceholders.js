@@ -2,6 +2,8 @@ import { investDb } from "../db.js";
 import { simpleMaturity, compoundedMaturity } from "../utils/invest.js";
 import { getSupportEmail } from "./investSettings.js";
 import { documentOnFileLabel } from "./agreementAssetHelper.js";
+import { getAgreementCompanyPlaceholders } from "./agreementCompanySettings.js";
+import { amountToInrWords } from "./agreementNumberWords.js";
 
 function fmtInr(n) {
   const v = Number(n);
@@ -12,6 +14,15 @@ function fmtInr(n) {
 function fmtDate(d) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function agreementDateParts(d = new Date()) {
+  const dt = new Date(d);
+  return {
+    AGREEMENT_DAY: String(dt.getDate()),
+    AGREEMENT_MONTH: dt.toLocaleDateString("en-IN", { month: "long" }),
+    AGREEMENT_YEAR: String(dt.getFullYear()),
+  };
 }
 
 function maskAccount(num) {
@@ -28,14 +39,27 @@ function parseDevice(userAgent) {
   return "Desktop";
 }
 
+function settlementLabel(cycle) {
+  const map = {
+    WEEKLY: "Weekly",
+    MONTHLY: "Monthly",
+    QUARTERLY: "Quarterly",
+    HALF_YEARLY: "Half-Yearly",
+    ANNUALLY: "Annually",
+    ANNUAL: "Annually",
+  };
+  return map[String(cycle || "MONTHLY").toUpperCase()] || cycle || "Monthly";
+}
+
 export async function buildSubscriptionPlaceholders(investorId, subscriptionId) {
-  const [inv, kyc, sub] = await Promise.all([
+  const [inv, kyc, sub, company] = await Promise.all([
     investDb.investor.findUnique({ where: { id: investorId } }),
     investDb.kyc.findUnique({ where: { investorId } }),
     investDb.subscription.findUnique({
       where: { id: subscriptionId },
       include: { plan: true },
     }),
+    getAgreementCompanyPlaceholders(),
   ]);
   if (!inv || !sub) throw new Error("Investor or subscription not found");
 
@@ -46,13 +70,20 @@ export async function buildSubscriptionPlaceholders(investorId, subscriptionId) 
 
   const bankName = kyc?.bankName || inv.bankName || "—";
   const bankAccount = kyc?.bankAccount || inv.accountNumber || "—";
-  const profitShare = sub.plan?.profitSharePct ?? 0;
+  const profitSharePct = sub.plan?.profitSharePct ?? sub.monthlyRoiPct ?? 0;
+  const platformShare = sub.plan?.profitSharePct ?? 0;
+  const lockMonths = Math.round(sub.lockInDays / 30);
+  const lockYears = (sub.lockInDays / 365).toFixed(1).replace(/\.0$/, "");
+  const dateParts = agreementDateParts(new Date());
 
   return {
+    ...company,
+    ...dateParts,
     AGREEMENT_UID: "—",
     DATE: fmtDate(new Date()),
     AGREEMENT_DATE: fmtDate(new Date()),
     INVESTOR_NAME: kyc?.fullName || inv.name || "—",
+    FATHER_NAME: kyc?.fatherName || "—",
     INVESTOR_EMAIL: inv.email || "—",
     INVESTOR_PHONE: kyc?.phone || inv.phone || "—",
     PAN_NUMBER: kyc?.panNumber || kyc?.idNumber || "—",
@@ -66,29 +97,37 @@ export async function buildSubscriptionPlaceholders(investorId, subscriptionId) 
     DOB: kyc?.dob || "—",
     BANK_NAME: bankName,
     BANK_ACCOUNT: bankAccount,
+    BANK_ACCOUNT_NAME: kyc?.fullName || inv.name || "—",
     BANK_ACCOUNT_MASKED: maskAccount(bankAccount),
     IFSC_CODE: kyc?.ifscCode || inv.ifsc || "—",
     BRANCH_NAME: kyc?.branchName || "—",
+    INVESTOR_MICR: "—",
+    INVESTOR_SWIFT: "—",
     UPI_ID: kyc?.upiId || inv.upiId || "—",
     PLAN_NAME: sub.plan?.name || "—",
     PLAN_TYPE: sub.plan?.planType || "—",
     SUBSCRIPTION_ID: sub.id,
     INVESTMENT_AMOUNT: fmtInr(sub.amount),
     INVESTMENT_AMOUNT_RAW: String(sub.amount),
-    LOCK_IN: `${sub.lockInDays} days (${Math.round(sub.lockInDays / 30)} months)`,
+    INVESTMENT_AMOUNT_WORDS: amountToInrWords(sub.amount),
+    LOCK_IN: `${sub.lockInDays} days (${lockMonths} months)`,
     LOCK_IN_DAYS: String(sub.lockInDays),
+    LOCK_IN_MONTHS: String(lockMonths),
+    LOCK_IN_YEARS: lockYears,
     MONTHLY_ROI: `${sub.monthlyRoiPct}%`,
     ROI_RATE: `${sub.monthlyRoiPct}`,
     ANNUAL_ROI: `${sub.plan?.annualRoiPct ?? sub.monthlyRoiPct * 12}%`,
+    PROFIT_SHARE_PCT: String(profitSharePct),
     SETTLEMENT_CYCLE: sub.settlementCycle || "MONTHLY",
+    PROFIT_DISTRIBUTION_CYCLE: settlementLabel(sub.settlementCycle),
     START_DATE: fmtDate(sub.startDate),
     MATURITY_DATE: fmtDate(sub.maturityDate),
     MATURITY_VALUE: fmtInr(proj.maturityValue),
     MONTHLY_RETURN: fmtInr(proj.monthlyReturn),
-    PROFIT_SHARING: String(profitShare),
-    INVESTOR_SHARE: String(Math.max(0, 100 - Number(profitShare || 0))),
+    PROFIT_SHARING: String(platformShare),
+    INVESTOR_SHARE: String(Math.max(0, 100 - Number(platformShare || 0))),
+    WITHDRAWAL_NOTICE_DAYS: company.WITHDRAWAL_NOTICE_DAYS || "30",
     CURRENCY: "INR",
-    COMPANY_NAME: "Akshaya Exim Traders",
     SUPPORT_EMAIL: await getSupportEmail(),
     PORTAL_URL: process.env.INVEST_ORIGIN || "https://invest.akshayaexim.com",
     KYC_STATUS: kyc?.status || "NOT SUBMITTED",
@@ -105,15 +144,20 @@ export async function buildInvestorPlaceholders(investorId) {
     orderBy: { createdAt: "desc" },
   });
   if (sub) return buildSubscriptionPlaceholders(investorId, sub.id);
-  const [inv, kyc] = await Promise.all([
+  const [inv, kyc, company] = await Promise.all([
     investDb.investor.findUnique({ where: { id: investorId } }),
     investDb.kyc.findUnique({ where: { investorId } }),
+    getAgreementCompanyPlaceholders(),
   ]);
+  const dateParts = agreementDateParts(new Date());
   return enrichPlaceholders(
     {
+      ...company,
+      ...dateParts,
       DATE: fmtDate(new Date()),
       AGREEMENT_DATE: fmtDate(new Date()),
       INVESTOR_NAME: kyc?.fullName || inv?.name || "—",
+      FATHER_NAME: kyc?.fatherName || "—",
       INVESTOR_EMAIL: inv?.email || "—",
       INVESTOR_PHONE: kyc?.phone || inv?.phone || "—",
       PAN_NUMBER: kyc?.panNumber || "—",
@@ -124,16 +168,18 @@ export async function buildInvestorPlaceholders(investorId) {
       COUNTRY: kyc?.country || "India",
       BANK_NAME: kyc?.bankName || inv?.bankName || "—",
       BANK_ACCOUNT: kyc?.bankAccount || inv?.accountNumber || "—",
+      BANK_ACCOUNT_NAME: kyc?.fullName || inv?.name || "—",
       BANK_ACCOUNT_MASKED: maskAccount(kyc?.bankAccount || inv?.accountNumber),
       IFSC_CODE: kyc?.ifscCode || inv?.ifsc || "—",
+      BRANCH_NAME: kyc?.branchName || "—",
       UPI_ID: kyc?.upiId || inv?.upiId || "—",
       KYC_STATUS: kyc?.status || "NOT SUBMITTED",
       CURRENCY: "INR",
-      COMPANY_NAME: "Akshaya Exim Traders",
       SUPPORT_EMAIL: await getSupportEmail(),
       PORTAL_URL: process.env.INVEST_ORIGIN || "https://invest.akshayaexim.com",
       PASSPORT_PHOTO_PATH: kyc?.photo || inv?.profilePicture || "",
       AVATAR_PATH: inv?.profilePicture || kyc?.photo || "",
+      WITHDRAWAL_NOTICE_DAYS: company.WITHDRAWAL_NOTICE_DAYS || "30",
     },
     { investorId }
   );
@@ -145,6 +191,7 @@ export function enrichPlaceholders(base, { investorId, ipAddress, userAgent, agr
   return {
     ...base,
     FULL_NAME: base.INVESTOR_NAME || base.FULL_NAME || "—",
+    FATHER_NAME: base.FATHER_NAME || "—",
     EMAIL: base.INVESTOR_EMAIL || base.EMAIL || "—",
     MOBILE: base.INVESTOR_PHONE || base.MOBILE || "—",
     INVESTOR_ID: investorId || base.INVESTOR_ID || "—",

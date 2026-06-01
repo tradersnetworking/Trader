@@ -24,15 +24,34 @@ const FIELDS = [
   { key: "main_sitemap_auto_ping", label: "Ping Google & Bing when saving settings", type: "checkbox" },
 ];
 
+const DEFAULT_CONTACT = {
+  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
+  desks: [
+    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
+    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
+    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
+    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
+  ],
+  office: {
+    name: "Akshaya Exim Traders",
+    address: "Mumbai, Maharashtra, India",
+    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
+  },
+};
+
 export default function MainSiteSettingsPanel() {
   const [form, setForm] = useState({});
+  const [contact, setContact] = useState(DEFAULT_CONTACT);
   const [stats, setStats] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = () => {
-    mainApi("/admin/site-settings").then((d) => setForm(d.settings || {})).catch(() => {});
+    mainApi("/admin/site-settings").then((d) => {
+      setForm(d.settings || {});
+      if (d.contactPage) setContact(d.contactPage);
+    }).catch(() => {});
     mainApi("/admin/site-stats").then((d) => setStats(d)).catch(() => {});
   };
 
@@ -44,7 +63,7 @@ export default function MainSiteSettingsPanel() {
     setMsg("");
     setErr("");
     try {
-      const payload = { ...form };
+      const payload = { ...form, main_contact_page: contact };
       for (const f of FIELDS) {
         if (f.type === "checkbox" && f.key) {
           payload[f.key] = form[f.key] === true || form[f.key] === "true" ? "true" : "false";
@@ -52,6 +71,7 @@ export default function MainSiteSettingsPanel() {
       }
       const d = await mainApi("/admin/site-settings", { method: "PUT", body: payload });
       setForm(d.settings);
+      if (d.contactPage) setContact(d.contactPage);
       setMsg(d.ping ? `Saved. Sitemap pinged — ${d.ping.results?.filter((r) => r.ok).length || 0} search engine(s) notified.` : "Site settings saved.");
       load();
     } catch (e2) {
@@ -73,6 +93,13 @@ export default function MainSiteSettingsPanel() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const updateDesk = (id, key, value) => {
+    setContact((prev) => ({
+      ...prev,
+      desks: prev.desks.map((d) => (d.id === id ? { ...d, [key]: value } : d)),
+    }));
   };
 
   const boolVal = (key) => form[key] === true || form[key] === "true";
@@ -131,6 +158,66 @@ export default function MainSiteSettingsPanel() {
             <p className="mt-2">After saving verification codes, confirm ownership in <a href="https://search.google.com/search-console" target="_blank" rel="noreferrer" className="text-primary underline">Google Search Console</a> and <a href="https://www.bing.com/webmasters" target="_blank" rel="noreferrer" className="text-primary underline">Bing Webmaster Tools</a>.</p>
           </div>
         )}
+      </form>
+
+      <form onSubmit={save} className="card space-y-4 p-5">
+        <div>
+          <h3 className="font-bold">Contact Us page</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Content shown on the public <strong>/contact</strong> page — trade desk emails, phones and office details.
+          </p>
+        </div>
+
+        <Field label="Intro paragraph">
+          <textarea
+            className="input"
+            rows={2}
+            value={contact.intro || ""}
+            onChange={(e) => setContact({ ...contact, intro: e.target.value })}
+          />
+        </Field>
+
+        <h4 className="border-t border-border pt-4 text-sm font-bold text-heading">Trade desks</h4>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(contact.desks || DEFAULT_CONTACT.desks).map((desk) => (
+            <div key={desk.id} className="rounded-lg border border-border p-4 space-y-3">
+              <Field label="Desk name">
+                <input className="input" value={desk.title || ""} onChange={(e) => updateDesk(desk.id, "title", e.target.value)} />
+              </Field>
+              <Field label="Email">
+                <input className="input font-mono text-sm" type="email" value={desk.email || ""} onChange={(e) => updateDesk(desk.id, "email", e.target.value)} />
+              </Field>
+              <Field label="Phone">
+                <input className="input" value={desk.phone || ""} onChange={(e) => updateDesk(desk.id, "phone", e.target.value)} />
+              </Field>
+            </div>
+          ))}
+        </div>
+
+        <h4 className="border-t border-border pt-4 text-sm font-bold text-heading">Office</h4>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Office / company name">
+            <input className="input" value={contact.office?.name || ""} onChange={(e) => setContact({ ...contact, office: { ...contact.office, name: e.target.value } })} />
+          </Field>
+          <Field label="Business hours">
+            <input className="input" value={contact.office?.hours || ""} onChange={(e) => setContact({ ...contact, office: { ...contact.office, hours: e.target.value } })} />
+          </Field>
+        </div>
+        <Field label="Address">
+          <textarea
+            className="input"
+            rows={2}
+            value={contact.office?.address || ""}
+            onChange={(e) => setContact({ ...contact, office: { ...contact.office, address: e.target.value } })}
+          />
+        </Field>
+
+        <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          <button type="submit" disabled={busy} className="btn-gold disabled:opacity-50">{busy ? "Saving…" : "Save contact page"}</button>
+          <button type="button" disabled={busy} onClick={() => setContact(JSON.parse(JSON.stringify(DEFAULT_CONTACT)))} className="btn-outline disabled:opacity-50">
+            Reset to defaults
+          </button>
+        </div>
       </form>
     </div>
   );

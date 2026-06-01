@@ -19,6 +19,7 @@ import {
   getMainSiteSettings,
   setMainSiteSettings,
   getMainSiteAdminStats,
+  getContactPageConfig,
   buildSitemapXml,
   buildRobotsTxt,
   pingSearchEngines,
@@ -813,7 +814,7 @@ router.get(
   authRequired(SCOPE),
   superOnly,
   asyncH(async (_req, res) => {
-    res.json({ settings: await getMainSiteSettings() });
+    res.json({ settings: await getMainSiteSettings(), contactPage: await getContactPageConfig() });
   })
 );
 
@@ -827,7 +828,7 @@ router.put(
     if (settings.main_sitemap_auto_ping === "true") {
       ping = await pingSearchEngines();
     }
-    res.json({ settings, ping });
+    res.json({ settings, contactPage: await getContactPageConfig(), ping });
   })
 );
 

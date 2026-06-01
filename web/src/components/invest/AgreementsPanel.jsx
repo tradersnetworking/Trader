@@ -4,7 +4,24 @@ import { dateStr } from "../../lib/format.js";
 import { Badge, Modal, Alert, Field } from "../ui.jsx";
 import SignaturePad from "./SignaturePad.jsx";
 import AgreementPdfViewDialog from "./AgreementPdfViewDialog.jsx";
-import { fetchAgreementUserSettings, fetchAgreementAdminSettings, saveAgreementAdminSettings, fetchAgreementPdfBlob } from "../../lib/agreements-api.js";
+import { fetchAgreementUserSettings, fetchAgreementAdminSettings, saveAgreementAdminSettings, fetchAgreementCompanySettings, saveAgreementCompanySettings, fetchAgreementPdfBlob } from "../../lib/agreements-api.js";
+
+const COMPANY_FIELDS = [
+  { key: "agreement_company_legal_name", label: "Company / Firm / LLP legal name" },
+  { key: "agreement_company_type", label: "Entity type", hint: "e.g. COMPANY / FIRM / LLP" },
+  { key: "agreement_company_registration_no", label: "Registration number" },
+  { key: "agreement_company_pan", label: "Company PAN" },
+  { key: "agreement_company_registered_office", label: "Registered office", type: "textarea" },
+  { key: "agreement_company_email", label: "Company email" },
+  { key: "agreement_company_website", label: "Website URL" },
+  { key: "agreement_rep_name", label: "Authorized representative name" },
+  { key: "agreement_rep_designation", label: "Representative designation" },
+  { key: "agreement_rep_father_name", label: "Representative father's name (optional)" },
+  { key: "agreement_jurisdiction", label: "Legal jurisdiction" },
+  { key: "agreement_withdrawal_notice_days", label: "Withdrawal notice (days)" },
+  { key: "agreement_company_micr", label: "Company bank MICR (optional)" },
+  { key: "agreement_company_swift", label: "Company bank SWIFT (optional)" },
+];
 
 export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }) {
   const [agreements, setAgreements] = useState([]);
@@ -160,6 +177,10 @@ export function AdminAgreementsPanel({ isSuper }) {
   const [templates, setTemplates] = useState([]);
   const [types, setTypes] = useState([]);
   const [placeholders, setPlaceholders] = useState([]);
+  const [placeholderGroups, setPlaceholderGroups] = useState([]);
+  const [companySettings, setCompanySettings] = useState({});
+  const [companyMsg, setCompanyMsg] = useState("");
+  const [livePreview, setLivePreview] = useState(null);
   const [investors, setInvestors] = useState([]);
   const [edit, setEdit] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -173,7 +194,13 @@ export function AdminAgreementsPanel({ isSuper }) {
   const load = () => {
     investApi("/admin/agreements").then((d) => setAgreements(d.agreements || [])).catch(() => {});
     investApi("/admin/agreement-templates").then((d) => { setTemplates(d.templates || []); setTypes(d.types || []); }).catch(() => {});
-    investApi("/admin/agreement-templates/placeholders").then((d) => setPlaceholders(d.placeholders || [])).catch(() => {});
+    investApi("/admin/agreement-templates/placeholders").then((d) => {
+      setPlaceholders(d.placeholders || []);
+      setPlaceholderGroups(d.groups || []);
+    }).catch(() => {});
+    if (isSuper) {
+      fetchAgreementCompanySettings().then((d) => setCompanySettings(d.settings || {})).catch(() => {});
+    }
     investApi("/admin/investors?take=200").then((d) => setInvestors(d.investors || [])).catch(() => {});
     if (isSuper) fetchAgreementAdminSettings().then((s) => setDownloadEnabled(s.userDownloadEnabled !== false)).catch(() => {});
   };
@@ -188,7 +215,7 @@ export function AdminAgreementsPanel({ isSuper }) {
 
   const copyDefault = async (type) => {
     const d = await investApi(`/admin/agreement-templates/default/${type}`);
-    setEdit({ type, title: d.template.title, content: d.template.content, version: "3.0" });
+    setEdit({ type, title: d.template.title, content: d.template.content, version: "4.0" });
   };
 
   const previewTemplate = async () => {
@@ -223,10 +250,38 @@ export function AdminAgreementsPanel({ isSuper }) {
     );
   };
 
+  const saveCompanySettings = async (e) => {
+    e.preventDefault();
+    try {
+      const d = await saveAgreementCompanySettings(companySettings);
+      setCompanySettings(d.settings);
+      setCompanyMsg("Company details saved — used in all investment agreements.");
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const copyShortcode = (key) => {
+    navigator.clipboard?.writeText(`{{${key}}}`).catch(() => {});
+  };
+
+  const loadLivePreview = async () => {
+    if (!previewInvestorId) return alert("Select an investor to see live values");
+    const r = await investApi("/admin/agreement-templates/preview", {
+      method: "POST",
+      body: { investorId: previewInvestorId, type: "investment" },
+    });
+    setLivePreview(r.filledData || null);
+  };
+
+  const groups = placeholderGroups.length
+    ? placeholderGroups
+    : [...new Set(placeholders.map((p) => p.group))];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        {["generated", "templates", "placeholders"].map((t) => (
+        {["generated", "templates", "placeholders", ...(isSuper ? ["company"] : [])].map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)} className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize ${tab === t ? "bg-amber-500/15 text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>{t}</button>
         ))}
       </div>
@@ -316,22 +371,72 @@ export function AdminAgreementsPanel({ isSuper }) {
       )}
 
       {tab === "placeholders" && (
-        <div className="card max-h-[70vh] overflow-y-auto p-4">
-          <p className="mb-3 text-sm text-muted-foreground">Use these tokens in templates — auto-filled from KYC, profile, and subscription data when agreements are generated.</p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {placeholders.map((p) => (
-              <div key={p.key} className="rounded-lg bg-muted/40 p-2 text-xs">
-                <code className="font-bold text-primary">{`{{${p.key}}}`}</code>
-                <div className="text-muted-foreground">{p.label} · {p.group}</div>
+        <div className="card space-y-4 p-4">
+          <p className="text-sm text-muted-foreground">
+            Kuber-style shortcodes — insert <code className="text-primary">{`{{KEY}}`}</code> in agreement templates. Values auto-fill from KYC, plan, subscription, and company settings when an investor subscribes.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Preview live values for investor">
+              <select className="input" value={previewInvestorId} onChange={(e) => setPreviewInvestorId(e.target.value)}>
+                <option value="">— Select investor —</option>
+                {investors.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </Field>
+            <button type="button" className="btn-outline text-sm" onClick={loadLivePreview}>Load values</button>
+          </div>
+          {groups.map((group) => (
+            <div key={group}>
+              <h4 className="mb-2 text-sm font-bold text-heading">{group}</h4>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {placeholders.filter((p) => p.group === group).map((p) => (
+                  <div key={p.key} className="rounded-lg border border-border bg-muted/30 p-2 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <code className="font-bold text-primary">{`{{${p.key}}}`}</code>
+                      <button type="button" className="shrink-0 text-[10px] font-semibold text-muted-foreground hover:text-primary" onClick={() => copyShortcode(p.key)}>Copy</button>
+                    </div>
+                    <div className="mt-1 text-muted-foreground">{p.label}</div>
+                    {p.example && <div className="mt-0.5 text-[10px] text-muted-foreground">e.g. {p.example}</div>}
+                    {livePreview && livePreview[p.key] != null && (
+                      <div className="mt-1 truncate font-medium text-foreground" title={String(livePreview[p.key])}>
+                        → {String(livePreview[p.key])}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "company" && isSuper && (
+        <form onSubmit={saveCompanySettings} className="card space-y-4 p-4">
+          {companyMsg && <Alert type="success">{companyMsg}</Alert>}
+          <div>
+            <h3 className="font-bold">Company & Fund Manager details</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Used in the Private Investment & Profit Sharing Agreement. Company bank details are taken from your primary deposit bank account (Payment Gateways → Bank).
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {COMPANY_FIELDS.map((f) => (
+              <Field key={f.key} label={f.label}>
+                {f.type === "textarea" ? (
+                  <textarea className="input" rows={2} value={companySettings[f.key] || ""} onChange={(e) => setCompanySettings({ ...companySettings, [f.key]: e.target.value })} />
+                ) : (
+                  <input className="input" value={companySettings[f.key] || ""} onChange={(e) => setCompanySettings({ ...companySettings, [f.key]: e.target.value })} />
+                )}
+                {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
+              </Field>
             ))}
           </div>
-        </div>
+          <button type="submit" className="btn-gold">Save company details</button>
+        </form>
       )}
 
       <Modal open={!!edit} onClose={() => { setEdit(null); setPreview(null); }} title={`Edit: ${edit?.title}`} wide>
         <Field label="Title"><input className="input" value={edit?.title || ""} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></Field>
-        <Field label="Content (markdown with ## sections and {{PLACEHOLDERS}})">
+        <Field label="Content (markdown with ## sections and {{SHORTCODE}} placeholders)">
           <textarea className="input font-mono text-xs" rows={14} value={edit?.content || ""} onChange={(e) => setEdit({ ...edit, content: e.target.value })} />
         </Field>
         <div className="mt-3 flex flex-wrap items-end gap-2">

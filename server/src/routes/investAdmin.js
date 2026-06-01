@@ -97,6 +97,10 @@ import {
   templateContentToMarkdown,
 } from "../services/agreements.js";
 import { getAgreementSettings, updateAgreementSettings } from "../services/agreementSettings.js";
+import {
+  getAgreementCompanySettings,
+  setAgreementCompanySettings,
+} from "../services/agreementCompanySettings.js";
 
 function clientIp(req) {
   const fwd = req.headers["x-forwarded-for"];
@@ -1255,7 +1259,32 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    res.json({ placeholders: AGREEMENT_PLACEHOLDERS });
+    const groups = [...new Set(AGREEMENT_PLACEHOLDERS.map((p) => p.group))];
+    res.json({ placeholders: AGREEMENT_PLACEHOLDERS, groups });
+  })
+);
+
+router.get(
+  "/agreement-company-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json({ settings: await getAgreementCompanySettings() });
+  })
+);
+
+router.put(
+  "/agreement-company-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  superOnly,
+  asyncH(async (req, res) => {
+    try {
+      res.json({ settings: await setAgreementCompanySettings(req.body) });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
   })
 );
 

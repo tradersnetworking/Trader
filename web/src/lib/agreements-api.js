@@ -37,3 +37,13 @@ export async function saveAgreementAdminSettings(body) {
   const { investApi } = await import("./api.js");
   return investApi("/admin/agreement-settings", { method: "PUT", body });
 }
+
+export async function fetchAgreementCompanySettings() {
+  const { investApi } = await import("./api.js");
+  return investApi("/admin/agreement-company-settings");
+}
+
+export async function saveAgreementCompanySettings(body) {
+  const { investApi } = await import("./api.js");
+  return investApi("/admin/agreement-company-settings", { method: "PUT", body });
+}

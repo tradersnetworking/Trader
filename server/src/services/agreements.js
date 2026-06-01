@@ -65,12 +65,12 @@ export async function ensureDefaultTemplates() {
     const markdown = templateContentToMarkdown(def);
     if (!existing) {
       await investDb.agreementTemplate.create({
-        data: { type: t.type, title: def.title, content: markdown, version: "3.0" },
+        data: { type: t.type, title: def.title, content: markdown, version: "4.0" },
       });
-    } else if (existing.version !== "3.0" && Number(existing.version?.replace(/\D/g, "") || 0) < 3) {
+    } else if (existing.version !== "4.0" && Number(existing.version?.replace(/\D/g, "") || 0) < 4) {
       await investDb.agreementTemplate.update({
         where: { type: t.type },
-        data: { title: def.title, content: markdown, version: "3.0" },
+        data: { title: def.title, content: markdown, version: "4.0" },
       });
     }
   }
