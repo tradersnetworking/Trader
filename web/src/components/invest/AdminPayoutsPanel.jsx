@@ -4,6 +4,7 @@ import { investApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import { Badge, Modal, Field, Alert } from "../ui.jsx";
 import PayoutReleaseModal from "./PayoutReleaseModal.jsx";
+import DefaultPayoutSettings from "./DefaultPayoutSettings.jsx";
 
 export default function AdminPayoutsPanel({ onUpdated }) {
   const [sp] = useSearchParams();
@@ -77,6 +78,7 @@ export default function AdminPayoutsPanel({ onUpdated }) {
 
   return (
     <div className="page-stack">
+      <DefaultPayoutSettings />
       <PayoutReleaseModal
         open={Boolean(releaseTarget)}
         payout={releaseTarget}

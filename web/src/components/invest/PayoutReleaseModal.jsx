@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { investApi } from "../../lib/api.js";
 import { Modal, Badge, Alert } from "../ui.jsx";
 import { inr } from "../../lib/format.js";
 
@@ -17,6 +18,25 @@ const GATEWAY_STYLES = {
 export default function PayoutReleaseModal({ open, payout, gateways, onClose, onRelease, busy }) {
   const [selected, setSelected] = useState("");
   const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setSelected("");
+    setErr("");
+    investApi("/admin/settings")
+      .then((d) => {
+        const s = d.settings || {};
+        const preferBank = s.default_payout_prefer_bank === "true";
+        const defaultGw = s.default_payout_gateway || "RAZORPAYX";
+        const bankList = (gateways || []).filter((g) => g.category === "bank" && g.configured);
+        const paymentList = (gateways || []).filter((g) => (g.category === "payment" || !g.category) && g.configured);
+        if (preferBank && bankList.length) setSelected(bankList[0].name);
+        else if (paymentList.some((g) => g.name === defaultGw)) setSelected(defaultGw);
+        else if (paymentList.length) setSelected(paymentList[0].name);
+        else setSelected(defaultGw);
+      })
+      .catch(() => {});
+  }, [open, gateways]);
 
   if (!open || !payout) return null;
 
@@ -82,7 +102,7 @@ export default function PayoutReleaseModal({ open, payout, gateways, onClose, on
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Choose how to send this payout. Funds will be transferred to the investor&apos;s saved {payout.mode === "UPI" ? "UPI ID" : "bank account"}.
+          Choose how to send this payout. Default gateway is pre-selected from admin settings.
         </p>
 
         {err && <Alert type="error">{err}</Alert>}

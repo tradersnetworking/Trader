@@ -4,6 +4,7 @@ import { addLedger } from "../routes/investInvestor.js";
 import { notifyDepositApproved } from "./investNotifications.js";
 import { notifyInvestor } from "./notifications.js";
 import { getSetting } from "./investSettings.js";
+import { autoApproveMainOrder, autoApproveTradePayment, findMainOrderByReceipt, findTradePaymentByReceipt } from "./mainPaymentWebhooks.js";
 
 export async function autoApproveDeposit(depositId, gatewayRef) {
   const dep = await investDb.deposit.findUnique({ where: { id: depositId }, include: { investor: true } });
@@ -50,6 +51,10 @@ export async function handleRazorpayWebhook(payload) {
     if (!receipt) return { ok: false };
     const depId = await findDepositByReceipt(receipt);
     if (depId) return autoApproveDeposit(depId, payment?.id);
+    const orderId = await findMainOrderByReceipt(receipt);
+    if (orderId) return autoApproveMainOrder(orderId, payment?.id);
+    const tradeId = await findTradePaymentByReceipt(receipt);
+    if (tradeId) return autoApproveTradePayment(tradeId, payment?.id);
   }
   return { ok: true, ignored: true };
 }
@@ -101,6 +106,11 @@ export async function handlePhonePeCallback(base64Response) {
   const txnId = json.data?.merchantTransactionId;
   const dep = await investDb.deposit.findFirst({ where: { gatewayRef: txnId, status: "PENDING" } });
   if (dep) return autoApproveDeposit(dep.id, json.data?.transactionId);
+  const { mainDb } = await import("../db.js");
+  const tp = await mainDb.tradePayment.findFirst({ where: { gatewayRef: txnId, status: { in: ["PENDING", "PROCESSING"] } } });
+  if (tp) return autoApproveTradePayment(tp.id, json.data?.transactionId);
+  const order = await mainDb.order.findFirst({ where: { paymentRef: txnId, paymentStatus: { not: "PAID" } } });
+  if (order) return autoApproveMainOrder(order.id, json.data?.transactionId);
   return { ok: true, ignored: true };
 }
 

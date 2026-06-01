@@ -18,7 +18,8 @@ export const AccountSecurityPanel = lazy(() => import("../../components/shared/A
 export const TreasuryPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.TreasuryPanel })));
 export const CohortAnalyticsPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.CohortAnalyticsPanel })));
 export const RbacPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.RbacPanel })));
-export const SupportMailPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.SupportMailPanel })));
+export const SupportMailPanel = lazy(() => import("../../components/invest/AdminMailDeskPanel.jsx"));
+export const NotInvestedInvestorsPanel = lazy(() => import("../../components/invest/NotInvestedInvestorsPanel.jsx"));
 export const PlatformInvestmentsPanel = lazy(() => import("../../components/invest/PlatformInvestmentsPanel.jsx"));
 export const UsersManagementPanel = lazy(() => import("../../components/invest/InvestorOpsPanel.jsx"));
 export const WalletOperationsPanel = lazy(() => import("../../components/invest/AdminOpsPanels.jsx").then((m) => ({ default: m.WalletOperationsPanel })));

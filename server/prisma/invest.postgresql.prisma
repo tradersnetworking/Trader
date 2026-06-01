@@ -14,6 +14,7 @@ model Investor {
   id            String   @id @default(cuid())
   email         String   @unique
   phone         String?
+  phoneCountryCode String? @default("+91")
   passwordHash  String?
   name          String
   // role: SUPERADMIN, ADMIN, INVESTOR
@@ -161,6 +162,7 @@ model Kyc {
   fullName      String?
   dob           String?
   phone         String?
+  phoneCountryCode String? @default("+91")
   country       String?  @default("India")
   city          String?
   state         String?
@@ -202,6 +204,7 @@ model Deposit {
   method      String
   reference   String?
   proofImage  String?
+  paymentAccountId String?
   // status: PENDING, APPROVED, REJECTED
   status      String   @default("PENDING")
   remarks     String?

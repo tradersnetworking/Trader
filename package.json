@@ -14,7 +14,9 @@
     "setup": "npm --workspace server run db:setup",
     "seed": "npm --workspace server run seed",
     "build": "npm --workspace web run build",
+    "smoke:main": "node scripts/smoke-main.mjs",
     "smoke:invest": "node scripts/smoke-invest.mjs",
+    "smoke": "node scripts/smoke-main.mjs && node scripts/smoke-invest.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

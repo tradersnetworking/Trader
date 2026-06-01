@@ -144,6 +144,7 @@ router.post(
         passwordHash: hashPassword(password),
         name,
         phone,
+        phoneCountryCode: phoneCountryCode || "+91",
         role: "INVESTOR",
         emailVerified: true,
         referralCode: generateReferralCode(name),

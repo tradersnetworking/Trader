@@ -5,6 +5,7 @@ import { asyncH, authRequired } from "../middleware.js";
 import { hashPassword, comparePassword, signToken } from "../utils/auth.js";
 import { sendMail } from "../utils/mailer.js";
 import { verifyGoogleIdToken } from "../utils/google.js";
+import { isGoogleLoginEnabled } from "../services/mainSiteSettings.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -19,7 +20,7 @@ function publicUser(u) {
 router.post(
   "/register",
   asyncH(async (req, res) => {
-    const { email, password, name, phone, accountType, companyName, gstNumber } = req.body;
+    const { email, password, name, phone, phoneCountryCode, accountType, companyName, gstNumber } = req.body;
     if (!email || !password || !name) return res.status(400).json({ error: "name, email, password required" });
     const exists = await mainDb.user.findUnique({ where: { email: email.toLowerCase() } });
     if (exists) return res.status(409).json({ error: "Email already registered" });
@@ -29,6 +30,7 @@ router.post(
         passwordHash: hashPassword(password),
         name,
         phone,
+        phoneCountryCode: phoneCountryCode || "+91",
         accountType: accountType === "B2B" ? "B2B" : "B2C",
         companyName,
         gstNumber,
@@ -67,6 +69,9 @@ router.post(
 router.post(
   "/google",
   asyncH(async (req, res) => {
+    if (!(await isGoogleLoginEnabled())) {
+      return res.status(403).json({ error: "Google login is not enabled. Contact administrator." });
+    }
     const profile = await verifyGoogleIdToken(req.body.credential);
     if (!profile) return res.status(401).json({ error: "Invalid Google token" });
     let user = await mainDb.user.findUnique({ where: { email: profile.email.toLowerCase() } });
@@ -74,6 +79,11 @@ router.post(
       user = await mainDb.user.create({
         data: { email: profile.email.toLowerCase(), name: profile.name, googleId: profile.sub, emailVerified: true, role: "USER" },
       });
+    } else {
+      if (!user.isActive) return res.status(403).json({ error: "Account disabled" });
+      if (!user.googleId) {
+        user = await mainDb.user.update({ where: { id: user.id }, data: { googleId: profile.sub, emailVerified: true } });
+      }
     }
     const token = signToken({ id: user.id, role: user.role, email: user.email }, SCOPE);
     res.json({ token, user: publicUser(user) });
@@ -125,10 +135,11 @@ router.put(
   "/profile",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const { name, phone, companyName, gstNumber, accountType, billingAddress } = req.body;
+    const { name, phone, phoneCountryCode, companyName, gstNumber, accountType, billingAddress } = req.body;
     const data = {};
     if (name != null) data.name = name;
     if (phone != null) data.phone = phone;
+    if (phoneCountryCode != null) data.phoneCountryCode = phoneCountryCode;
     if (companyName != null) data.companyName = companyName;
     if (gstNumber != null) data.gstNumber = gstNumber;
     if (billingAddress != null) data.billingAddress = billingAddress;

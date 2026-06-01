@@ -8,6 +8,7 @@ import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../../lib/ui
 import AuthPageLayout from "./AuthPageLayout.jsx";
 import AuthBrandPanel, { AuthMobileBrand } from "./AuthBrandPanel.jsx";
 import SignaturePad from "./SignaturePad.jsx";
+import PhoneInput from "../shared/PhoneInput.jsx";
 import { useI18n } from "../../lib/i18n/context.jsx";
 
 const STEP_KEYS = ["stepVerify", "stepDetails", "stepAgreements"];
@@ -22,6 +23,7 @@ export default function InvestRegisterWizard() {
     password: "",
     name: "",
     phone: "",
+    phoneCountryCode: "+91",
     referralCode: "",
     acceptTerms: false,
     acceptRisk: false,
@@ -182,7 +184,14 @@ export default function InvestRegisterWizard() {
         {step === 1 && (
           <div className="mt-4 space-y-4">
             <Field label="Full Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-            <Field label="Phone"><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91 …" /></Field>
+            <Field label="Phone">
+              <PhoneInput
+                countryCode={form.phoneCountryCode}
+                phone={form.phone}
+                onCountryCodeChange={(v) => setForm({ ...form, phoneCountryCode: v })}
+                onPhoneChange={(v) => setForm({ ...form, phone: v })}
+              />
+            </Field>
             <Field label={t("register.referralOptional")}>
               <input className="input font-mono uppercase" value={form.referralCode} onChange={(e) => setForm({ ...form, referralCode: e.target.value.trim() })} placeholder="AEX-…" />
             </Field>

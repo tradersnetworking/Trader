@@ -8,7 +8,7 @@ import SupportWidget from "./invest/SupportWidget.jsx";
 import CookieConsent from "./invest/CookieConsent.jsx";
 import InvestFooter from "./invest/InvestFooter.jsx";
 import { Logo } from "./ui.jsx";
-import { investHash, investPath, mainUrl } from "../lib/site.js";
+import { investHash, investPath, investUrl, mainUrl } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
 function Shell({ homeTo, brandSub, links, actions }) {
@@ -295,7 +295,7 @@ function MarketplaceFooter() {
           </ul>
           <p className="mt-4 text-xs text-slate-400">
             akshayaexim.com · akshayaexim.in ·{" "}
-            <a href="https://invest.akshayaexim.com" className="hover:text-gold">
+            <a href={investUrl("")} className="hover:text-gold">
               invest.akshayaexim.com
             </a>
           </p>

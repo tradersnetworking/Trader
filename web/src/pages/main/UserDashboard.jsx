@@ -11,6 +11,7 @@ import MainProfilePanel from "../../components/main/MainProfilePanel.jsx";
 import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
 import MainInvoicesPanel from "../../components/main/MainInvoicesPanel.jsx";
 import MainPaymentPanel, { MainMyQuotesPanel, MainMyOrdersPanel } from "../../components/main/MainPaymentPanel.jsx";
+import MainTradeKycPanel from "../../components/main/MainTradeKycPanel.jsx";
 
 const TAB_IDS = MAIN_USER_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -109,6 +110,8 @@ export default function UserDashboard() {
         return <AccountSecurityPanel portal="main" />;
       case "payment":
         return <MainPaymentPanel />;
+      case "trade-kyc":
+        return <MainTradeKycPanel key={refreshKey} />;
       default:
         return (
           <DashboardTabFallback

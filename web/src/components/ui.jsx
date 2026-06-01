@@ -240,6 +240,12 @@ export function Badge({ status }) {
 
   const map = {
 
+    SUPERADMIN: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-300",
+    ADMIN: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300",
+    STAFF: "bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-300",
+    USER: "bg-muted text-muted-foreground",
+    INVESTOR: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300",
+
     PENDING: "bg-primary/15 text-amber-800 dark:text-amber-300",
 
     APPROVED: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",

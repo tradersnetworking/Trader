@@ -11,6 +11,9 @@ import {
 
 export default function CommunicationSettingsPanel() {
   const [config, setConfig] = useState(null);
+  const [commEmail, setCommEmail] = useState("");
+  const [commSaving, setCommSaving] = useState(false);
+  const [commMsg, setCommMsg] = useState("");
   const [purposeMeta, setPurposeMeta] = useState(DEFAULT_EMAIL_PURPOSE_META);
   const [purposes, setPurposes] = useState(DEFAULT_EMAIL_PURPOSES);
   const [summary, setSummary] = useState(null);
@@ -34,6 +37,8 @@ export default function CommunicationSettingsPanel() {
       setPurposes(data.purposes || DEFAULT_EMAIL_PURPOSES);
       setSummary(data.summary);
       setResolvedFrom(data.resolvedFrom || {});
+      const settings = await investApi("/admin/settings");
+      setCommEmail(settings.settings?.default_communication_email || "");
     } catch (e) {
       setConfig(JSON.parse(JSON.stringify(DEFAULT_EMAIL_COMM_CONFIG)));
       setPurposeMeta(DEFAULT_EMAIL_PURPOSE_META);
@@ -45,6 +50,20 @@ export default function CommunicationSettingsPanel() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const saveCommEmail = async () => {
+    setCommSaving(true);
+    setCommMsg("");
+    try {
+      await investApi("/admin/settings", { method: "PUT", body: { default_communication_email: commEmail } });
+      setCommMsg("Default communication email saved.");
+      await load();
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setCommSaving(false);
+    }
+  };
 
   const saveRouting = async () => {
     if (!config) return;
@@ -134,6 +153,16 @@ export default function CommunicationSettingsPanel() {
 
       {loadError && <Alert type="error">{loadError}</Alert>}
       {msg && <Alert type="success">{msg}</Alert>}
+      {commMsg && <Alert type="success">{commMsg}</Alert>}
+
+      <div className="card space-y-3 p-4 sm:p-5">
+        <h3 className="font-bold">Default communication email</h3>
+        <p className="text-sm text-muted-foreground">Primary From address for nurture emails, mail desk, and support replies on invest portal (shared with main domain).</p>
+        <Field label="Email address">
+          <input className="input max-w-md" type="email" value={commEmail} onChange={(e) => setCommEmail(e.target.value)} placeholder="support@akshayaexim.com" />
+        </Field>
+        <button type="button" className="btn-gold text-sm" disabled={commSaving} onClick={saveCommEmail}>{commSaving ? "Saving…" : "Save default email"}</button>
+      </div>
 
       {summary && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

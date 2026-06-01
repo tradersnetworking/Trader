@@ -443,12 +443,40 @@ router.post(
 );
 
 /* -------- deposits (online gateway OR manual bank transfer proof) -------- */
+const MANUAL_DEPOSIT_METHODS = new Set(["UPI", "IMPS", "NEFT", "RTGS", "BANK"]);
+const ONLINE_DEPOSIT_GATEWAYS = new Set([
+  "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE",
+  "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL",
+]);
+
 router.post(
   "/deposits",
   authRequired(SCOPE),
   upload.single("proofImage"),
   asyncH(async (req, res) => {
-    const { amount, method, reference, planId, promoCode } = req.body;
+    const { amount, method, reference, planId, promoCode, paymentAccountId } = req.body;
+    const methodUpper = String(method || "UPI").toUpperCase();
+    const isManual = MANUAL_DEPOSIT_METHODS.has(methodUpper);
+
+    if (isManual) {
+      if (!req.file) {
+        return res.status(400).json({ error: "Payment proof (screenshot or PDF) is required for UPI and bank transfers." });
+      }
+      if (!reference?.trim()) {
+        return res.status(400).json({ error: "UTR / transaction reference is required for manual deposits." });
+      }
+      if (paymentAccountId) {
+        const acct = await investDb.paymentGateway.findFirst({
+          where: { id: paymentAccountId, isEnabled: true },
+        });
+        if (!acct) return res.status(400).json({ error: "Invalid payment account selected." });
+        const expectedType = methodUpper === "UPI" ? "upi" : "bank";
+        if (acct.type !== expectedType) {
+          return res.status(400).json({ error: "Selected account does not match deposit method." });
+        }
+      }
+    }
+
     let remarks = null;
     if (promoCode?.trim()) {
       const result = await validatePromoCode(promoCode, {
@@ -463,23 +491,24 @@ router.post(
       data: {
         investorId: req.user.id,
         amount: Number(amount),
-        method: (method || "UPI").toUpperCase(),
-        reference,
+        method: methodUpper,
+        reference: reference?.trim() || null,
         planId: planId || null,
         proofImage: req.file ? fileUrl(req.file.filename) : null,
+        paymentAccountId: paymentAccountId || null,
         status: "PENDING",
         remarks,
       },
     });
-    // For online gateways, also create a payment order to checkout.
     let payment = null;
-    const onlineGateways = ["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "HDFC", "AXIS", "ICICI", "YESBANK", "UPI", "PHONEPE", "PAYPAL"];
-    if (onlineGateways.includes(dep.method)) {
-      payment = await createOrder(dep.method.toLowerCase(), {
+    if (ONLINE_DEPOSIT_GATEWAYS.has(methodUpper)) {
+      payment = await createOrder(methodUpper.toLowerCase(), {
         amount: dep.amount,
         currency: dep.method === "PAYPAL" ? "INR" : "INR",
         receipt: "DEP-" + dep.id.slice(-8),
         depositId: dep.id,
+        portal: "invest",
+        kind: "deposit",
         customer: { id: req.user.id, email: req.user.email, phone: req.user.phone, name: req.user.name },
       });
       const gatewayRef = payment?.merchantTransactionId || payment?.orderId || payment?.data?.merchantTransactionId;
@@ -490,7 +519,7 @@ router.post(
     }
     const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
     notifyDepositSubmitted(investor, dep);
-    if (payment?.mock && onlineGateways.includes(dep.method)) {
+    if (payment?.mock && ONLINE_DEPOSIT_GATEWAYS.has(methodUpper)) {
       await autoApproveDeposit(dep.id, payment.orderId || dep.gatewayRef);
       dep.status = "APPROVED";
     }

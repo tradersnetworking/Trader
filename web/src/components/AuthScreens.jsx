@@ -5,6 +5,7 @@ import { useAuth } from "../lib/store.jsx";
 import { Field, Alert } from "./ui.jsx";
 import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../lib/ui-system.js";
 import GoogleButton from "./GoogleButton.jsx";
+import PhoneInput from "./shared/PhoneInput.jsx";
 import AuthPageLayout from "./invest/AuthPageLayout.jsx";
 import AuthBrandPanel, { AuthMobileBrand } from "./invest/AuthBrandPanel.jsx";
 import MainAuthBrandPanel, { MainAuthMobileBrand } from "./main/MainAuthBrandPanel.jsx";
@@ -178,7 +179,7 @@ export function LoginScreen({ scope, staff }) {
       {!staff && (
         <>
           <div className={`my-4 flex items-center gap-3 text-xs ${AUTH_MUTED}`}><div className="h-px flex-1 bg-border" />{tx("or", "OR")}<div className="h-px flex-1 bg-border" /></div>
-          <GoogleButton onCredential={onGoogle} />
+          <GoogleButton scope={scope} onCredential={onGoogle} />
           <p className={`mt-4 text-center text-sm ${AUTH_MUTED}`}>{tx("noAccount", "No account?")} <Link to={p.register} className={AUTH_LINK}>{tx("register", "Register")}</Link></p>
           <Link to={p.staff} className="mt-3 block w-full rounded-lg border border-border py-2 text-center text-sm font-semibold text-muted-foreground hover:bg-muted">{tx("staffLoginLink", "Staff / Admin Login →")}</Link>
         </>
@@ -194,7 +195,7 @@ export function RegisterScreen({ scope }) {
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const refFromUrl = sp.get("ref") || "";
-  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", accountType: "B2C", companyName: "", referralCode: refFromUrl });
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", phoneCountryCode: "+91", accountType: "B2C", companyName: "", referralCode: refFromUrl });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -229,7 +230,14 @@ export function RegisterScreen({ scope }) {
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Full Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label="Phone"><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+        <Field label="Phone">
+          <PhoneInput
+            countryCode={form.phoneCountryCode}
+            phone={form.phone}
+            onCountryCodeChange={(v) => setForm({ ...form, phoneCountryCode: v })}
+            onPhoneChange={(v) => setForm({ ...form, phone: v })}
+          />
+        </Field>
         {scope === "main" && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Account Type">

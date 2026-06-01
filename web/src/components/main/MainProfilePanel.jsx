@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { Field, Alert } from "../ui.jsx";
+import PhoneInput from "../shared/PhoneInput.jsx";
 
 export default function MainProfilePanel() {
   const { main, refreshMain } = useAuth();
   const [form, setForm] = useState({
     name: "",
     phone: "",
+    phoneCountryCode: "+91",
     accountType: "B2B",
     companyName: "",
     gstNumber: "",
@@ -22,6 +24,7 @@ export default function MainProfilePanel() {
     setForm({
       name: main.name || "",
       phone: main.phone || "",
+      phoneCountryCode: main.phoneCountryCode || "+91",
       accountType: main.accountType || "B2B",
       companyName: main.companyName || "",
       gstNumber: main.gstNumber || "",
@@ -58,7 +61,12 @@ export default function MainProfilePanel() {
           <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </Field>
         <Field label="Phone">
-          <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <PhoneInput
+            countryCode={form.phoneCountryCode}
+            phone={form.phone}
+            onCountryCodeChange={(v) => setForm({ ...form, phoneCountryCode: v })}
+            onPhoneChange={(v) => setForm({ ...form, phone: v })}
+          />
         </Field>
         <Field label="Account type">
           <select className="input" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}>

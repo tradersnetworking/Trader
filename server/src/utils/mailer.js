@@ -42,7 +42,7 @@ async function resolveMailFrom() {
   }
 }
 
-export async function sendMail({ to, subject, html, text, purpose }) {
+export async function sendMail({ to, subject, html, text, purpose, attachments }) {
   let from;
   if (purpose) {
     try {
@@ -67,5 +67,11 @@ export async function sendMail({ to, subject, html, text, purpose }) {
     return { dev: true };
   }
   if (!from) from = await resolveMailFrom();
-  return transporter.sendMail({ from, to, subject, html, text });
+  if (!from) {
+    try {
+      const { getSetting } = await import("../services/investSettings.js");
+      from = (await getSetting("default_communication_email")) || from;
+    } catch { /* ignore */ }
+  }
+  return transporter.sendMail({ from, to, subject, html, text, attachments });
 }

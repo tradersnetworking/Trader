@@ -69,6 +69,8 @@ export const ADMIN_NAV = [
 
   { id: "investors", label: "Investor Management", icon: "investors", color: "emerald" },
 
+  { id: "not-invested", label: "Not Yet Invested", icon: "investors", color: "amber" },
+
   { id: "plans", label: "Investment Plans", icon: "plans", color: "gold" },
 
   { id: "treasury", label: "Treasury", icon: "wallet", color: "violet" },

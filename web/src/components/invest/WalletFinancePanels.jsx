@@ -16,6 +16,7 @@ import { CredentialRow, CompanyBankDetails } from "./WalletFinancePanels.shared.
 import ShareProfitButton from "./ShareProfitButton.jsx";
 import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/onlineCheckout.js";
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
+import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
 
 const DEPOSIT_METHODS = [
   { value: "upi", label: "UPI", icon: "📱", tone: "upi" },
@@ -96,6 +97,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   const [bank, setBank] = useState(null);
   const [depositAccounts, setDepositAccounts] = useState({ upi: [], bank: [], online: [] });
   const [selectedUpiId, setSelectedUpiId] = useState("");
+  const [selectedBankId, setSelectedBankId] = useState("");
   const [method, setMethod] = useState("upi");
   const [bankMethod, setBankMethod] = useState("IMPS");
   const [gateway, setGateway] = useState("");
@@ -135,7 +137,9 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
     investApi("/public/gateways").then((d) => {
       const list = d.gateways || [];
       setGateways(list);
-      if (list[0]) setGateway(list[0].name.toUpperCase());
+      const defaultGw = String(d.defaultDepositGateway || "RAZORPAY").toUpperCase();
+      const match = list.find((g) => g.name.toUpperCase() === defaultGw);
+      setGateway(match ? defaultGw : list[0]?.name?.toUpperCase() || "RAZORPAY");
     }).catch(() => {});
     capturePayPalReturnIfNeeded(investApi).then(() => load());
   }, []);
@@ -149,6 +153,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   const isGateway = method === "gateway";
   const needsProof = !isGateway;
   const selectedUpi = depositAccounts.upi.find((u) => u.id === selectedUpiId) || depositAccounts.upi[0];
+  const selectedBank = depositAccounts.bank.find((b) => b.id === selectedBankId) || depositAccounts.bank[0];
   const upi = selectedUpi
     ? { vpa: selectedUpi.upiId, payeeName: selectedUpi.accountHolder || bank?.upi?.payeeName, qrCodeUrl: selectedUpi.qrCodeUrl }
     : bank?.upi;
@@ -180,13 +185,27 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
     setErr("");
     setMsg("");
     if (needsProof && !file) {
-      setErr("Please upload payment proof (screenshot or PDF).");
+      setErr("Please upload payment proof (screenshot or PDF). Required for UPI and bank transfers.");
+      return;
+    }
+    if (needsProof && !reference.trim()) {
+      setErr("Please enter UTR / transaction reference.");
+      return;
+    }
+    if (method === "upi" && !selectedUpi) {
+      setErr("No company UPI account available. Contact support.");
+      return;
+    }
+    if (method === "bank" && !selectedBank) {
+      setErr("No company bank account available. Contact support.");
       return;
     }
     const fd = new FormData();
     fd.append("amount", amount);
     fd.append("method", resolveMethod());
     fd.append("reference", reference);
+    if (method === "upi" && selectedUpi?.id) fd.append("paymentAccountId", selectedUpi.id);
+    if (method === "bank" && selectedBank?.id) fd.append("paymentAccountId", selectedBank.id);
     if (promoCode.trim()) fd.append("promoCode", promoCode.trim());
     if (file) fd.append("proofImage", file);
     try {
@@ -338,21 +357,27 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 placeholder="Choose gateway"
               />
             )}
+            {method === "gateway" && gateway && (
+              <p className="text-xs text-muted-foreground">
+                Default gateway pre-selected by admin — change above if you prefer another.
+              </p>
+            )}
 
             {method === "upi" && upi?.vpa && (
               <div className="space-y-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
                 <FinanceFieldLabel tone="upi">Company UPI account</FinanceFieldLabel>
-                {depositAccounts.upi.length > 1 && (
+                {depositAccounts.upi.length > 0 && (
                   <MethodSelect
                     tone="upi"
-                    label="Select UPI account"
-                    value={selectedUpiId}
+                    label="Select UPI account to pay"
+                    value={selectedUpiId || depositAccounts.upi[0]?.id}
                     onChange={setSelectedUpiId}
                     options={depositAccounts.upi.map((u) => ({ value: u.id, label: `${u.name} (${u.upiId})` }))}
                   />
                 )}
                 <CredentialRow label="UPI ID" value={upi.vpa} />
                 {upi.payeeName && <CredentialRow label="Payee name" value={upi.payeeName} mono={false} />}
+                <UpiQrDisplay vpa={upi.vpa} payeeName={upi.payeeName} amount={amount} storedQrUrl={upi.qrCodeUrl} className="py-2" />
                 {upiPayLink && (
                   <a
                     href={upiPayLink}
@@ -370,15 +395,15 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
             {method === "bank" && selectedBank && (
               <div className="space-y-3 rounded-xl border border-blue-500/25 bg-blue-500/5 p-4">
                 <FinanceFieldLabel tone="bank">Company bank account</FinanceFieldLabel>
-                {depositAccounts.bank.length > 1 && (
+                {depositAccounts.bank.length > 0 && (
                   <MethodSelect
                     tone="bank"
-                    label="Select bank"
-                    value={selectedBankId}
+                    label="Select bank account to transfer to"
+                    value={selectedBankId || depositAccounts.bank[0]?.id}
                     onChange={setSelectedBankId}
                     options={depositAccounts.bank.map((b) => ({
                       value: b.id,
-                      label: `${b.name} (${b.bankName})`,
+                      label: `${b.name} (${b.bankName} · ${b.accountNumber?.slice(-4) ? `****${b.accountNumber.slice(-4)}` : b.accountNumber})`,
                     }))}
                   />
                 )}
@@ -430,14 +455,15 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   {promoBonus != null && <p className="mt-1 text-xs text-emerald-600">Bonus on approval: {inr(promoBonus)}</p>}
                 </Field>
 
-                <Field label="UTR / Reference" hint="UPI transaction ID or bank UTR number">
-                  <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. UTR1234567890" />
+                <Field label="UTR / Reference" hint="UPI transaction ID or bank UTR number — required">
+                  <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. UTR1234567890" required />
                 </Field>
 
-                <Field label="Payment proof" hint="Screenshot or PDF — required">
+                <Field label="Payment proof" hint="Screenshot or PDF — required for verification">
                   <input
                     type="file"
                     accept="image/*,.pdf"
+                    required
                     className="block w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-primary/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                   />

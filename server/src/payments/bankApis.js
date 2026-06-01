@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { nanoid } from "nanoid";
 import { config } from "../config.js";
 import { getSetting } from "../services/investSettings.js";
+import { payReturnPair } from "../utils/paymentUrls.js";
 
 /** HDFC, Axis, ICICI & Yes Bank — deposit collection + payout disbursement via corporate banking APIs. */
 export const BANK_PROVIDERS = ["hdfc", "axis", "icici", "yesbank"];
@@ -92,15 +93,22 @@ async function bankApiFetch(url, creds, body) {
 }
 
 /** Deposit collection — virtual account, payment link, or hosted redirect. */
-export async function createBankDepositOrder(provider, { amount, currency, receipt, customer }) {
+export async function createBankDepositOrder(provider, payload) {
+  const { amount, currency, receipt, customer, depositId, portal, kind, orderId, tradePaymentId } = payload;
   const name = (provider || "hdfc").toLowerCase();
   const creds = await resolveBankCreds(name);
   const hasCreds = Object.values(creds).some((v) => v && String(v).length > 0);
   if (!hasCreds) return mockDeposit(name, amount, currency, receipt);
 
   const txnId = receipt || `BNK-${nanoid(12)}`;
-  const base = (config.investPortalUrl || `${config.clientOrigin}/invest`).replace(/\/$/, "");
-  const returnUrl = `${base}/dashboard?tab=money&moneyTab=deposit&status=success&bank=${name}`;
+  const returnUrl = payReturnPair({
+    portal: portal || "invest",
+    kind: kind || "deposit",
+    depositId,
+    orderId,
+    tradePaymentId,
+    status: "success",
+  }).success;
 
   if (name === "hdfc") {
     const vaNumber = `${creds.corporateId || "HDFC"}${String(amount).replace(".", "")}${txnId.slice(-6)}`.slice(0, 16);

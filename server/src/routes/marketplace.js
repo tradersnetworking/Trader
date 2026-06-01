@@ -14,6 +14,15 @@ import {
   importMainData,
   MAIN_DATASETS,
 } from "../services/dataPortability.js";
+import {
+  getPublicMainSiteConfig,
+  getMainSiteSettings,
+  setMainSiteSettings,
+  getMainSiteAdminStats,
+  buildSitemapXml,
+  buildRobotsTxt,
+  pingSearchEngines,
+} from "../services/mainSiteSettings.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -31,6 +40,29 @@ router.get("/meta", (_req, res) => {
     shippingTerms: ["FOB", "CIF", "EXW", "CFR", "CPT"],
   });
 });
+
+router.get(
+  "/public/site-config",
+  asyncH(async (_req, res) => {
+    res.json({ config: await getPublicMainSiteConfig() });
+  })
+);
+
+router.get(
+  "/public/sitemap.xml",
+  asyncH(async (_req, res) => {
+    res.setHeader("Content-Type", "application/xml");
+    res.send(await buildSitemapXml());
+  })
+);
+
+router.get(
+  "/public/robots.txt",
+  asyncH(async (_req, res) => {
+    res.setHeader("Content-Type", "text/plain");
+    res.send(await buildRobotsTxt());
+  })
+);
 
 /* ---------------- Categories ---------------- */
 router.get(
@@ -259,8 +291,43 @@ router.post(
       amount: total,
       currency: "INR",
       receipt: order.orderNumber,
-      customer: { id: req.user.id, email: req.user.email },
+      orderId: order.id,
+      portal: "main",
+      kind: "order",
+      productinfo: "Product order",
+      customer: { id: req.user.id, email: req.user.email, phone: req.user.phone, name: req.user.name },
     });
+    const gatewayRef = payment?.merchantTransactionId || payment?.orderId;
+    if (gatewayRef) {
+      await mainDb.order.update({ where: { id: order.id }, data: { paymentRef: String(gatewayRef) } });
+      order.paymentRef = String(gatewayRef);
+    }
+    res.json({ order, payment });
+  })
+);
+
+router.post(
+  "/orders/:id/pay",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const order = await mainDb.order.findFirst({ where: { id: req.params.id, userId: req.user.id } });
+    if (!order) return res.status(404).json({ error: "Order not found" });
+    if (order.paymentStatus === "PAID") return res.status(400).json({ error: "Already paid" });
+    const gateway = req.body.gateway || order.paymentGateway || "razorpay";
+    const payment = await createOrder(gateway, {
+      amount: order.totalAmount,
+      currency: order.currency || "INR",
+      receipt: order.orderNumber,
+      orderId: order.id,
+      portal: "main",
+      kind: "order",
+      productinfo: "Product order",
+      customer: { id: req.user.id, email: req.user.email, phone: req.user.phone, name: req.user.name },
+    });
+    const gatewayRef = payment?.merchantTransactionId || payment?.orderId;
+    if (gatewayRef) {
+      await mainDb.order.update({ where: { id: order.id }, data: { paymentGateway: gateway.toUpperCase(), paymentRef: String(gatewayRef) } });
+    }
     res.json({ order, payment });
   })
 );
@@ -654,6 +721,48 @@ router.put(
 );
 
 router.get(
+  "/admin/site-settings",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    res.json({ settings: await getMainSiteSettings() });
+  })
+);
+
+router.put(
+  "/admin/site-settings",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const settings = await setMainSiteSettings(req.body);
+    let ping = null;
+    if (settings.main_sitemap_auto_ping === "true") {
+      ping = await pingSearchEngines();
+    }
+    res.json({ settings, ping });
+  })
+);
+
+router.post(
+  "/admin/site-settings/ping-sitemap",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    const ping = await pingSearchEngines();
+    res.json({ ok: true, ping });
+  })
+);
+
+router.get(
+  "/admin/site-stats",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    res.json(await getMainSiteAdminStats());
+  })
+);
+
+router.get(
   "/admin/export/datasets",
   authRequired(SCOPE),
   isAdmin,
@@ -685,6 +794,124 @@ router.post(
   asyncH(async (req, res) => {
     const result = await importMainData(req.body, { actorId: req.user.id });
     res.json(result);
+  })
+);
+
+/* ---------------- Trade KYC (buyers & suppliers) ---------------- */
+router.get(
+  "/trade-kyc/mine",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { getTradeKyc } = await import("../services/tradeOps.js");
+    res.json({ kyc: await getTradeKyc(req.user.id) });
+  })
+);
+
+router.post(
+  "/trade-kyc",
+  authRequired(SCOPE),
+  upload.fields([
+    { name: "photo", maxCount: 1 },
+    { name: "panDocument", maxCount: 1 },
+    { name: "aadhaarFront", maxCount: 1 },
+    { name: "aadhaarBack", maxCount: 1 },
+    { name: "passportDocument", maxCount: 1 },
+    { name: "companyRegDoc", maxCount: 1 },
+    { name: "addressProof", maxCount: 1 },
+    { name: "bankProof", maxCount: 1 },
+    { name: "cancelledCheque", maxCount: 1 },
+  ]),
+  asyncH(async (req, res) => {
+    const { upsertTradeKyc } = await import("../services/tradeOps.js");
+    const body = { ...req.body };
+    for (const [field, files] of Object.entries(req.files || {})) {
+      if (files?.[0]) body[field] = fileUrl(files[0].filename);
+    }
+    const kyc = await upsertTradeKyc(req.user.id, body);
+    if (body.phoneCountryCode || body.phone) {
+      await mainDb.user.update({
+        where: { id: req.user.id },
+        data: { phone: body.phone || undefined, phoneCountryCode: body.phoneCountryCode || undefined },
+      });
+    }
+    res.json({ kyc });
+  })
+);
+
+router.get(
+  "/admin/trade-kyc",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const where = req.query.status ? { status: String(req.query.status) } : {};
+    const kyc = await mainDb.tradeKyc.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" } });
+    res.json({ kyc });
+  })
+);
+
+router.post(
+  "/admin/trade-kyc/:id/decision",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { decideTradeKyc } = await import("../services/tradeOps.js");
+    const { status, remarks } = req.body;
+    res.json({ kyc: await decideTradeKyc(req.params.id, status, remarks) });
+  })
+);
+
+/* ---------------- Trade payments (collect / disburse) ---------------- */
+router.get(
+  "/admin/trade-payments",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const where = req.query.direction ? { direction: String(req.query.direction) } : {};
+    const payments = await mainDb.tradePayment.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" } });
+    res.json({ payments });
+  })
+);
+
+router.post(
+  "/admin/trade-payments",
+  authRequired(SCOPE),
+  superOnly,
+  upload.single("proofImage"),
+  asyncH(async (req, res) => {
+    const { createTradePayment } = await import("../services/tradeOps.js");
+    const direction = req.body.direction || "COLLECT";
+    const isManual = ["UPI", "IMPS", "NEFT", "RTGS", "BANK"].includes(String(req.body.method || "").toUpperCase());
+    if (isManual && !req.file) return res.status(400).json({ error: "Payment proof required for manual transfer." });
+    res.json(await createTradePayment({
+      ...req.body,
+      proofImage: req.file ? fileUrl(req.file.filename) : null,
+    }));
+  })
+);
+
+router.post(
+  "/admin/trade-payments/:id/status",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { updateTradePaymentStatus } = await import("../services/tradeOps.js");
+    res.json({ payment: await updateTradePaymentStatus(req.params.id, req.body.status, req.body.remarks) });
+  })
+);
+
+router.get(
+  "/payments/routing-info",
+  asyncH(async (_req, res) => {
+    const { paymentOrigin, webhookPath } = await import("../utils/paymentUrls.js");
+    res.json({
+      paymentOrigin: paymentOrigin(),
+      webhooks: {
+        razorpay: `${paymentOrigin()}${webhookPath("razorpay")}`,
+        phonepe: `${paymentOrigin()}${webhookPath("phonepe/callback")}`,
+        paypalCapture: `${paymentOrigin()}/api/payments/webhooks/paypal/capture`,
+      },
+      note: "Register these URLs in gateway dashboards on the main domain only.",
+    });
   })
 );
 

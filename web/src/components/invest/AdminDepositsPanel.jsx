@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
-import { inr } from "../../lib/format.js";
+import { inr, dateStr } from "../../lib/format.js";
 import { Badge } from "../ui.jsx";
 import { providerLabel } from "../../lib/payment-providers.js";
+import DepositProofViewer from "../shared/DepositProofViewer.jsx";
+
+function accountShort(acct) {
+  if (!acct) return "—";
+  if (acct.type === "upi") return acct.upiId;
+  return `${acct.bankName} · ${acct.accountNumber?.slice(-4) ? `****${acct.accountNumber.slice(-4)}` : acct.accountNumber}`;
+}
 
 export default function AdminDepositsPanel({ onUpdated }) {
   const [deposits, setDeposits] = useState([]);
   const [filter, setFilter] = useState("");
+  const [review, setReview] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const load = () =>
     investApi("/admin/deposits")
@@ -22,19 +31,48 @@ export default function AdminDepositsPanel({ onUpdated }) {
   const pendingCount = deposits.filter((d) => d.status === "PENDING").length;
 
   const decide = async (id, action) => {
-    await investApi(`/admin/deposits/${id}/${action}`, { method: "POST", body: {} });
-    load();
+    setBusy(true);
+    try {
+      await investApi(`/admin/deposits/${id}/${action}`, { method: "POST", body: {} });
+      setReview(null);
+      load();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const methodLabel = (d) => {
     if (!d.method) return "—";
     const m = String(d.method).toUpperCase();
-    if (m === "GATEWAY" && d.gateway) return providerLabel(d.gateway);
+    if (["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL"].includes(m)) {
+      return providerLabel(m.toLowerCase()) || m;
+    }
     return m;
   };
 
+  const isManual = (d) => ["UPI", "IMPS", "NEFT", "RTGS", "BANK"].includes(String(d.method).toUpperCase());
+
   return (
     <div className="space-y-4">
+      <DepositProofViewer
+        open={Boolean(review)}
+        deposit={review}
+        busy={busy}
+        onClose={() => setReview(null)}
+        onApprove={(id) => decide(id, "approve")}
+        onReject={(id) => {
+          const reason = window.prompt("Rejection reason (optional):") || "";
+          investApi(`/admin/deposits/${id}/reject`, { method: "POST", body: { remarks: reason } }).then(() => {
+            setReview(null);
+            load();
+          });
+        }}
+      />
+
+      <p className="text-sm text-muted-foreground">
+        Manual UPI and bank deposits require proof — review screenshot/PDF before approving. Online gateway deposits auto-credit when payment succeeds.
+      </p>
+
       <div className="flex flex-wrap items-center gap-2">
         {[["", "All"], ["PENDING", "Pending"], ["APPROVED", "Approved"], ["REJECTED", "Rejected"]].map(([v, l]) => (
           <button
@@ -55,6 +93,7 @@ export default function AdminDepositsPanel({ onUpdated }) {
               <th className="p-3">Investor</th>
               <th className="p-3">Amount</th>
               <th className="p-3">Method</th>
+              <th className="p-3">Company account</th>
               <th className="p-3">Ref</th>
               <th className="p-3">Proof</th>
               <th className="p-3">Status</th>
@@ -67,20 +106,33 @@ export default function AdminDepositsPanel({ onUpdated }) {
                 <td className="p-3">
                   {d.investor?.name}
                   <div className="text-xs text-muted-foreground">{d.investor?.email}</div>
+                  <div className="text-[10px] text-muted-foreground">{dateStr(d.createdAt, true)}</div>
                 </td>
                 <td className="p-3 font-bold text-heading">{inr(d.amount)}</td>
                 <td className="p-3">{methodLabel(d)}</td>
+                <td className="p-3 text-xs">{accountShort(d.paymentAccount)}</td>
                 <td className="p-3 text-xs font-mono">{d.reference || "—"}</td>
                 <td className="p-3">
                   {d.proofImage ? (
-                    <a href={d.proofImage} target="_blank" rel="noreferrer" className="text-accent-tone underline">View</a>
+                    <button type="button" className="text-xs font-semibold text-accent-tone underline" onClick={() => setReview(d)}>
+                      View proof
+                    </button>
+                  ) : isManual(d) ? (
+                    <span className="text-xs text-rose-500">Missing</span>
                   ) : "—"}
                 </td>
                 <td className="p-3"><Badge status={d.status} /></td>
-                <td className="p-3 text-right">
+                <td className="p-3 text-right whitespace-nowrap">
                   {d.status === "PENDING" && (
                     <>
-                      <button onClick={() => decide(d.id, "approve")} className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Approve</button>
+                      {d.proofImage && (
+                        <button type="button" onClick={() => setReview(d)} className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          Review
+                        </button>
+                      )}
+                      <button onClick={() => decide(d.id, "approve")} className="ml-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400" disabled={isManual(d) && !d.proofImage}>
+                        Approve
+                      </button>
                       <button onClick={() => decide(d.id, "reject")} className="ml-2 text-xs text-red-500">Reject</button>
                     </>
                   )}
@@ -88,7 +140,7 @@ export default function AdminDepositsPanel({ onUpdated }) {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan="7" className="p-6 text-center text-muted-foreground">No deposits.</td></tr>
+              <tr><td colSpan="8" className="p-6 text-center text-muted-foreground">No deposits.</td></tr>
             )}
           </tbody>
         </table>

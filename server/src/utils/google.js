@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { getEffectiveGoogleClientId } from "../services/mainSiteSettings.js";
 
 // Verifies a Google ID token (credential from Google Identity Services) using
 // Google's tokeninfo endpoint. Returns { email, name, sub } or null.
@@ -10,7 +11,8 @@ export async function verifyGoogleIdToken(credential) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    if (config.googleClientId && data.aud !== config.googleClientId) return null;
+    const clientId = (await getEffectiveGoogleClientId()) || config.googleClientId;
+    if (clientId && data.aud !== clientId) return null;
     if (!data.email) return null;
     return { email: data.email, name: data.name || data.email.split("@")[0], sub: data.sub };
   } catch {

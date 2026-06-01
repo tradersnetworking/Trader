@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { getToken, investApi } from "../../lib/api.js";
 
 import { Badge, Field, Alert } from "../ui.jsx";
+import PhoneInput from "../shared/PhoneInput.jsx";
 
 import {
 
@@ -65,6 +66,8 @@ function initForm(kyc) {
     dob: kyc?.dob || "",
 
     phone: kyc?.phone || "",
+
+    phoneCountryCode: kyc?.phoneCountryCode || "+91",
 
     country: kyc?.country || "India",
 
@@ -482,7 +485,13 @@ export default function KycPanel({ kyc, onRefresh }) {
 
                 <Field label="Phone Number">
 
-                  <input className="input" required value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+91 9876543210" />
+                  <PhoneInput
+                    countryCode={form.phoneCountryCode}
+                    phone={form.phone}
+                    onCountryCodeChange={(v) => set("phoneCountryCode", v)}
+                    onPhoneChange={(v) => set("phone", v)}
+                    required
+                  />
 
                 </Field>
 

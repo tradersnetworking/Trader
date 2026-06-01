@@ -88,14 +88,20 @@ export async function handleGatewayCheckout(payment, deposit) {
     }
   }
 
-  if (payment?.keyId && payment?.orderId && window.Razorpay) {
+  if (payment?.keyId && payment?.orderId) {
+    try {
+      await loadScript("https://checkout.razorpay.com/v1/checkout.js", "Razorpay");
+    } catch {
+      return false;
+    }
+    if (!window.Razorpay) return false;
     const rzp = new window.Razorpay({
       key: payment.keyId,
       amount: Math.round(Number(deposit?.amount || payment.amount) * 100),
       currency: payment.currency || "INR",
       order_id: payment.orderId,
-      name: "Akshaya Invest",
-      description: "Wallet deposit",
+      name: payment.merchantName || "Akshaya Exim Traders",
+      description: payment.description || "Payment",
     });
     rzp.open();
     return true;
@@ -112,7 +118,7 @@ export async function capturePayPalReturnIfNeeded(investApi) {
   const accessToken = sessionStorage.getItem("paypal_access_token");
   if (!accessToken) return;
   try {
-    await fetch("/api/invest/webhooks/paypal/capture", {
+    await fetch("/api/payments/webhooks/paypal/capture", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("aex_invest_token") || ""}` },
       body: JSON.stringify({ orderId: token, accessToken }),

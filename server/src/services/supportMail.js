@@ -58,10 +58,33 @@ export async function listMailMessages() {
   return investDb.supportMailMessage.findMany({ orderBy: { receivedAt: "desc" }, take: 100 });
 }
 
-export async function replySupportMail(id, { to, subject, body }) {
+export async function replySupportMail(id, { to, subject, body, attachments }) {
   const msg = await investDb.supportMailMessage.findUnique({ where: { id } });
   if (!msg) throw new Error("Message not found");
-  await sendMail({ to: to || msg.fromEmail, subject: subject || `Re: ${msg.subject}`, html: body });
+  await sendMail({
+    to: to || msg.fromEmail,
+    subject: subject || `Re: ${msg.subject}`,
+    html: body,
+    purpose: "support",
+    attachments,
+  });
   await investDb.supportMailMessage.update({ where: { id }, data: { status: "REPLIED" } });
+  return { ok: true };
+}
+
+export async function composeSupportMail({ to, subject, body, attachments }) {
+  if (!to || !subject || !body) throw new Error("To, subject and body are required");
+  await sendMail({ to, subject, html: body, purpose: "support", attachments });
+  await investDb.supportMailMessage.create({
+    data: {
+      messageId: `outbound-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      fromEmail: (await getSetting("default_communication_email")) || (await getSetting("support_email")) || "support@akshayaexim.com",
+      subject,
+      body: body.slice(0, 8000),
+      category: "OUTBOUND",
+      status: "SENT",
+      receivedAt: new Date(),
+    },
+  });
   return { ok: true };
 }

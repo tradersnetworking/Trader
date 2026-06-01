@@ -9,6 +9,9 @@ import { BANK_API_PROVIDERS, providerLabel } from "../../lib/payment-providers.j
 import { Alert, Badge, Field, Modal } from "../ui.jsx";
 
 import PaymentGatewaysPanel from "../PaymentGatewaysPanel.jsx";
+import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import DefaultDepositGatewaySettings from "./DefaultDepositGatewaySettings.jsx";
+import PaymentRoutingBanner from "../shared/PaymentRoutingBanner.jsx";
 
 
 
@@ -178,7 +181,7 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
       <Alert type="info">
 
-        Configure deposit & withdrawal payment accounts (UPI, bank, online gateways). Super Admin can add, edit and enable/disable accounts.
+        Configure deposit & withdrawal payment accounts. Add multiple UPI IDs and bank accounts — investors choose from a dropdown when depositing. Super Admin can add, edit and enable/disable accounts.
 
         Investors see enabled accounts on the deposit page.
 
@@ -220,17 +223,25 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
         editable ? (
 
-          <PaymentGatewaysPanel
+          <>
 
-            fetchGateways={() => investApi("/admin/gateways")}
+            <DefaultDepositGatewaySettings />
 
-            editable
+            <PaymentRoutingBanner />
 
-            saveSettings={(body) => investApi("/admin/settings", { method: "PUT", body })}
+            <PaymentGatewaysPanel
 
-            loadSettings={() => investApi("/admin/settings")}
+              fetchGateways={() => investApi("/admin/gateways")}
 
-          />
+              editable
+
+              saveSettings={(body) => investApi("/admin/settings", { method: "PUT", body })}
+
+              loadSettings={() => investApi("/admin/settings")}
+
+            />
+
+          </>
 
         ) : (
 
@@ -282,7 +293,12 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">
 
-                  {g.type === "upi" && g.upiId && <div>UPI: <span className="font-mono text-foreground">{g.upiId}</span></div>}
+                  {g.type === "upi" && g.upiId && (
+                    <>
+                      <div>UPI: <span className="font-mono text-foreground">{g.upiId}</span></div>
+                      <UpiQrDisplay vpa={g.upiId} payeeName={g.accountHolder} storedQrUrl={g.qrCodeUrl} className="mt-2" />
+                    </>
+                  )}
 
                   {g.type === "bank" && (
 
@@ -350,7 +366,8 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
               <Field label="Account Holder Name"><input className="input" value={form.accountHolder} onChange={(e) => setForm({ ...form, accountHolder: e.target.value })} /></Field>
 
-              <Field label="QR Code URL (optional)"><input className="input" value={form.qrCodeUrl} onChange={(e) => setForm({ ...form, qrCodeUrl: e.target.value })} /></Field>
+              <Field label="QR Code URL (optional — auto-generated if blank)"><input className="input" value={form.qrCodeUrl} onChange={(e) => setForm({ ...form, qrCodeUrl: e.target.value })} placeholder="Leave blank to auto-generate from UPI ID" /></Field>
+              {form.upiId && <UpiQrDisplay vpa={form.upiId} payeeName={form.accountHolder} storedQrUrl={form.qrCodeUrl || undefined} className="py-2" />}
 
             </>
 

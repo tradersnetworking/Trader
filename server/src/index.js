@@ -19,9 +19,17 @@ import investWebhooks from "./routes/investWebhooks.js";
 import { geoBlockMiddleware } from "./middleware/geoBlock.js";
 import { startBackgroundJobs } from "./jobs/backgroundJobs.js";
 import { ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
+import { buildSitemapXml, buildRobotsTxt, buildInvestRobotsTxt } from "./services/mainSiteSettings.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+function hostKind(req) {
+  const h = (req.hostname || req.headers.host || "").toLowerCase().split(":")[0];
+  if (h.startsWith("invest.")) return "invest";
+  if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return "local";
+  return "main";
+}
 
 app.set("trust proxy", 1);
 
@@ -32,6 +40,32 @@ app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "akshaya-exim", time: new Date().toISOString() }));
+
+app.get("/sitemap.xml", async (req, res, next) => {
+  try {
+    if (hostKind(req) === "invest") {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      return res.status(404).type("text/plain").send("Not found");
+    }
+    res.setHeader("Content-Type", "application/xml");
+    res.send(await buildSitemapXml());
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get("/robots.txt", async (req, res, next) => {
+  try {
+    res.setHeader("Content-Type", "text/plain");
+    if (hostKind(req) === "invest") {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      return res.send(buildInvestRobotsTxt());
+    }
+    res.send(await buildRobotsTxt());
+  } catch (e) {
+    next(e);
+  }
+});
 
 // MAIN DOMAIN (akshayaexim.com / .in) - marketplace
 app.use("/api/main/auth", mainAuth);
@@ -44,19 +78,22 @@ app.use("/api/invest", investInvestor);
 app.use("/api/invest/admin", investAdmin);
 app.use("/api/invest/security", investSecurity);
 app.use("/api/invest/webhooks", investWebhooks);
+app.use("/api/payments/webhooks", investWebhooks);
 
 // Serve built frontend in production
 const webDist = path.join(__dirname, "..", "..", "web", "dist");
 
-function hostKind(req) {
-  const h = (req.hostname || req.headers.host || "").toLowerCase().split(":")[0];
-  if (h.startsWith("invest.")) return "invest";
-  if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return "local";
-  return "main";
-}
-
 if (fs.existsSync(webDist)) {
-  app.use(express.static(webDist));
+  app.use(
+    express.static(webDist, {
+      maxAge: config.env === "production" ? "7d" : 0,
+      setHeaders(res, filePath) {
+        if (/[/\\]assets[/\\].*\.[a-f0-9]{8,}\.(js|css|woff2?|png|jpg|webp|svg)$/i.test(filePath)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      },
+    })
+  );
 
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
@@ -87,6 +124,10 @@ if (fs.existsSync(webDist)) {
         const proto = req.protocol || "https";
         return res.redirect(301, `${proto}://${baseHost}${req.path}`);
       }
+    }
+
+    if (kind === "invest" && !isLocal) {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
     }
 
     res.sendFile(path.join(webDist, "index.html"));

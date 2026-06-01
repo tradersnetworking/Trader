@@ -40,7 +40,13 @@ router.get(
 
 router.get("/bank-details", asyncH(async (_req, res) => res.json(await getPrimaryBankDetails())));
 router.get("/deposit-accounts", asyncH(async (_req, res) => res.json({ accounts: await getDepositAccountsForInvestor() })));
-router.get("/gateways", asyncH(async (_req, res) => res.json({ gateways: await listGateways() })));
+router.get("/gateways", asyncH(async (_req, res) => {
+  const { getSetting } = await import("../services/investSettings.js");
+  res.json({
+    gateways: await listGateways(),
+    defaultDepositGateway: (await getSetting("default_deposit_gateway")) || "RAZORPAY",
+  });
+}));
 
 router.get(
   "/maintenance",

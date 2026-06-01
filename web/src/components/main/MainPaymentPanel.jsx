@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { mainApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge, Copyable } from "../ui.jsx";
+import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import { handleGatewayCheckout } from "../../lib/onlineCheckout.js";
 
 export default function MainPaymentPanel() {
   const [bank, setBank] = useState(null);
@@ -29,6 +31,9 @@ export default function MainPaymentPanel() {
       <div className="card min-w-0 overflow-hidden p-5">
         <h3 className="mb-3 font-bold">UPI & online gateways</h3>
         <Copyable label="UPI ID" value={bank.upi.vpa} />
+        {bank.upi?.vpa && (
+          <UpiQrDisplay vpa={bank.upi.vpa} payeeName={bank.upi.payeeName || bank.bank?.accountName} className="mt-4" />
+        )}
         <p className="mt-3 text-sm text-muted-foreground">
           Supported gateways: Razorpay, EximPe, Juspay, Cashfree, PayU, UPI. Cards: Visa, Mastercard, RuPay.
         </p>
@@ -98,6 +103,19 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
     }
   };
 
+  const payOrder = async (orderId) => {
+    setBusy(orderId);
+    try {
+      const d = await mainApi(`/orders/${orderId}/pay`, { method: "POST", body: { gateway: "razorpay" } });
+      if (d.payment) await handleGatewayCheckout(d.payment, { amount: d.order?.totalAmount, id: d.order?.id });
+      await load();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="overflow-x-auto card">
       <table className="w-full text-sm">
@@ -119,7 +137,12 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
               <td className="p-3">{o.paymentGateway || "—"}</td>
               <td className="p-3"><Badge status={o.status} /></td>
               <td className="p-3 text-muted-foreground">{dateStr(o.createdAt)}</td>
-              <td className="p-3 text-right">
+              <td className="p-3 text-right whitespace-nowrap">
+                {o.paymentStatus !== "PAID" && (
+                  <button type="button" className="mr-2 text-xs font-semibold text-emerald-600" disabled={busy === o.id} onClick={() => payOrder(o.id)}>
+                    {busy === o.id ? "…" : "Pay online"}
+                  </button>
+                )}
                 <button type="button" className="text-xs font-semibold text-primary" disabled={busy === o.id} onClick={() => genInvoice(o.id)}>
                   {busy === o.id ? "…" : "Generate invoice"}
                 </button>

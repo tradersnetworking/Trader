@@ -5,6 +5,8 @@ export const config = {
   port: Number(process.env.PORT || 4000),
   env: process.env.NODE_ENV || "development",
   clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  /** All gateway return URLs & webhook registrations use main domain */
+  paymentOrigin: process.env.PAYMENT_ORIGIN || process.env.CLIENT_ORIGIN || "http://localhost:5173",
   investPortalUrl: process.env.INVEST_PORTAL_URL || `${process.env.CLIENT_ORIGIN || "http://localhost:5173"}/invest`,
   investOrigin: process.env.INVEST_ORIGIN || process.env.CLIENT_ORIGIN || "http://localhost:5173",
   maturityReminderDays: Number(process.env.MATURITY_REMINDER_DAYS || 7),

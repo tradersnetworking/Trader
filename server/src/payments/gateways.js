@@ -3,20 +3,19 @@ import { config } from "../config.js";
 import { nanoid } from "nanoid";
 import { getSetting } from "../services/investSettings.js";
 import { BANK_PROVIDERS, createBankDepositOrder, isBankConfigured } from "./bankApis.js";
+import { payReturnPair } from "../utils/paymentUrls.js";
+
+function returnContext(payload = {}) {
+  const ctx = { portal: payload.portal || "invest", kind: payload.kind || "deposit" };
+  if (payload.depositId) ctx.depositId = payload.depositId;
+  if (payload.orderId) ctx.orderId = payload.orderId;
+  if (payload.tradePaymentId) ctx.tradePaymentId = payload.tradePaymentId;
+  return ctx;
+}
 
 function sha512(str) {
   return crypto.createHash("sha512").update(str).digest("hex");
 }
-
-function depositReturnUrls() {
-  const base = (config.investPortalUrl || `${config.clientOrigin}/invest`).replace(/\/$/, "");
-  return {
-    success: `${base}/dashboard?tab=money&moneyTab=deposit&status=success`,
-    failure: `${base}/dashboard?tab=money&moneyTab=deposit&status=failed`,
-  };
-}
-
-const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
 
 const SETTING_KEYS = {
   razorpay: { keyId: "gateway_razorpay_key_id", keySecret: "gateway_razorpay_key_secret" },
@@ -84,6 +83,8 @@ function mockOrder(gateway, amount, currency, receipt) {
   };
 }
 
+const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
+
 const adapters = {
   async razorpay({ amount, currency, receipt }) {
     const creds = await resolveCreds("razorpay");
@@ -133,12 +134,12 @@ const adapters = {
     };
   },
 
-  async payu({ amount, currency, receipt, customer }) {
+  async payu({ amount, currency, receipt, customer, ...rest }) {
     const creds = await resolveCreds("payu");
     if (!creds.key || !creds.salt) return mockOrder("payu", amount, currency, receipt);
-    const urls = depositReturnUrls();
+    const urls = payReturnPair(returnContext(rest));
     const txnid = receipt;
-    const productinfo = "Wallet deposit";
+    const productinfo = rest.productinfo || "Akshaya Exim payment";
     const firstname = (customer?.name || "Investor").split(" ")[0] || "Investor";
     const email = customer?.email || "investor@akshayaexim.com";
     const phone = customer?.phone || "9999999999";
@@ -164,12 +165,12 @@ const adapters = {
     };
   },
 
-  async easebuzz({ amount, currency, receipt, customer }) {
+  async easebuzz({ amount, currency, receipt, customer, ...rest }) {
     const creds = await resolveCreds("easebuzz");
     if (!creds.key || !creds.salt) return mockOrder("easebuzz", amount, currency, receipt);
-    const urls = depositReturnUrls();
+    const urls = payReturnPair(returnContext(rest));
     const txnid = receipt;
-    const productinfo = "Wallet deposit";
+    const productinfo = rest.productinfo || "Akshaya Exim payment";
     const firstname = (customer?.name || "Investor").split(" ")[0] || "Investor";
     const email = customer?.email || "investor@akshayaexim.com";
     const phone = customer?.phone || "9999999999";
@@ -228,14 +229,14 @@ const adapters = {
     return { gateway: "upi", orderId: receipt, amount, currency, intentUrl: url, vpa: config.upi.vpa, payeeName: config.upi.payeeName };
   },
 
-  async phonepe({ amount, currency, receipt, depositId, customer }) {
+  async phonepe({ amount, currency, receipt, depositId, customer, ...rest }) {
     const { createPhonePeOrder } = await import("../services/paymentWebhooks.js");
+    const { payReturnUrl } = await import("../utils/paymentUrls.js");
     const txnId = `PP${(depositId || receipt || "").slice(-12)}${Date.now().toString(36)}`;
-    const origin = config.investOrigin || config.clientOrigin;
     return createPhonePeOrder({
       amount,
       merchantTransactionId: txnId,
-      redirectUrl: `${origin}${origin.includes("5173") ? "/invest" : ""}/dashboard?tab=money&moneyTab=deposit&status=phonepe`,
+      redirectUrl: payReturnUrl({ ...returnContext({ depositId, ...rest }), status: "phonepe" }),
     });
   },
 

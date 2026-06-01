@@ -500,7 +500,17 @@ router.get(
   asyncH(async (req, res) => {
     const where = req.query.status ? { status: String(req.query.status) } : {};
     const deposits = await investDb.deposit.findMany({ where, include: { investor: true }, orderBy: { createdAt: "desc" } });
-    res.json({ deposits });
+    const accountIds = [...new Set(deposits.map((d) => d.paymentAccountId).filter(Boolean))];
+    const accounts = accountIds.length
+      ? await investDb.paymentGateway.findMany({ where: { id: { in: accountIds } } })
+      : [];
+    const acctMap = Object.fromEntries(accounts.map((a) => [a.id, a]));
+    res.json({
+      deposits: deposits.map((d) => ({
+        ...d,
+        paymentAccount: d.paymentAccountId ? acctMap[d.paymentAccountId] || null : null,
+      })),
+    });
   })
 );
 
@@ -513,6 +523,10 @@ router.post(
     const dep = await investDb.deposit.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!dep) return res.status(404).json({ error: "Not found" });
     if (dep.status === "APPROVED") return res.status(400).json({ error: "Already approved" });
+    const manual = ["UPI", "IMPS", "NEFT", "RTGS", "BANK"].includes(String(dep.method).toUpperCase());
+    if (manual && !dep.proofImage) {
+      return res.status(400).json({ error: "Cannot approve manual deposit without payment proof." });
+    }
     await investDb.deposit.update({ where: { id: dep.id }, data: { status: "APPROVED", remarks: req.body.remarks || dep.remarks } });
     await addLedger(dep.investorId, { type: "DEPOSIT", direction: "CREDIT", amount: dep.amount, reference: dep.id, note: `Deposit via ${dep.method} approved` });
     if (dep.remarks?.startsWith("__promo__:")) {
@@ -643,7 +657,9 @@ router.post(
     const payout = await investDb.payout.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!payout) return res.status(404).json({ error: "Not found" });
     if (payout.status === "SUCCESS") return res.status(400).json({ error: "Already paid" });
-    await investDb.payout.update({ where: { id: payout.id }, data: { status: "PROCESSING", gateway: gateway || "RAZORPAYX" } });
+    const { getSetting } = await import("../services/investSettings.js");
+    const defaultGw = (await getSetting("default_payout_gateway")) || "RAZORPAYX";
+    await investDb.payout.update({ where: { id: payout.id }, data: { status: "PROCESSING", gateway: gateway || defaultGw } });
     const bankAccount =
       payout.mode === "BANK" && payout.investor
         ? {
@@ -1490,6 +1506,69 @@ router.post(
   asyncH(async (req, res) => {
     const { replySupportMail } = await import("../services/supportMail.js");
     res.json(await replySupportMail(req.params.id, req.body));
+  })
+);
+
+router.post(
+  "/support-mail/compose",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("support_tickets"),
+  (req, res, next) => {
+    import("../utils/upload.js").then(({ upload }) => upload.array("attachments", 5)(req, res, next));
+  },
+  asyncH(async (req, res) => {
+    const { composeSupportMail } = await import("../services/supportMail.js");
+    const attachments = (req.files || []).map((f) => ({
+      filename: f.originalname,
+      path: f.path,
+    }));
+    const { to, subject, body } = req.body;
+    res.json(await composeSupportMail({ to, subject, body, attachments }));
+  })
+);
+
+router.get(
+  "/investors/not-invested",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (_req, res) => {
+    const { listNotInvestedInvestors } = await import("../services/investorNurture.js");
+    res.json({ investors: await listNotInvestedInvestors() });
+  })
+);
+
+router.post(
+  "/investors/not-invested/email",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendNotInvestedEmail } = await import("../services/investorNurture.js");
+    res.json(await sendNotInvestedEmail({ ...req.body, actor: req.user }));
+  })
+);
+
+router.get(
+  "/payouts/pending-today",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("approve_withdrawals"),
+  asyncH(async (_req, res) => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    const payouts = await investDb.payout.findMany({
+      where: {
+        status: { in: ["PENDING", "SCHEDULED"] },
+        createdAt: { gte: start, lte: end },
+      },
+      include: { investor: true },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ payouts });
   })
 );
 

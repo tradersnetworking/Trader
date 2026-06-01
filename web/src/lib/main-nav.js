@@ -12,6 +12,7 @@ export const MAIN_USER_NAV = [
   { id: "profile", label: "Company Profile", icon: "profile", color: "amber" },
   { id: "account", label: "Account Security", icon: "kyc", color: "slate" },
   { id: "payment", label: "Pay & Bank Details", icon: "wallet", color: "slate" },
+  { id: "trade-kyc", label: "Trade KYC", icon: "kyc", color: "violet" },
 ];
 
 export const MAIN_ADMIN_NAV = [
@@ -25,14 +26,18 @@ export const MAIN_ADMIN_NAV = [
   { section: "Users & Payments" },
   { id: "users", label: "Users", icon: "kyc", color: "amber" },
   { id: "gateways", label: "Payment Gateways", icon: "deposit", color: "slate" },
+  { id: "trade-kyc", label: "Trade KYC Review", icon: "kyc", color: "violet" },
+  { id: "trade-payments", label: "Trade Payments", icon: "wallet", color: "emerald", superOnly: true },
   { section: "Data & Account" },
   { id: "backup", label: "Backup & Export", icon: "ledger", color: "slate" },
 ];
 
 export function getMainAdminNav(isSuper) {
-  const items = [...MAIN_ADMIN_NAV];
+  const items = MAIN_ADMIN_NAV.filter((item) => !item.superOnly || isSuper);
   if (isSuper) {
     items.push({ section: "Super Admin" });
+    items.push({ id: "site-settings", label: "Site & SEO", icon: "settings", color: "violet" });
+    items.push({ id: "communication", label: "Email & Communication", icon: "support", color: "cyan" });
     items.push({ id: "staff", label: "Staff & Roles", icon: "profile", color: "cyan" });
   }
   items.push({ id: "account", label: "Account Security", icon: "profile", color: "amber" });

@@ -21,6 +21,10 @@ const DEFAULTS = {
   smtp_user: config.smtp.user,
   smtp_pass: "", // never return pass to client
   smtp_secure: String(config.smtp.secure),
+  default_communication_email: "",
+  default_payout_gateway: "RAZORPAYX",
+  default_payout_prefer_bank: "false",
+  default_deposit_gateway: "RAZORPAY",
 };
 
 export async function getSetting(key) {
@@ -55,5 +59,7 @@ export async function getSupportEmail() {
 }
 
 export async function getMailFrom() {
+  const custom = await getSetting("default_communication_email");
+  if (custom) return custom.includes("<") ? custom : `Akshaya Exim <${custom}>`;
   return (await getSetting("mail_from")) || DEFAULTS.mail_from;
 }

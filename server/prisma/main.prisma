@@ -14,6 +14,7 @@ model User {
   id            String   @id @default(cuid())
   email         String   @unique
   phone         String?
+  phoneCountryCode String? @default("+91")
   passwordHash  String?
   name          String
   // role: SUPERADMIN, ADMIN, STAFF, USER (buyer/seller)
@@ -35,6 +36,8 @@ model User {
   quotes        Quote[]
   orders        Order[]
   invoices      Invoice[]
+  tradeKyc      TradeKyc?
+  tradePayments TradePayment[]
 }
 
 model Category {
@@ -151,4 +154,74 @@ model Setting {
   id    String @id @default(cuid())
   key   String @unique
   value String
+}
+
+// KYC for marketplace buyers (purchasers) and suppliers — India vs international fields
+model TradeKyc {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  partnerType     String   @default("BUYER") // BUYER, SUPPLIER, BOTH
+  country         String   @default("IN")
+  phoneCountryCode String? @default("+91")
+  status          String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  fullName        String?
+  companyName     String?
+  phone           String?
+  email           String?
+  address         String?
+  city            String?
+  state           String?
+  postalCode      String?
+  // India
+  panNumber       String?
+  aadhaarNumber   String?
+  gstNumber       String?
+  // International
+  passportNumber  String?
+  taxId           String?
+  companyRegNo    String?
+  // Banking
+  bankName        String?
+  bankAccount     String?
+  ifscCode        String?
+  swiftCode       String?
+  // Documents (upload URLs)
+  photo           String?
+  panDocument     String?
+  aadhaarFront    String?
+  aadhaarBack     String?
+  passportDocument String?
+  companyRegDoc   String?
+  addressProof    String?
+  bankProof       String?
+  cancelledCheque String?
+  remarks         String?
+  verifiedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Collect from purchasers / pay suppliers — routed via main-domain gateways
+model TradePayment {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
+  orderId      String?
+  direction    String   // COLLECT (from buyer), DISBURSE (to supplier)
+  amount       Float
+  currency     String   @default("INR")
+  method       String   // UPI, BANK, RAZORPAY, etc.
+  gateway      String?
+  gatewayRef   String?
+  reference    String?
+  proofImage   String?
+  partyName    String?
+  partyEmail   String?
+  partyPhone   String?
+  partyPhoneCountryCode String?
+  status       String   @default("PENDING") // PENDING, PAID, REJECTED, PROCESSING
+  remarks      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

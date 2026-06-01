@@ -12,6 +12,10 @@ import { DashboardTabFallback } from "../../components/invest/DashboardTabFallba
 import { getMainAdminNav, mainNavLabel, MAIN_ADMIN_MOBILE_PRIMARY } from "../../lib/main-nav.js";
 import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
 import DataPortabilityPanel from "../../components/shared/DataPortabilityPanel.jsx";
+import MainSiteSettingsPanel from "../../components/main/MainSiteSettingsPanel.jsx";
+import MainCommunicationPanel from "../../components/main/MainCommunicationPanel.jsx";
+import MainTradeKycAdminPanel from "../../components/main/MainTradeKycAdminPanel.jsx";
+import MainTradePaymentsPanel from "../../components/main/MainTradePaymentsPanel.jsx";
 
 export default function AdminDashboard() {
   const { main, logoutMain } = useAuth();
@@ -45,7 +49,7 @@ export default function AdminDashboard() {
       onRefresh={handleRefresh}
       refreshing={refreshing}
     >
-      {tab === "overview" && <Overview key={refreshKey} />}
+      {tab === "overview" && <Overview isSuper={isSuper} key={refreshKey} />}
       {tab === "products" && <ProductsAdmin key={refreshKey} />}
       {tab === "categories" && <CategoriesAdmin key={refreshKey} />}
       {tab === "quotes" && <QuotesAdmin key={refreshKey} />}
@@ -62,6 +66,10 @@ export default function AdminDashboard() {
         />
       )}
       {tab === "staff" && isSuper && <StaffAdmin key={refreshKey} />}
+      {tab === "site-settings" && isSuper && <MainSiteSettingsPanel key={refreshKey} />}
+      {tab === "communication" && isSuper && <MainCommunicationPanel key={refreshKey} />}
+      {tab === "trade-kyc" && <MainTradeKycAdminPanel key={refreshKey} />}
+      {tab === "trade-payments" && isSuper && <MainTradePaymentsPanel key={refreshKey} />}
       {tab === "backup" && (
         <DataPortabilityPanel portal="main" canImport={isSuper} key={refreshKey} />
       )}
@@ -73,18 +81,77 @@ export default function AdminDashboard() {
   );
 }
 
-function Overview() {
+function Overview({ isSuper }) {
   const [s, setS] = useState(null);
-  useEffect(() => { mainApi("/admin/stats").then((d) => setS(d.stats)).catch(() => {}); }, []);
+  const [site, setSite] = useState(null);
+  useEffect(() => {
+    mainApi("/admin/stats").then((d) => setS(d.stats)).catch(() => {});
+    if (isSuper) mainApi("/admin/site-stats").then(setSite).catch(() => {});
+  }, [isSuper]);
   if (!s) return <p className="text-muted-foreground">Loading…</p>;
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-      <Stat label="Users" value={s.users} accent="blue" />
-      <Stat label="Products" value={s.products} accent="emerald" />
-      <Stat label="Quotes" value={s.quotes} accent="violet" />
-      <Stat label="Open RFQs" value={s.openQuotes} accent="gold" />
-      <Stat label="Orders" value={s.orders} accent="cyan" />
-      <Stat label="Invoices" value={s.invoices ?? 0} accent="indigo" />
+    <div className="page-stack">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Users" value={s.users} accent="blue" />
+        <Stat label="Products" value={s.products} accent="emerald" />
+        <Stat label="Quotes" value={s.quotes} accent="violet" />
+        <Stat label="Open RFQs" value={s.openQuotes} accent="gold" />
+        <Stat label="Orders" value={s.orders} accent="cyan" />
+        <Stat label="Invoices" value={s.invoices ?? 0} accent="indigo" />
+      </div>
+
+      {isSuper && site && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat label="New users (30d)" value={site.marketplace?.newUsers30d ?? 0} accent="blue" />
+            <Stat label="New RFQs (30d)" value={site.marketplace?.newQuotes30d ?? 0} accent="cyan" />
+            <Stat label="Google login" value={site.integrations?.googleLogin?.configured && site.integrations?.googleLogin?.enabled ? "On" : "Off"} accent={site.integrations?.googleLogin?.enabled ? "emerald" : "gold"} />
+            <Stat label="GA4 tracking" value={site.integrations?.ga4?.configured ? "Active" : "Not set"} accent={site.integrations?.ga4?.configured ? "emerald" : "gold"} />
+          </div>
+
+          <div className="card p-4">
+            <h3 className="mb-3 text-sm font-bold">Integration status</h3>
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <IntegrationRow label="Search Console verification" ok={site.integrations?.searchConsole?.configured} />
+              <IntegrationRow label="Bing Webmaster verification" ok={site.integrations?.bing?.configured} />
+              <IntegrationRow label="Sitemap submitted" ok={Boolean(site.integrations?.lastSitemapPing)} detail={site.integrations?.lastSitemapPing ? new Date(site.integrations.lastSitemapPing).toLocaleString() : "Use Site & SEO tab to submit"} />
+              <IntegrationRow label="Search indexing allowed" ok={site.integrations?.robotsAllowIndex !== false} />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Configure Google login, SEO, analytics and search engines under <strong>Site & SEO</strong> in the sidebar.
+            </p>
+          </div>
+
+          {site.recentUsers?.length > 0 && (
+            <div className="card overflow-x-auto">
+              <h3 className="border-b border-border p-3 text-sm font-bold">Recent sign-ups</h3>
+              <table className="w-full text-sm">
+                <tbody>
+                  {site.recentUsers.map((u) => (
+                    <tr key={u.id} className="border-t">
+                      <td className="p-3 font-medium">{u.name}</td>
+                      <td className="p-3 text-muted-foreground">{u.email}</td>
+                      <td className="p-3"><Badge status={u.role} /></td>
+                      <td className="p-3 text-xs text-muted-foreground">{dateStr(u.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function IntegrationRow({ label, ok, detail }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2">
+      <span>{label}</span>
+      <span className={`text-xs font-semibold ${ok ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+        {detail || (ok ? "✓ Connected" : "Setup needed")}
+      </span>
     </div>
   );
 }
@@ -272,7 +339,7 @@ function UsersAdmin({ isSuper }) {
               <td className="p-3 text-muted-foreground">{u.email}</td>
               <td className="p-3">{u.accountType}</td>
               <td className="p-3">{isSuper ? (
-                <select className="rounded border px-1 text-xs" value={u.role} onChange={(e) => update(u.id, { role: e.target.value })}>{["USER", "STAFF", "ADMIN", "SUPERADMIN"].map((r) => <option key={r}>{r}</option>)}</select>
+                <select className="input min-w-[8rem] py-1 text-xs" value={u.role} onChange={(e) => update(u.id, { role: e.target.value })}>{["USER", "STAFF", "ADMIN", "SUPERADMIN"].map((r) => <option key={r} value={r}>{r}</option>)}</select>
               ) : <Badge status={u.role} />}</td>
               <td className="p-3">{isSuper ? <input type="checkbox" checked={u.isActive} onChange={(e) => update(u.id, { isActive: e.target.checked })} /> : (u.isActive ? "Yes" : "No")}</td>
             </tr>

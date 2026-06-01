@@ -26,6 +26,7 @@ import {
   CohortAnalyticsPanel,
   RbacPanel,
   SupportMailPanel,
+  NotInvestedInvestorsPanel,
   PlatformInvestmentsPanel,
   UsersManagementPanel,
   WalletOperationsPanel,
@@ -156,6 +157,8 @@ export default function InvestAdminDashboard() {
         ));
       case "investors":
         return gate("manage_investors", "Investor Management", <TabPanel><UsersManagementPanel /></TabPanel>);
+      case "not-invested":
+        return gate("manage_investors", "Not Yet Invested", <TabPanel><NotInvestedInvestorsPanel /></TabPanel>);
       case "platform-investments":
         return gate("manage_investors", "Platform Investments", <TabPanel><PlatformInvestmentsPanel /></TabPanel>);
       case "wallet-ops":

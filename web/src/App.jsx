@@ -39,6 +39,7 @@ import Sell from "./pages/main/Sell.jsx";
 import UserDashboard from "./pages/main/UserDashboard.jsx";
 
 import AdminDashboard from "./pages/main/AdminDashboard.jsx";
+import PaymentReturnPage from "./pages/main/PaymentReturnPage.jsx";
 
 import CategoriesPage from "./pages/main/CategoriesPage.jsx";
 
@@ -52,6 +53,8 @@ import ReferralLandingPage from "./pages/invest/ReferralLandingPage.jsx";
 import { InvestRiskDisclosure, InvestTermsOfService, InvestPrivacyPolicy, InvestAmlPolicy, InvestCookiePolicy } from "./pages/invest/InvestLegalPages.jsx";
 
 import { LoginScreen, RegisterScreen, ForgotScreen, ResetScreen } from "./components/AuthScreens.jsx";
+import MainSiteMeta from "./components/main/MainSiteMeta.jsx";
+import InvestSiteMeta from "./components/invest/InvestSiteMeta.jsx";
 
 const LazyInvestorDashboard = lazy(() => import("./pages/invest/InvestorDashboard.jsx"));
 const LazyInvestAdminDashboard = lazy(() => import("./pages/invest/AdminDashboard.jsx"));
@@ -190,7 +193,7 @@ function MainRoutes() {
 
       <Route path="/faq" element={M(<FaqPage />)} />
 
-
+      <Route path="/pay/return" element={<PaymentReturnPage />} />
 
       <Route path="/login" element={M(<LoginScreen scope="main" />)} />
 
@@ -327,6 +330,9 @@ export default function App() {
   return (
 
     <>
+
+      <MainSiteMeta />
+      <InvestSiteMeta />
 
       <HostNormalizer />
 

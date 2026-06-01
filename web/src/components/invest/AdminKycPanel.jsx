@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { Badge } from "../ui.jsx";
+import KycDocumentViewer from "../shared/KycDocumentViewer.jsx";
 
 export default function AdminKycPanel({ onUpdated }) {
   const [items, setItems] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("");
+  const [viewDocs, setViewDocs] = useState(null);
 
   const load = () =>
     investApi(`/admin/kyc${filter ? `?status=${filter}` : ""}`)
@@ -33,15 +35,14 @@ export default function AdminKycPanel({ onUpdated }) {
     load();
   };
 
-  const doc = (k, field, label) =>
-    k[field] ? (
-      <a key={field} href={k[field]} target="_blank" rel="noreferrer" className="badge bg-muted text-foreground hover:bg-primary/10">
-        {label}
-      </a>
-    ) : null;
+  const hasDocs = (k) =>
+    ["photo", "panDocument", "aadhaarFront", "aadhaarBack", "aadhaarDocument", "passportDocument", "addressProof", "selfie", "signature", "cancelledCheque"]
+      .some((f) => k[f]);
 
   return (
     <div className="space-y-4">
+      <KycDocumentViewer open={Boolean(viewDocs)} kyc={viewDocs} onClose={() => setViewDocs(null)} />
+
       <div className="grid grid-cols-3 gap-3 sm:max-w-md">
         <div className="card p-3 text-center"><div className="text-lg font-bold text-amber-600">{counts.pending}</div><div className="text-xs text-muted-foreground">Pending</div></div>
         <div className="card p-3 text-center"><div className="text-lg font-bold text-emerald-600">{counts.approved}</div><div className="text-xs text-muted-foreground">Approved</div></div>
@@ -70,21 +71,11 @@ export default function AdminKycPanel({ onUpdated }) {
                   <div key={l}><span className="text-muted-foreground">{l}</span><div className="break-words font-medium">{v}</div></div>
                 ))}
               </div>
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documents</p>
-                <div className="flex flex-wrap gap-2">
-                  {doc(k, "photo", "Passport Photo")}
-                  {doc(k, "panDocument", "PAN")}
-                  {doc(k, "aadhaarFront", "Aadhaar Front")}
-                  {doc(k, "aadhaarBack", "Aadhaar Back")}
-                  {doc(k, "aadhaarDocument", "Aadhaar PDF")}
-                  {doc(k, "passportDocument", "Passport")}
-                  {doc(k, "addressProof", "Address Proof")}
-                  {doc(k, "selfie", "Selfie")}
-                  {doc(k, "signature", "Signature")}
-                  {doc(k, "cancelledCheque", "Cheque")}
-                </div>
-              </div>
+              {hasDocs(k) && (
+                <button type="button" className="btn-outline mt-4 text-xs" onClick={() => setViewDocs(k)}>
+                  View uploaded documents
+                </button>
+              )}
               {k.remarks && <p className="mt-3 text-sm text-muted-foreground">Remarks: {k.remarks}</p>}
               {k.status === "PENDING" && (
                 <div className="mt-4 flex gap-2">
