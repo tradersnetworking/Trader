@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { investApi, mainApi, setToken } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
-import { Field, Alert } from "../ui.jsx";
+import { Field, Alert, PasswordInput } from "../ui.jsx";
 
 /**
  * Change login email & password from dashboard (invest or main portal).
@@ -94,9 +94,7 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
           />
         </Field>
         <Field label="Current password (to confirm)">
-          <input
-            className="input"
-            type="password"
+          <PasswordInput
             required
             autoComplete="current-password"
             value={emailForm.currentPassword}
@@ -114,9 +112,7 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
           {pwdMsg && <Alert type="success">{pwdMsg}</Alert>}
           {pwdErr && <Alert type="error">{pwdErr}</Alert>}
           <Field label="Current password">
-            <input
-              className="input"
-              type="password"
+            <PasswordInput
               required
               autoComplete="current-password"
               value={pwdForm.currentPassword}
@@ -124,9 +120,7 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
             />
           </Field>
           <Field label="New password (min 8 characters)">
-            <input
-              className="input"
-              type="password"
+            <PasswordInput
               required
               minLength={8}
               autoComplete="new-password"
@@ -135,9 +129,7 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
             />
           </Field>
           <Field label="Confirm new password">
-            <input
-              className="input"
-              type="password"
+            <PasswordInput
               required
               autoComplete="new-password"
               value={pwdForm.confirm}

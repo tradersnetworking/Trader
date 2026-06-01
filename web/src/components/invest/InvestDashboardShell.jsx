@@ -36,19 +36,31 @@ export default function InvestDashboardShell({
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("invest-sidebar-collapsed") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
-  const sidebarNavRef = useRef(null);
+  const desktopSidebarNavRef = useRef(null);
+  const mobileSidebarNavRef = useRef(null);
   const sidebarScrollTop = useRef(0);
+
+  const saveSidebarScroll = useCallback(() => {
+    const el = mobileSidebarNavRef.current || desktopSidebarNavRef.current;
+    if (el) sidebarScrollTop.current = el.scrollTop;
+  }, []);
+
+  const handleSidebarScroll = useCallback((e) => {
+    sidebarScrollTop.current = e.currentTarget.scrollTop;
+  }, []);
 
   const handleTabChange = useCallback(
     (id) => {
-      if (sidebarNavRef.current) sidebarScrollTop.current = sidebarNavRef.current.scrollTop;
+      saveSidebarScroll();
       onTabChange(id);
     },
-    [onTabChange]
+    [onTabChange, saveSidebarScroll]
   );
 
   useLayoutEffect(() => {
-    if (sidebarNavRef.current) sidebarNavRef.current.scrollTop = sidebarScrollTop.current;
+    const top = sidebarScrollTop.current;
+    if (desktopSidebarNavRef.current) desktopSidebarNavRef.current.scrollTop = top;
+    if (mobileSidebarNavRef.current) mobileSidebarNavRef.current.scrollTop = top;
   }, [activeTab]);
 
   useEffect(() => {
@@ -125,8 +137,8 @@ export default function InvestDashboardShell({
     );
   };
 
-  const SidebarContent = ({ mobile, onClose }) => (
-    <div className="flex h-full min-h-0 flex-1 flex-col">
+  const renderSidebarInner = (mobile, onClose, navRef) => (
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div
         className={`flex shrink-0 items-center border-b border-sidebar-border bg-gradient-to-r from-primary/5 to-brand-blue/5 px-4 py-4 ${
           collapsed && !mobile ? "justify-center" : "justify-between gap-3"
@@ -158,7 +170,11 @@ export default function InvestDashboardShell({
         )}
       </div>
 
-      <nav ref={sidebarNavRef} className="invest-sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-3">
+      <nav
+        ref={navRef}
+        onScroll={handleSidebarScroll}
+        className="invest-sidebar-scroll min-h-0 flex-1 touch-pan-y space-y-0.5 overflow-y-auto overscroll-contain p-3"
+      >
         {navItems.map((item, i) =>
           item.section ? (
             (!collapsed || mobile) && (
@@ -258,18 +274,18 @@ export default function InvestDashboardShell({
   return (
     <div className="invest-shell flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background">
       <aside
-        className={`invest-sidebar hidden h-full min-h-0 shrink-0 flex-col border-r shadow-sm backdrop-blur-xl md:flex ${
+        className={`invest-sidebar hidden h-full min-h-0 shrink-0 flex-col overflow-hidden border-r shadow-sm backdrop-blur-xl md:flex ${
           collapsed ? "w-[4.75rem]" : "w-64 lg:w-72"
         }`}
       >
-        <SidebarContent />
+        {renderSidebarInner(false, null, desktopSidebarNavRef)}
       </aside>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <aside className="invest-sidebar absolute bottom-0 left-0 top-0 flex h-full w-[min(20rem,88vw)] flex-col overflow-hidden shadow-2xl">
-            <SidebarContent mobile onClose={() => setMobileOpen(false)} />
+            {renderSidebarInner(true, () => setMobileOpen(false), mobileSidebarNavRef)}
           </aside>
         </div>
       )}

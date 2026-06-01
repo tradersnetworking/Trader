@@ -1,5 +1,6 @@
 import { verifyToken } from "./utils/auth.js";
 import { investDb } from "./db.js";
+import { validateAuthSession } from "./services/authSession.js";
 
 export const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -12,16 +13,25 @@ function extractToken(req) {
 
 // scope: "main" | "invest" - the token must have been issued for that portal
 export function authRequired(scope) {
-  return (req, res, next) => {
+  return asyncH(async (req, res, next) => {
     const token = extractToken(req);
     const payload = token ? verifyToken(token) : null;
-    if (!payload) return res.status(401).json({ error: "Authentication required" });
+    if (!payload) return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
     if (scope && payload.scope !== scope) {
-      return res.status(403).json({ error: "Token not valid for this portal" });
+      return res.status(403).json({ error: "Token not valid for this portal", code: "WRONG_SCOPE" });
+    }
+    const portal = scope || payload.scope;
+    const session = await validateAuthSession(portal, payload.id, payload.sid);
+    if (!session.ok) {
+      const message =
+        session.code === "SESSION_SUPERSEDED"
+          ? "Your account was signed in on another device. Please sign in again."
+          : "Session expired. Please sign in again.";
+      return res.status(401).json({ error: message, code: session.code });
     }
     req.user = payload;
     next();
-  };
+  });
 }
 
 // roles: array of allowed roles

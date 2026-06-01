@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { investPath } from "../../lib/site.js";
-import { Field, Alert } from "../ui.jsx";
+import { Field, Alert, PasswordInput } from "../ui.jsx";
 import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../../lib/ui-system.js";
 import AuthPageLayout from "./AuthPageLayout.jsx";
 import AuthBrandPanel, { AuthMobileBrand } from "./AuthBrandPanel.jsx";
@@ -153,7 +153,7 @@ export default function InvestRegisterWizard() {
               <input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} disabled={emailVerified} />
             </Field>
             <Field label={t("auth.password")}>
-              <input className="input" type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+              <PasswordInput required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />
             </Field>
             <Field label={`Captcha: ${captcha.question || "Loading…"}`}>
               <div className="flex gap-2">

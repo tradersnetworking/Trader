@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { investApi } from "../../lib/api.js";
-import { Field, Alert } from "../ui.jsx";
+import { Field, Alert, PasswordInput } from "../ui.jsx";
 
 export default function AdminStaffPanel() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "ADMIN" });
@@ -29,7 +29,7 @@ export default function AdminStaffPanel() {
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label="Password"><PasswordInput required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" /></Field>
         <button className="btn-gold w-full">Create Admin</button>
       </form>
     </div>

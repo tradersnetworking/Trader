@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
-import { Alert, Field } from "../ui.jsx";
+import { Alert, Field, PasswordInput } from "../ui.jsx";
 import { FinancialReportsPanel } from "./FinancialReportsPanel.jsx";
 import { useI18n } from "../../lib/i18n/context.jsx";
 
@@ -223,7 +223,7 @@ export function SupportMailPanel() {
             <Field label="IMAP host"><input className="input" value={settings.support_imap_host || ""} onChange={(e) => setSetting("support_imap_host", e.target.value)} placeholder="imap.example.com" /></Field>
             <Field label="IMAP user"><input className="input" value={settings.support_imap_user || ""} onChange={(e) => setSetting("support_imap_user", e.target.value)} placeholder="support@akshayaexim.com" /></Field>
           </div>
-          <Field label="IMAP password"><input className="input" type="password" value={settings.support_imap_pass || ""} onChange={(e) => setSetting("support_imap_pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
+          <Field label="IMAP password"><PasswordInput value={settings.support_imap_pass || ""} onChange={(e) => setSetting("support_imap_pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
           <Field label="Support email (outbound)"><input className="input" type="email" value={settings.support_email || ""} onChange={(e) => setSetting("support_email", e.target.value)} placeholder="support@akshayaexim.com" /></Field>
           {settingsMsg && <Alert type="success">{settingsMsg}</Alert>}
           {settingsErr && <Alert type="error">{settingsErr}</Alert>}

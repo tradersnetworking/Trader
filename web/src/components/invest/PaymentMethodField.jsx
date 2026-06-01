@@ -1,27 +1,30 @@
+const FINANCE_SELECT =
+  "finance-select border-border bg-card text-foreground dark:border-border dark:bg-card dark:text-foreground";
+
 const TONE = {
   upi: {
     label: "text-sky-700 dark:text-sky-400",
-    select: "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:border-sky-500/35 dark:bg-sky-500/10 dark:text-sky-100",
+    select: `${FINANCE_SELECT} border-sky-500/50`,
   },
   bank: {
     label: "text-blue-700 dark:text-blue-400",
-    select: "border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-500/35 dark:bg-blue-500/10 dark:text-blue-100",
+    select: `${FINANCE_SELECT} border-blue-500/50`,
   },
   gateway: {
     label: "text-violet-700 dark:text-violet-400",
-    select: "border-violet-500/40 bg-violet-500/10 text-violet-900 dark:border-violet-500/35 dark:bg-violet-500/10 dark:text-violet-100",
+    select: `${FINANCE_SELECT} border-violet-500/50`,
   },
   amount: {
     label: "text-emerald-700 dark:text-emerald-400",
-    select: "",
+    select: FINANCE_SELECT,
   },
   proof: {
     label: "text-amber-700 dark:text-amber-400",
-    select: "",
+    select: FINANCE_SELECT,
   },
   step: {
     label: "text-primary dark:text-amber-400",
-    select: "",
+    select: FINANCE_SELECT,
   },
 };
 
@@ -36,7 +39,7 @@ export function MethodCategorySelect({ label, value, onChange, options, tone = "
     <div className="space-y-1.5">
       <FinanceFieldLabel tone={tone}>{label}</FinanceFieldLabel>
       <select
-        className={`input h-11 w-full font-medium ${t.select}`}
+        className={`input h-11 w-full font-medium ${t.select} ${!value ? "text-muted-foreground" : ""}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -56,7 +59,7 @@ export function MethodSelect({ label, value, onChange, options = [], optionGroup
     <div className="space-y-1.5">
       <FinanceFieldLabel tone={tone}>{label}</FinanceFieldLabel>
       <select
-        className={`input h-10 w-full font-medium ${t.select}`}
+        className={`input h-10 w-full font-medium ${t.select} ${!value ? "text-muted-foreground" : ""}`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}

@@ -41,6 +41,7 @@ model Investor {
   onboardingStep Int     @default(0)
   onboardingComplete Boolean @default(false)
   customPermissions String? // JSON override for admin permissions
+  sessionId     String?  // single active login session (one device)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

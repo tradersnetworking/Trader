@@ -2,7 +2,8 @@ import { Router } from "express";
 import { nanoid } from "nanoid";
 import { mainDb } from "../db.js";
 import { asyncH, authRequired } from "../middleware.js";
-import { hashPassword, comparePassword, signToken } from "../utils/auth.js";
+import { hashPassword, comparePassword } from "../utils/auth.js";
+import { issueAuthToken, reissueAuthToken, revokeAuthSession } from "../services/authSession.js";
 import { sendMail } from "../utils/mailer.js";
 import { verifyGoogleIdToken } from "../utils/google.js";
 import { isGoogleLoginEnabled } from "../services/mainSiteSettings.js";
@@ -44,7 +45,7 @@ router.post(
       purpose: "registration",
       portal: "main",
     });
-    const token = signToken({ id: user.id, role: user.role, email: user.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: user.id, role: user.role, email: user.email });
     res.json({ token, user: publicUser(user) });
   })
 );
@@ -63,7 +64,7 @@ router.post(
     if (staff && !["STAFF", "ADMIN", "SUPERADMIN"].includes(user.role)) {
       return res.status(403).json({ error: "Not a staff account" });
     }
-    const token = signToken({ id: user.id, role: user.role, email: user.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: user.id, role: user.role, email: user.email });
     res.json({ token, user: publicUser(user) });
   })
 );
@@ -87,7 +88,7 @@ router.post(
         user = await mainDb.user.update({ where: { id: user.id }, data: { googleId: profile.sub, emailVerified: true } });
       }
     }
-    const token = signToken({ id: user.id, role: user.role, email: user.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: user.id, role: user.role, email: user.email });
     res.json({ token, user: publicUser(user) });
   })
 );
@@ -191,8 +192,17 @@ router.post(
       where: { id: req.user.id },
       data: { email: normalized },
     });
-    const token = signToken({ id: updated.id, role: updated.role, email: updated.email }, SCOPE);
+    const token = await reissueAuthToken(SCOPE, { id: updated.id, role: updated.role, email: updated.email }, req.user.sid);
     res.json({ ok: true, token, user: publicUser(updated), message: "Email updated" });
+  })
+);
+
+router.post(
+  "/logout",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    await revokeAuthSession(SCOPE, req.user.id);
+    res.json({ ok: true });
   })
 );
 

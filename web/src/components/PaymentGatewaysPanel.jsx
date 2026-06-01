@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { Badge, Alert, Field } from "./ui.jsx";
+import { Badge, Alert, Field, PasswordInput } from "./ui.jsx";
 
 
 
@@ -277,21 +277,20 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
                 {fields.map((f) => (
 
                   <Field key={f.key} label={f.label}>
-
-                    <input
-
-                      className="input"
-
-                      type={f.secret ? "password" : "text"}
-
-                      value={settings[f.key] || ""}
-
-                      onChange={(e) => set(f.key, e.target.value)}
-
-                      placeholder={f.secret ? "Leave blank to keep current" : ""}
-
-                    />
-
+                    {f.secret ? (
+                      <PasswordInput
+                        value={settings[f.key] || ""}
+                        onChange={(e) => set(f.key, e.target.value)}
+                        placeholder="Leave blank to keep current"
+                      />
+                    ) : (
+                      <input
+                        className="input"
+                        type="text"
+                        value={settings[f.key] || ""}
+                        onChange={(e) => set(f.key, e.target.value)}
+                      />
+                    )}
                   </Field>
 
                 ))}
@@ -368,7 +367,7 @@ export function GatewayMethodSelect({ gateways, value, onChange, manualMethods =
 
   return (
 
-    <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="input finance-select" value={value} onChange={(e) => onChange(e.target.value)}>
 
       {online.length > 0 && (
 

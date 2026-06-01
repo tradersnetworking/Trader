@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/store.jsx";
-import { Field, Alert } from "./ui.jsx";
+import { Field, Alert, PasswordInput } from "./ui.jsx";
 import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../lib/ui-system.js";
 import GoogleButton from "./GoogleButton.jsx";
 import PhoneInput from "./shared/PhoneInput.jsx";
@@ -67,6 +67,15 @@ export function LoginScreen({ scope, staff }) {
   const [passkey2FA, setPasskey2FA] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const key = scope === "invest" ? "aex_invest_session_msg" : "aex_main_session_msg";
+    const msg = sessionStorage.getItem(key);
+    if (msg) {
+      setErr(msg);
+      sessionStorage.removeItem(key);
+    }
+  }, [scope]);
 
   const dest = (user) => {
     if (scope === "invest") {
@@ -145,7 +154,7 @@ export function LoginScreen({ scope, staff }) {
         {needs2FA && <Alert type="info">{tx("authenticatorHint", "Enter the 6-digit code from your authenticator app.")}</Alert>}
         {err && <Alert type="error">{err}</Alert>}
         <Field label={tx("email", "Email")}><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label={tx("password", "Password")}><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label={tx("password", "Password")}><PasswordInput required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="current-password" /></Field>
         {needs2FA && (
           <Field label={tx("authenticatorCode", "Authenticator code")}><input className="input" required={!passkey2FA} value={form.totpCode} onChange={(e) => setForm({ ...form, totpCode: e.target.value })} placeholder="6-digit 2FA code" /></Field>
         )}
@@ -249,7 +258,7 @@ export function RegisterScreen({ scope }) {
             <Field label="Company (optional)"><input className="input" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></Field>
           </div>
         )}
-        <Field label="Password"><input className="input" type="password" required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label="Password"><PasswordInput required minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" /></Field>
         {scope === "invest" && (
           <Field label="Referral code (optional)">
             <input className="input font-mono uppercase" placeholder="AEX-..." value={form.referralCode} onChange={(e) => setForm({ ...form, referralCode: e.target.value.trim() })} />
@@ -307,7 +316,7 @@ export function ResetScreen({ scope }) {
       <form onSubmit={submit} className="space-y-4">
         {err && <Alert type="error">{err}</Alert>}
         {ok && <Alert type="success">Password updated. Redirecting to login…</Alert>}
-        <Field label={tx("newPassword", "New Password")}><input className="input" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+        <Field label={tx("newPassword", "New Password")}><PasswordInput required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
         <button className={AUTH_PRIMARY_BTN}>{tx("updatePassword", "Update Password")}</button>
       </form>
     </Shell>

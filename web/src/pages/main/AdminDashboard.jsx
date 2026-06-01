@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
-import { Stat, Badge, Modal, Field, Alert } from "../../components/ui.jsx";
+import { Stat, Badge, Modal, Field, Alert, PasswordInput } from "../../components/ui.jsx";
 import PaymentGatewaysPanel from "../../components/PaymentGatewaysPanel.jsx";
 import MainDashboardShell from "../../components/main/MainDashboardShell.jsx";
 import MainAdminOrdersPanel from "../../components/main/MainAdminOrdersPanel.jsx";
@@ -352,7 +352,7 @@ function UsersAdmin({ isSuper }) {
           {err && <Alert type="error">{err}</Alert>}
           <Field label="Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
           <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-          <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+          <Field label="Password"><PasswordInput required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" /></Field>
           <Field label="Account Type"><select className="input" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}><option value="B2B">B2B</option><option value="B2C">B2C</option></select></Field>
           <Field label="Company Name (optional)"><input className="input" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></Field>
           <button className="btn-gold w-full">Create User</button>
@@ -375,7 +375,7 @@ function StaffAdmin() {
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="Email"><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-        <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+        <Field label="Password"><PasswordInput required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" /></Field>
         <Field label="Role"><select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="STAFF">STAFF</option><option value="ADMIN">ADMIN</option></select></Field>
         <button className="btn-gold w-full">Create</button>
       </form>

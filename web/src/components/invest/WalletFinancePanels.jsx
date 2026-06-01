@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getToken, investApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
-import { Alert, Badge, Field } from "../ui.jsx";
+import { Alert, Badge, Field, PasswordInput } from "../ui.jsx";
 import { APP_PAGE_STACK, APP_TABLE_WRAP } from "../../lib/ui-system.js";
 import { useAuth } from "../../lib/store.jsx";
 import { investPath } from "../../lib/site.js";
@@ -693,7 +693,7 @@ export function WithdrawPanel({ wallet, onRefresh }) {
 
             {step === "form" && (
               <>
-                <Field label="Account password"><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
+                <Field label="Account password"><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></Field>
                 <Field label="Authenticator code (if 2FA enabled)"><input className="input" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="6-digit code" /></Field>
               </>
             )}

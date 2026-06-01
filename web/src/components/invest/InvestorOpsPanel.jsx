@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
-import { Badge, Modal, Field, Alert } from "../ui.jsx";
+import { Badge, Modal, Field, Alert, PasswordInput } from "../ui.jsx";
 
 const MANAGE_TABS = [
   { id: "profile", label: "KYC & Bank" },
@@ -286,7 +286,7 @@ export default function InvestorOpsPanel() {
             <Field label="Full name"><input className="input" required value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} /></Field>
             <Field label="Email"><input className="input" type="email" required value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} /></Field>
             <Field label="Mobile"><input className="input" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} /></Field>
-            <Field label="Password"><input className="input" type="password" required minLength={8} value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} /></Field>
+            <Field label="Password"><PasswordInput required minLength={8} value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} autoComplete="new-password" /></Field>
           </div>
           <h4 className="text-sm font-semibold">Bank & payout</h4>
           <div className="grid gap-3 sm:grid-cols-2">

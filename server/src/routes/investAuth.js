@@ -2,7 +2,8 @@ import { Router } from "express";
 import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
 import { asyncH, authRequired } from "../middleware.js";
-import { hashPassword, comparePassword, signToken } from "../utils/auth.js";
+import { hashPassword, comparePassword } from "../utils/auth.js";
+import { issueAuthToken, reissueAuthToken, revokeAuthSession } from "../services/authSession.js";
 import { sendMail } from "../utils/mailer.js";
 import { verifyGoogleIdToken } from "../utils/google.js";
 import { publicInvestor } from "../utils/investorUser.js";
@@ -54,7 +55,7 @@ router.post(
     if (!email) return res.status(400).json({ error: "Email required" });
     try {
       const investor = await verifyLoginAuthentication(email, assertion);
-      const token = signToken({ id: investor.id, role: investor.role, email: investor.email }, SCOPE);
+      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
       res.json({ token, user: publicInvestor(investor) });
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey login failed" });
@@ -91,7 +92,7 @@ router.post(
         return res.status(403).json({ error: "Not a staff account" });
       }
       consumePending2FA(email);
-      const token = signToken({ id: investor.id, role: investor.role, email: investor.email }, SCOPE);
+      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
       res.json({ token, user: publicInvestor(investor) });
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey 2FA failed" });
@@ -173,7 +174,7 @@ router.post(
       }).catch(() => {});
     }
     await sendMail({ to: investor.email, purpose: "registration", subject: "Welcome to Akshaya Exim Invest", text: `Hi ${name}, start investing at invest.akshayaexim.com` });
-    const token = signToken({ id: investor.id, role: investor.role, email: investor.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
     res.json({ token, user: publicInvestor(investor) });
   })
 );
@@ -208,7 +209,7 @@ router.post(
       const tfa = await verifyInvestor2FA(investor, totpCode);
       if (!tfa.ok) return res.status(401).json({ error: tfa.error || "Invalid 2FA code" });
     }
-    const token = signToken({ id: investor.id, role: investor.role, email: investor.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
     res.json({ token, user: publicInvestor(investor) });
   })
 );
@@ -233,7 +234,7 @@ router.post(
       });
       await investDb.wallet.create({ data: { investorId: investor.id } });
     }
-    const token = signToken({ id: investor.id, role: investor.role, email: investor.email }, SCOPE);
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
     res.json({ token, user: publicInvestor(investor) });
   })
 );
@@ -315,8 +316,17 @@ router.post(
       where: { id: req.user.id },
       data: { email: normalized },
     });
-    const token = signToken({ id: updated.id, role: updated.role, email: updated.email }, SCOPE);
+    const token = await reissueAuthToken(SCOPE, { id: updated.id, role: updated.role, email: updated.email }, req.user.sid);
     res.json({ ok: true, token, user: publicInvestor(updated), message: "Email updated" });
+  })
+);
+
+router.post(
+  "/logout",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    await revokeAuthSession(SCOPE, req.user.id);
+    res.json({ ok: true });
   })
 );
 

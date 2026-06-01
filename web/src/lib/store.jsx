@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { api, getToken, setToken } from "./api.js";
+import { api, getToken, setToken, isAuthError, logoutScope } from "./api.js";
 import { getHostKind, useSiteMode } from "./site.js";
 
 const AuthContext = createContext(null);
@@ -16,28 +16,55 @@ export function AuthProvider({ children }) {
   const mode = useSiteMode();
   const kind = getHostKind();
 
-  const loadMe = useCallback(async (scope, setter) => {
-    if (!getToken(scope)) return setter({ user: null, loading: false });
+  const loadMe = useCallback(async (scope, setter, { soft = false } = {}) => {
+    const token = getToken(scope);
+    if (!token) {
+      setter({ user: null, loading: false });
+      return;
+    }
+    if (!soft) setter((prev) => ({ user: prev.user, loading: !prev.user }));
     try {
       const { user } = await api(scope, "/auth/me");
       setter({ user, loading: false });
-    } catch {
-      setToken(scope, "");
-      setter({ user: null, loading: false });
+    } catch (err) {
+      if (isAuthError(err)) {
+        if (err.code === "SESSION_SUPERSEDED") {
+          sessionStorage.setItem(`aex_${scope}_session_msg`, err.message || "Signed in on another device.");
+        }
+        setToken(scope, "");
+        setter({ user: null, loading: false });
+      } else {
+        setter((prev) => ({ user: prev.user, loading: false }));
+      }
     }
   }, []);
 
   useEffect(() => {
     if (shouldLoadScope("main", mode, kind)) {
       loadMe("main", setMain);
-    } else {
+    } else if (!getToken("main")) {
       setMain({ user: null, loading: false });
+    } else {
+      setMain((prev) => ({ user: prev.user, loading: false }));
     }
+
     if (shouldLoadScope("invest", mode, kind)) {
       loadMe("invest", setInvest);
-    } else {
+    } else if (!getToken("invest")) {
       setInvest({ user: null, loading: false });
+    } else {
+      setInvest((prev) => ({ user: prev.user, loading: false }));
     }
+  }, [loadMe, mode, kind]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (shouldLoadScope("main", mode, kind) && getToken("main")) loadMe("main", setMain, { soft: true });
+      if (shouldLoadScope("invest", mode, kind) && getToken("invest")) loadMe("invest", setInvest, { soft: true });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [loadMe, mode, kind]);
 
   const value = {
@@ -47,10 +74,16 @@ export function AuthProvider({ children }) {
     investLoading: invest.loading,
     loginMain: (token, user) => { setToken("main", token); setMain({ user, loading: false }); },
     loginInvest: (token, user) => { setToken("invest", token); setInvest({ user, loading: false }); },
-    logoutMain: () => { setToken("main", ""); setMain({ user: null, loading: false }); },
-    logoutInvest: () => { setToken("invest", ""); setInvest({ user: null, loading: false }); },
-    refreshMain: () => loadMe("main", setMain),
-    refreshInvest: () => loadMe("invest", setInvest),
+    logoutMain: async () => {
+      await logoutScope("main");
+      setMain({ user: null, loading: false });
+    },
+    logoutInvest: async () => {
+      await logoutScope("invest");
+      setInvest({ user: null, loading: false });
+    },
+    refreshMain: () => loadMe("main", setMain, { soft: true }),
+    refreshInvest: () => loadMe("invest", setInvest, { soft: true }),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

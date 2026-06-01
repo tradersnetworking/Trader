@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { investApi } from "../../lib/api.js";
 
-import { Field, Alert } from "../ui.jsx";
+import { Field, Alert, PasswordInput } from "../ui.jsx";
 import AdditionalDomainsPanel from "./AdditionalDomainsPanel.jsx";
 
 
@@ -114,7 +114,7 @@ export default function InvestSettingsPanel() {
 
         <Field label="SMTP User"><input className="input" value={form.smtp_user || ""} onChange={(e) => set("smtp_user", e.target.value)} /></Field>
 
-        <Field label="SMTP Password"><input className="input" type="password" value={form.smtp_pass || ""} onChange={(e) => set("smtp_pass", e.target.value)} placeholder="Leave blank to keep current" /></Field>
+        <Field label="SMTP Password"><PasswordInput value={form.smtp_pass || ""} onChange={(e) => set("smtp_pass", e.target.value)} placeholder="Leave blank to keep current" /></Field>
 
 
 
@@ -186,7 +186,7 @@ export default function InvestSettingsPanel() {
           <Field label="IMAP host"><input className="input" value={form.support_imap_host || ""} onChange={(e) => set("support_imap_host", e.target.value)} /></Field>
           <Field label="IMAP user"><input className="input" value={form.support_imap_user || ""} onChange={(e) => set("support_imap_user", e.target.value)} /></Field>
         </div>
-        <Field label="IMAP password"><input className="input" type="password" value={form.support_imap_pass || ""} onChange={(e) => set("support_imap_pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
+        <Field label="IMAP password"><PasswordInput value={form.support_imap_pass || ""} onChange={(e) => set("support_imap_pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
 
 
 

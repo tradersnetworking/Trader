@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Field } from "../ui.jsx";
+import { Alert, Field, PasswordInput } from "../ui.jsx";
 import KpiStatCard from "../invest/InvestDashboardWidgets.jsx";
 import {
   DEFAULT_EMAIL_COMM_CONFIG,
@@ -407,7 +407,7 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                     <Field label="SMTP host"><input className="input" value={box.smtp.host} onChange={(e) => updateMailboxSmtp(box.id, "host", e.target.value)} placeholder="smtp.hostinger.com" /></Field>
                     <Field label="SMTP port"><input className="input" value={box.smtp.port} onChange={(e) => updateMailboxSmtp(box.id, "port", e.target.value)} /></Field>
-                    <Field label="SMTP password"><input className="input" type="password" value={box.smtp.pass} onChange={(e) => updateMailboxSmtp(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
+                    <Field label="SMTP password"><PasswordInput value={box.smtp.pass} onChange={(e) => updateMailboxSmtp(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
                     <label className="flex items-end gap-2 pb-2 text-sm">
                       <input type="checkbox" checked={box.smtp.secure === true || box.smtp.secure === "true"} onChange={(e) => updateMailboxSmtp(box.id, "secure", e.target.checked)} />
                       SMTP SSL/TLS
@@ -418,7 +418,7 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
                     <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                       <Field label="IMAP host"><input className="input" value={box.imap.host} onChange={(e) => updateMailboxImap(box.id, "host", e.target.value)} placeholder="imap.hostinger.com" /></Field>
                       <Field label="IMAP port"><input className="input" value={box.imap.port} onChange={(e) => updateMailboxImap(box.id, "port", e.target.value)} /></Field>
-                      <Field label="IMAP password"><input className="input" type="password" value={box.imap.pass} onChange={(e) => updateMailboxImap(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
+                      <Field label="IMAP password"><PasswordInput value={box.imap.pass} onChange={(e) => updateMailboxImap(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
                       <Field label="IMAP user"><input className="input font-mono text-sm" value={box.imap.user} onChange={(e) => updateMailboxImap(box.id, "user", e.target.value)} placeholder={box.address} /></Field>
                     </div>
                   </details>

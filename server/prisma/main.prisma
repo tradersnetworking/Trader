@@ -29,6 +29,7 @@ model User {
   emailVerified Boolean  @default(false)
   resetToken    String?
   resetExpires  DateTime?
+  sessionId     String?  // single active login session (one device)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
