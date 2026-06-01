@@ -99,6 +99,7 @@ export default function InvestSettingsPanel() {
 
 
         <h3 className="pt-2 font-bold text-navy dark:text-white">SMTP (Email)</h3>
+        <Alert type="info">Per-mailbox SMTP/IMAP credentials are configured under <strong>Email & Communication</strong> (5 mailboxes per portal). Legacy fields below remain as env fallback only.</Alert>
 
         <div className="grid grid-cols-2 gap-3">
 

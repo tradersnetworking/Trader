@@ -23,6 +23,17 @@ import {
   buildRobotsTxt,
   pingSearchEngines,
 } from "../services/mainSiteSettings.js";
+import {
+  getEmailCommunicationBundle,
+  saveEmailCommunicationConfig,
+  sendPurposeTestEmail,
+} from "../services/emailCommunication.js";
+import {
+  getMailboxBundle,
+  saveMailboxConfig,
+  testMailboxSmtp,
+  testMailboxImap,
+} from "../services/mailboxConfig.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -717,6 +728,83 @@ router.put(
   asyncH(async (req, res) => {
     const settings = await setSettings(req.body);
     res.json({ settings });
+  })
+);
+
+router.get(
+  "/admin/settings/email-communication",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    const [email, mailboxes] = await Promise.all([
+      getEmailCommunicationBundle("main"),
+      getMailboxBundle("main"),
+    ]);
+    res.json({ ...email, mailboxes });
+  })
+);
+
+router.post(
+  "/admin/settings/email-communication",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const config = await saveEmailCommunicationConfig(req.body.config || req.body, "main");
+    const bundle = await getEmailCommunicationBundle("main");
+    res.json({ config, ...bundle });
+  })
+);
+
+router.post(
+  "/admin/settings/email-communication/test",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { purpose, testTo } = req.body;
+    if (!testTo?.trim()) return res.status(400).json({ error: "testTo email required" });
+    try {
+      const result = await sendPurposeTestEmail(purpose || "generic", testTo.trim(), "main");
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ ok: false, message: e.message || "Send failed" });
+    }
+  })
+);
+
+router.get(
+  "/admin/settings/mailboxes",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    res.json(await getMailboxBundle("main"));
+  })
+);
+
+router.put(
+  "/admin/settings/mailboxes",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    await saveMailboxConfig("main", req.body.config || req.body);
+    res.json(await getMailboxBundle("main"));
+  })
+);
+
+router.post(
+  "/admin/settings/mailboxes/test",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { mailboxId, type } = req.body;
+    if (!mailboxId) return res.status(400).json({ error: "mailboxId required" });
+    try {
+      const result = type === "imap"
+        ? await testMailboxImap("main", mailboxId)
+        : await testMailboxSmtp("main", mailboxId);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ ok: false, message: e.message });
+    }
   })
 );
 

@@ -64,6 +64,12 @@ import {
   sendPurposeTestEmail,
 } from "../services/emailCommunication.js";
 import {
+  getMailboxBundle,
+  saveMailboxConfig,
+  testMailboxSmtp,
+  testMailboxImap,
+} from "../services/mailboxConfig.js";
+import {
   getTemplates,
   updateTemplate,
   listAllAgreements,
@@ -929,7 +935,11 @@ router.get(
   adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (_req, res) => {
-    res.json(await getEmailCommunicationBundle());
+    const [email, mailboxes] = await Promise.all([
+      getEmailCommunicationBundle("invest"),
+      getMailboxBundle("invest"),
+    ]);
+    res.json({ ...email, mailboxes });
   })
 );
 
@@ -939,9 +949,49 @@ router.post(
   adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (req, res) => {
-    const config = await saveEmailCommunicationConfig(req.body.config || req.body);
-    const bundle = await getEmailCommunicationBundle();
+    const config = await saveEmailCommunicationConfig(req.body.config || req.body, "invest");
+    const bundle = await getEmailCommunicationBundle("invest");
     res.json({ config, ...bundle });
+  })
+);
+
+router.get(
+  "/settings/mailboxes",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    res.json(await getMailboxBundle("invest"));
+  })
+);
+
+router.put(
+  "/settings/mailboxes",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const config = await saveMailboxConfig("invest", req.body.config || req.body);
+    res.json(await getMailboxBundle("invest"));
+  })
+);
+
+router.post(
+  "/settings/mailboxes/test",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const { mailboxId, type } = req.body;
+    if (!mailboxId) return res.status(400).json({ error: "mailboxId required" });
+    try {
+      const result = type === "imap"
+        ? await testMailboxImap("invest", mailboxId)
+        : await testMailboxSmtp("invest", mailboxId);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ ok: false, message: e.message });
+    }
   })
 );
 
@@ -954,7 +1004,7 @@ router.post(
     const { purpose, testTo } = req.body;
     if (!testTo?.trim()) return res.status(400).json({ error: "testTo email required" });
     try {
-      const result = await sendPurposeTestEmail(purpose || "generic", testTo.trim());
+      const result = await sendPurposeTestEmail(purpose || "generic", testTo.trim(), "invest");
       res.json(result);
     } catch (e) {
       res.status(500).json({ ok: false, message: e.message || "Send failed" });

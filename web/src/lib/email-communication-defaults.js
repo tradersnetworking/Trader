@@ -24,11 +24,11 @@ export const DEFAULT_EMAIL_PURPOSES = Object.keys(DEFAULT_EMAIL_PURPOSE_META);
 
 export const DEFAULT_EMAIL_COMM_CONFIG = {
   identities: [
-    { id: "default", label: "Default (SMTP From)", name: "Akshaya Exim Invest", address: "" },
-    { id: "noreply", label: "No Reply", name: "Akshaya Exim Invest", address: "noreply@akshayaexim.com" },
-    { id: "support", label: "Support", name: "Akshaya Exim Support", address: "support@akshayaexim.com" },
-    { id: "finance", label: "Finance", name: "Akshaya Exim Finance", address: "finance@akshayaexim.com" },
-    { id: "compliance", label: "Compliance / KYC", name: "Akshaya Exim Compliance", address: "compliance@akshayaexim.com" },
+    { id: "noreply", label: "No Reply (Default)", name: "Akshaya Exim Invest", address: "noreply@akshayaexim.in" },
+    { id: "support", label: "Support", name: "Akshaya Invest Support", address: "support@akshayaexim.in" },
+    { id: "finance", label: "Finance & Payouts", name: "Akshaya Invest Finance", address: "finance@akshayaexim.in" },
+    { id: "compliance", label: "Compliance / KYC", name: "Akshaya Invest Compliance", address: "compliance@akshayaexim.in" },
+    { id: "invest", label: "Investor Relations", name: "Akshaya Exim Invest", address: "invest@akshayaexim.in" },
   ],
   assignments: Object.fromEntries(DEFAULT_EMAIL_PURPOSES.map((p) => [p, "noreply"])),
   autoEmails: {

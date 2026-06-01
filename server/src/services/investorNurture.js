@@ -1,6 +1,5 @@
 import { investDb } from "../db.js";
 import { sendMail } from "../utils/mailer.js";
-import { getSetting } from "./investSettings.js";
 
 export async function listNotInvestedInvestors() {
   const rows = await investDb.investor.findMany({
@@ -39,6 +38,8 @@ export async function sendNotInvestedEmail({ subject, html, text, investorIds, a
         html: bodyHtml.replace(/\{name\}/g, inv.name || "Investor"),
         text: bodyText.replace(/\{name\}/g, inv.name || "Investor"),
         purpose: "broadcast",
+        portal: "invest",
+        mailboxId: "invest",
       });
       sent++;
     } catch (e) {
@@ -46,5 +47,5 @@ export async function sendNotInvestedEmail({ subject, html, text, investorIds, a
     }
   }
 
-  return { sent, total: targets.length, errors, from: await getSetting("default_communication_email") || await getSetting("mail_from") };
+  return { sent, total: targets.length, errors, from: "noreply@akshayaexim.in" };
 }

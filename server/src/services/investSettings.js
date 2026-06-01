@@ -2,8 +2,8 @@ import { investDb } from "../db.js";
 import { config } from "../config.js";
 
 const DEFAULTS = {
-  support_email: "support@akshayaexim.com",
-  mail_from: "Akshaya Exim <support@akshayaexim.com>",
+  support_email: "support@akshayaexim.in",
+  mail_from: "Akshaya Exim Invest <noreply@akshayaexim.in>",
   site_name: "Akshaya Exim Invest",
   invest_portal_url: config.investPortalUrl,
   homepage_hero_title: "Smart Investment • Secure Future • Grow Your Wealth",
@@ -21,7 +21,7 @@ const DEFAULTS = {
   smtp_user: config.smtp.user,
   smtp_pass: "", // never return pass to client
   smtp_secure: String(config.smtp.secure),
-  default_communication_email: "",
+  default_communication_email: "noreply@akshayaexim.in",
   default_payout_gateway: "RAZORPAYX",
   default_payout_prefer_bank: "false",
   default_deposit_gateway: "RAZORPAY",

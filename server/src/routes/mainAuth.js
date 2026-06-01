@@ -41,6 +41,8 @@ router.post(
       to: user.email,
       subject: "Welcome to Akshaya Exim Traders",
       text: `Hi ${name}, your account is ready. Start trading on akshayaexim.com`,
+      purpose: "registration",
+      portal: "main",
     });
     const token = signToken({ id: user.id, role: user.role, email: user.email }, SCOPE);
     res.json({ token, user: publicUser(user) });
@@ -102,7 +104,7 @@ router.post(
         data: { resetToken: token, resetExpires: new Date(Date.now() + 1000 * 60 * 30) },
       });
       const link = `${process.env.CLIENT_ORIGIN || ""}/reset-password?token=${token}`;
-      await sendMail({ to: user.email, subject: "Reset your password", text: `Reset link (valid 30 min): ${link}` });
+      await sendMail({ to: user.email, purpose: "password_reset", subject: "Reset your password", text: `Reset link (valid 30 min): ${link}`, portal: "main" });
     }
     res.json({ ok: true, message: "If the email exists, a reset link was sent." });
   })
