@@ -1,4 +1,4 @@
-const CACHE = "aex-invest-v2";
+const CACHE = "aex-invest-v3";
 const SHELL = [
   "/",
   "/index.html",
@@ -29,16 +29,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith("/api/")) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (res.ok && (url.pathname.endsWith(".js") || url.pathname.endsWith(".css") || SHELL.includes(url.pathname))) {
+    fetch(event.request)
+      .then((res) => {
+        if (
+          res.ok &&
+          (url.pathname.endsWith(".js") ||
+            url.pathname.endsWith(".css") ||
+            SHELL.includes(url.pathname))
+        ) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(event.request, copy));
         }
         return res;
-      }).catch(() => caches.match("/index.html"));
-    })
+      })
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html")))
   );
 });
 

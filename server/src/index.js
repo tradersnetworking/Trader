@@ -87,6 +87,14 @@ if (fs.existsSync(webDist)) {
     express.static(webDist, {
       maxAge: config.env === "production" ? "7d" : 0,
       setHeaders(res, filePath) {
+        if (/[/\\]index\.html$/i.test(filePath)) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          return;
+        }
+        if (/\.html$/i.test(filePath)) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          return;
+        }
         if (/[/\\]assets[/\\].*\.[a-f0-9]{8,}\.(js|css|woff2?|png|jpg|webp|svg)$/i.test(filePath)) {
           res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
         }
@@ -141,6 +149,7 @@ if (fs.existsSync(webDist)) {
       res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
     }
 
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.sendFile(path.join(webDist, "index.html"));
   });
 } else if (config.env === "production") {
