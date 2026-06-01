@@ -70,6 +70,12 @@ import {
   testMailboxImap,
 } from "../services/mailboxConfig.js";
 import {
+  getAdditionalDomainsConfig,
+  addAdditionalDomain,
+  updateAdditionalDomain,
+  deleteAdditionalDomain,
+} from "../services/additionalDomains.js";
+import {
   getTemplates,
   updateTemplate,
   listAllAgreements,
@@ -1009,6 +1015,50 @@ router.post(
     } catch (e) {
       res.status(500).json({ ok: false, message: e.message || "Send failed" });
     }
+  })
+);
+
+router.get(
+  "/additional-domains",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    const cfg = await getAdditionalDomainsConfig();
+    res.json({ domains: cfg.domains, paymentOrigin: (process.env.PAYMENT_ORIGIN || "https://akshayaexim.com") });
+  })
+);
+
+router.post(
+  "/additional-domains",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const entry = await addAdditionalDomain(req.body);
+    res.json({ domain: entry, domains: (await getAdditionalDomainsConfig()).domains });
+  })
+);
+
+router.put(
+  "/additional-domains/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const domain = await updateAdditionalDomain(req.params.id, req.body);
+    res.json({ domain, domains: (await getAdditionalDomainsConfig()).domains });
+  })
+);
+
+router.delete(
+  "/additional-domains/:id",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    await deleteAdditionalDomain(req.params.id);
+    res.json({ ok: true, domains: (await getAdditionalDomainsConfig()).domains });
   })
 );
 

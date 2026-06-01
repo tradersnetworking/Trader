@@ -1,12 +1,27 @@
 import { useLocation } from "react-router-dom";
+import { getPortalConfig } from "./portalConfig.js";
 
 /** @typedef {"main-host" | "invest-host" | "local"} HostKind */
+
+let investAliasHosts = new Set();
+
+/** Called after /api/invest/public/portal-config loads */
+export function setInvestAliasHosts(hosts = []) {
+  investAliasHosts = new Set(
+    hosts.map((h) => String(h).toLowerCase().replace(/^www\./, "").split(":")[0]).filter(Boolean)
+  );
+}
+
+function normHost(hostname) {
+  return String(hostname || "").toLowerCase().replace(/^www\./, "").split(":")[0];
+}
 
 /** @returns {HostKind} */
 export function getHostKind() {
   if (typeof window === "undefined") return "local";
-  const h = window.location.hostname.toLowerCase();
+  const h = normHost(window.location.hostname);
   if (h.startsWith("invest.")) return "invest-host";
+  if (investAliasHosts.has(h)) return "invest-host";
   if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return "local";
   return "main-host";
 }
@@ -49,11 +64,13 @@ export function investPath(subpath = "") {
   return `${base}${tail}`;
 }
 
-/** Full URL to invest portal (cross-domain on production main host) */
+/** Full URL to invest portal for in-app navigation (current host if already on invest). */
 export function investOrigin() {
   if (typeof window === "undefined") return "https://invest.akshayaexim.com";
   if (isInvestHost()) return window.location.origin;
   if (isLocalDev()) return `${window.location.origin}${investPath("")}`;
+  const cfg = getPortalConfig();
+  if (cfg?.investPortalUrl) return cfg.investPortalUrl.replace(/\/$/, "");
   const host = window.location.hostname.replace(/^www\./i, "");
   const proto = window.location.protocol;
   return `${proto}//invest.${host}`;

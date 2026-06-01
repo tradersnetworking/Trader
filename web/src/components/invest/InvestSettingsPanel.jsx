@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 
 import { Field, Alert } from "../ui.jsx";
+import AdditionalDomainsPanel from "./AdditionalDomainsPanel.jsx";
 
 
 
@@ -53,6 +54,8 @@ export default function InvestSettingsPanel() {
     <div className="max-w-3xl space-y-6">
 
       <Alert type="info">Super Admin site settings — portal branding, contact, SMTP, and default company details shown when no payment account is configured.</Alert>
+
+      <AdditionalDomainsPanel />
 
       <form onSubmit={save} className="card space-y-4 p-6">
 

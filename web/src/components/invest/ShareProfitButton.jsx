@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { buildShareText, buildReferralLink, openShare, SHARE_PLATFORMS } from "../../lib/share.js";
+import { buildShareText, buildReferralLink, openShare, SHARE_PLATFORMS, shareHostLabel } from "../../lib/share.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
 
@@ -71,7 +71,7 @@ export default function ShareProfitButton({
     }
     ctx.fillStyle = "#64748b";
     ctx.font = "10px system-ui";
-    ctx.fillText("invest.akshayaexim.com", 20, h - 20);
+    ctx.fillText(shareHostLabel(), 20, h - 20);
   }, [open, qrUrl, invest, planName, amount, monthlyRoiPct, lockInDays]);
 
   const copy = async () => {

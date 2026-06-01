@@ -7,6 +7,7 @@ import { getSetting } from "../services/investSettings.js";
 import { getPrimaryBankDetails, getDepositAccountsForInvestor } from "../services/paymentGateways.js";
 import { verifyCertificateToken, getCertificatePayload } from "../services/investCertificate.js";
 import { getReferralLeaderboard } from "../services/referral.js";
+import { getPublicPortalConfig } from "../services/additionalDomains.js";
 
 const router = Router();
 
@@ -61,6 +62,13 @@ router.get(
   asyncH(async (_req, res) => {
     const partners = await investDb.sitePartner.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
     res.json({ partners });
+  })
+);
+
+router.get(
+  "/portal-config",
+  asyncH(async (_req, res) => {
+    res.json(await getPublicPortalConfig());
   })
 );
 

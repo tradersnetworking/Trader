@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
-import { buildReferralLink, buildShareText, openShare, SHARE_PLATFORMS } from "../../lib/share.js";
+import { buildReferralLink, buildShareText, openShare, SHARE_PLATFORMS, shareHostLabel } from "../../lib/share.js";
 
 export default function AchievementShareCard({ achievement, totalInvested, onClose }) {
   const { invest } = useAuth();
@@ -58,7 +58,7 @@ export default function AchievementShareCard({ achievement, totalInvested, onClo
     }
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.font = "10px system-ui";
-    ctx.fillText("invest.akshayaexim.com", 20, h - 16);
+    ctx.fillText(shareHostLabel(), 20, h - 16);
   }, [achievement, firstName, totalInvested, qrUrl]);
 
   const download = () => {

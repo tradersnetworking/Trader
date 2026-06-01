@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { investPath } from "../../lib/site.js";
+import { investBrowseBase } from "../../lib/portalConfig.js";
 
-/** Main-domain payment return — redirects to invest subdomain or main dashboard without exposing gateway callbacks on invest.* */
+/** Main-domain payment return — redirects to invest portal (subdomain or additional domain). Payments never complete on invest/additional hosts. */
 export default function PaymentReturnPage() {
   const [sp] = useSearchParams();
   const navigate = useNavigate();
@@ -21,12 +21,13 @@ export default function PaymentReturnPage() {
     if (tradePaymentId) qs.set("tradePaymentId", tradePaymentId);
 
     if (portal === "invest") {
-      const base = investPath("/dashboard");
+      const base = investBrowseBase().replace(/\/$/, "");
+      const query = qs.toString();
       if (kind === "deposit") {
-        window.location.replace(`${base}?tab=money&moneyTab=deposit&${qs.toString()}`);
+        window.location.replace(`${base}/dashboard?tab=money&moneyTab=deposit&${query}`);
         return;
       }
-      window.location.replace(`${base}?${qs.toString()}`);
+      window.location.replace(`${base}/dashboard?${query}`);
       return;
     }
 

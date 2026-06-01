@@ -38,10 +38,16 @@ export function webhookPath(suffix = "") {
   return `/api/payments/webhooks${suffix ? `/${suffix.replace(/^\//, "")}` : ""}`;
 }
 
-/** Resolve invest dashboard URL after payment (may be subdomain in production). */
-export function investDashboardUrl(query = "") {
-  const base = (config.investPortalUrl || `${config.clientOrigin}/invest`).replace(/\/$/, "");
-  return `${base}/dashboard${query ? (query.startsWith("?") ? query : `?${query}`) : ""}`;
+/** Resolve invest dashboard URL after payment — never uses additional domain for payment callbacks. */
+export async function investDashboardUrl(query = "") {
+  try {
+    const { getInvestBrowseOrigin } = await import("../services/additionalDomains.js");
+    const base = (await getInvestBrowseOrigin()).replace(/\/$/, "");
+    return `${base}/dashboard${query ? (query.startsWith("?") ? query : `?${query}`) : ""}`;
+  } catch {
+    const base = (config.investPortalUrl || `${config.clientOrigin}/invest`).replace(/\/$/, "");
+    return `${base}/dashboard${query ? (query.startsWith("?") ? query : `?${query}`) : ""}`;
+  }
 }
 
 export function mainDashboardUrl(query = "") {

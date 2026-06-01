@@ -20,15 +20,14 @@ import { geoBlockMiddleware } from "./middleware/geoBlock.js";
 import { startBackgroundJobs } from "./jobs/backgroundJobs.js";
 import { ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
 import { buildSitemapXml, buildRobotsTxt, buildInvestRobotsTxt } from "./services/mainSiteSettings.js";
+import { resolveHostKindSync, refreshDomainCache } from "./services/additionalDomains.js";
+import { paymentOrigin } from "./utils/paymentUrls.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 function hostKind(req) {
-  const h = (req.hostname || req.headers.host || "").toLowerCase().split(":")[0];
-  if (h.startsWith("invest.")) return "invest";
-  if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return "local";
-  return "main";
+  return resolveHostKindSync(req);
 }
 
 app.set("trust proxy", 1);
@@ -101,13 +100,25 @@ if (fs.existsSync(webDist)) {
     const kind = hostKind(req);
     const isLocal = kind === "local";
 
+    // Disabled additional domain → redirect to invest subdomain
+    if (kind === "invest-disabled") {
+      const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      const sub = (process.env.INVEST_ORIGIN || config.investOrigin || "https://invest.akshayaexim.com").replace(/\/$/, "");
+      return res.redirect(301, `${sub}${req.path}${qs}`);
+    }
+
+    if (kind === "invest" && req.path.startsWith("/pay/")) {
+      const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      return res.redirect(301, `${paymentOrigin()}${req.path}${qs}`);
+    }
+
     // Invest subdomain: strip legacy /invest prefix → clean paths
     if (kind === "invest" && (req.path === "/invest" || req.path.startsWith("/invest/"))) {
       const tail = req.path.replace(/^\/invest(?=\/|$)/, "") || "/";
       return res.redirect(301, `${tail}${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
     }
 
-    // Main domain (production): send /invest/* to invest subdomain
+    // Main domain (production): send /invest/* to invest subdomain (not on additional alias domains)
     if (kind === "main" && (req.path === "/invest" || req.path.startsWith("/invest/"))) {
       const tail = req.path.replace(/^\/invest(?=\/|$)/, "") || "/";
       const baseHost = req.hostname.replace(/^www\./i, "");
@@ -145,5 +156,6 @@ app.listen(config.port, () => {
   startBackgroundJobs();
   ensureMissingPaymentGateways().catch(() => {});
   ensureDefaultBankAccounts().catch(() => {});
+  refreshDomainCache(true).catch(() => {});
   console.log("");
 });

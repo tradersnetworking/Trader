@@ -1,9 +1,16 @@
-import { investPath } from "./site.js";
+import { investShareUrl } from "./portalConfig.js";
 
+/** Social / referral share links — uses additional domain when enabled, else invest subdomain. */
 export function buildReferralLink(code) {
   const c = encodeURIComponent(code || "");
-  if (typeof window === "undefined") return investPath(`/ref/${c}`);
-  return `${window.location.origin}${investPath(`/ref/${c}`)}`;
+  if (typeof window !== "undefined") {
+    try {
+      return investShareUrl(`/ref/${c}`);
+    } catch {
+      /* fall through */
+    }
+  }
+  return investShareUrl(`/ref/${c}`);
 }
 
 export function buildShareText({ type, amount, planName, userName, referralCode }) {
@@ -60,4 +67,14 @@ export function openShare(platform, text) {
   const p = SHARE_PLATFORMS.find((x) => x.id === platform);
   if (!p) return;
   window.open(p.href(text), "_blank", "noopener,noreferrer");
+}
+
+/** Host label for share cards (domain only). */
+export function shareHostLabel() {
+  try {
+    const url = investShareUrl("");
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "invest.akshayaexim.com";
+  }
 }
