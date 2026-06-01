@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./invest.db"
+  url      = env("INVEST_SQLITE_URL")
 }
 
 model Investor {
