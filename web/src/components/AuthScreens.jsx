@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/store.jsx";
-import { Logo, Field, Alert } from "./ui.jsx";
+import { Field, Alert } from "./ui.jsx";
 import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../lib/ui-system.js";
 import GoogleButton from "./GoogleButton.jsx";
 import AuthPageLayout from "./invest/AuthPageLayout.jsx";
 import AuthBrandPanel, { AuthMobileBrand } from "./invest/AuthBrandPanel.jsx";
+import MainAuthBrandPanel, { MainAuthMobileBrand } from "./main/MainAuthBrandPanel.jsx";
 import { isWebAuthnSupported, loginWithPasskey, verify2FAWithPasskey } from "../lib/webauthn.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
@@ -33,25 +34,18 @@ function paths(scope) {
 }
 
 function Shell({ scope, title, subtitle, children }) {
-  if (scope === "invest") {
-    return (
-      <AuthPageLayout brandPanel={<AuthBrandPanel />}>
-        <div className={AUTH_CARD}>
-          <AuthMobileBrand />
-          <h1 className="text-center text-2xl font-bold sm:text-3xl">{title}</h1>
-          {subtitle && <p className={`mb-6 mt-1 text-center text-sm ${AUTH_MUTED}`}>{subtitle}</p>}
-          {children}
-        </div>
-      </AuthPageLayout>
-    );
-  }
+  const mobileBrand = scope === "invest" ? <AuthMobileBrand /> : <MainAuthMobileBrand />;
+  const brandPanel = scope === "invest" ? <AuthBrandPanel /> : <MainAuthBrandPanel />;
+
   return (
-    <div className="app-content-inner mx-auto flex max-w-md flex-col items-center py-10 sm:py-12">
-      <Logo className="mx-auto mb-4 h-12 w-auto max-w-[min(100%,11rem)] sm:h-14 sm:max-w-[12rem]" variant="full" />
-      <h1 className="page-title text-center">{title}</h1>
-      {subtitle && <p className={`mb-6 mt-1 text-center text-sm ${AUTH_MUTED}`}>{subtitle}</p>}
-      <div className={AUTH_CARD}>{children}</div>
-    </div>
+    <AuthPageLayout brandPanel={brandPanel}>
+      <div className={AUTH_CARD}>
+        {mobileBrand}
+        <h1 className="text-center text-2xl font-bold sm:text-3xl">{title}</h1>
+        {subtitle && <p className={`mb-6 mt-1 text-center text-sm ${AUTH_MUTED}`}>{subtitle}</p>}
+        {children}
+      </div>
+    </AuthPageLayout>
   );
 }
 

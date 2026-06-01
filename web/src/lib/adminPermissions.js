@@ -13,7 +13,7 @@ export const ADMIN_TAB_PERMISSIONS = {
   "wallet-ops": "manage_investors",
   "homepage-cms": "manage_settings",
   "notifications-admin": "broadcast_notifications",
-  backup: "manage_settings",
+  backup: "view_dashboard",
   tickets: "support_tickets",
   "referrals-admin": "view_dashboard",
   broadcast: "broadcast_notifications",
@@ -30,6 +30,33 @@ export const ADMIN_TAB_PERMISSIONS = {
   settings: "manage_settings",
   staff: "manage_staff",
 };
+
+/** Fallback when /admin/permissions fails — matches server DEFAULT_MATRIX.ADMIN */
+export const DEFAULT_ADMIN_PERMISSIONS = [
+  "view_dashboard",
+  "approve_deposits",
+  "approve_withdrawals",
+  "review_kyc",
+  "manage_plans",
+  "manage_investors",
+  "manage_gateways",
+  "manage_settings",
+  "support_tickets",
+  "broadcast_notifications",
+  "view_audit",
+  "treasury",
+  "analytics",
+];
+
+/** Full permission set for SUPERADMIN fallback when API is slow or unavailable */
+export const ALL_ADMIN_PERMISSIONS = [
+  ...new Set([
+    ...DEFAULT_ADMIN_PERMISSIONS,
+    ...Object.values(ADMIN_TAB_PERMISSIONS),
+    "manage_staff",
+    "manage_rbac",
+  ]),
+];
 
 export function filterAdminNav(navItems, permissions, isSuper) {
   const set = new Set(permissions || []);

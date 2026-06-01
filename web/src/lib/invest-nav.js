@@ -25,6 +25,7 @@ export const INVESTOR_NAV = [
   { id: "ledger", label: "Ledger", icon: "ledger", color: "indigo" },
 
   { id: "profile", label: "Profile", icon: "profile", color: "slate" },
+  { id: "account", label: "Account Security", icon: "kyc", color: "amber" },
 
   { section: "Help & Rewards" },
 
@@ -66,7 +67,7 @@ export const ADMIN_NAV = [
 
   { section: "Users & Plans" },
 
-  { id: "investors", label: "Users & Investors", icon: "investors", color: "emerald" },
+  { id: "investors", label: "Investor Management", icon: "investors", color: "emerald" },
 
   { id: "plans", label: "Investment Plans", icon: "plans", color: "gold" },
 
@@ -107,6 +108,10 @@ export const ADMIN_NAV = [
   { id: "backup", label: "Backup & Export", icon: "ledger", color: "slate" },
 
   { id: "audit", label: "Audit Log", icon: "ledger", color: "slate" },
+
+  { section: "My Account" },
+
+  { id: "account", label: "Account Security", icon: "profile", color: "slate" },
 
 ];
 

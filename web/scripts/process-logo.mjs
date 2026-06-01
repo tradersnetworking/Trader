@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { copyFileSync, mkdirSync, unlinkSync } from "fs";
+import { copyFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -50,9 +50,32 @@ await sharp(croppedBuf)
   .toFile(markOut);
 console.log("Wrote logo-mark.png");
 
+for (const size of [16, 32, 48]) {
+  await sharp(markOut).resize(size, size).png().toFile(join(outDir, `favicon-${size}.png`));
+}
 await sharp(markOut).resize(32, 32).png().toFile(join(outDir, "favicon.png"));
 copyFileSync(join(outDir, "favicon.png"), join(root, "public", "favicon.png"));
 
+/** Embed PNG in ICO container (supported by modern browsers) */
+function writeIcoFromPng(pngPath, icoPath) {
+  const png = readFileSync(pngPath);
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  const dir = Buffer.alloc(16);
+  dir[0] = 32;
+  dir[1] = 32;
+  dir.writeUInt16LE(1, 4);
+  dir.writeUInt16LE(32, 6);
+  dir.writeUInt32LE(png.length, 8);
+  dir.writeUInt32LE(22, 12);
+  writeFileSync(icoPath, Buffer.concat([header, dir, png]));
+}
+writeIcoFromPng(join(outDir, "favicon.png"), join(root, "public", "favicon.ico"));
+writeIcoFromPng(join(outDir, "favicon.png"), join(outDir, "favicon.ico"));
+
+await sharp(markOut).resize(180, 180).png().toFile(join(outDir, "apple-touch-icon.png"));
 await sharp(markOut).resize(192, 192).png().toFile(join(outDir, "icon-192.png"));
 await sharp(fullOut)
   .resize(512, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })

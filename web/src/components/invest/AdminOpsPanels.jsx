@@ -3,6 +3,7 @@ import { investApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import { Field, Alert } from "../ui.jsx";
 import { PartnersCmsPanel } from "./AdminExtrasPanels.jsx";
+import DataPortabilityPanel from "../shared/DataPortabilityPanel.jsx";
 
 /* -------- Wallet Operations -------- */
 export function WalletOperationsPanel() {
@@ -192,37 +193,6 @@ export function NotificationManagementPanel() {
 }
 
 /* -------- Backup & Export -------- */
-export function BackupExportPanel() {
-  const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState(null);
-
-  const exportData = async () => {
-    setLoading(true);
-    try {
-      const data = await investApi("/admin/export");
-      setSummary(data.counts);
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `akshaya-invest-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="page-stack max-w-lg">
-      <h2 className="text-lg font-bold">Backup & Export</h2>
-      <p className="text-sm text-muted-foreground">Download a JSON snapshot of investors, plans, subscriptions, deposits, payouts, ledger, tickets, and audit logs.</p>
-      <div className="card p-5 space-y-3">
-        {summary && (
-          <p className="text-sm">Last export: {summary.investors} investors, {summary.plans} plans, {summary.subscriptions} subscriptions.</p>
-        )}
-        <button type="button" className="btn-gold w-full" disabled={loading} onClick={exportData}>{loading ? "Exporting…" : "Download Platform Export"}</button>
-      </div>
-    </div>
-  );
+export function BackupExportPanel({ canImport = false }) {
+  return <DataPortabilityPanel portal="invest" canImport={canImport} />;
 }

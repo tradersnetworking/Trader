@@ -92,14 +92,14 @@ function PayoutDestinationCard({ mode, investor }) {
   );
 }
 
-export function DepositPanel({ onRefresh }) {
+export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, walletAvailable, onDepositSubmitted }) {
   const [bank, setBank] = useState(null);
   const [depositAccounts, setDepositAccounts] = useState({ upi: [], bank: [], online: [] });
   const [selectedUpiId, setSelectedUpiId] = useState("");
   const [method, setMethod] = useState("upi");
   const [bankMethod, setBankMethod] = useState("IMPS");
   const [gateway, setGateway] = useState("");
-  const [amount, setAmount] = useState(10000);
+  const [amount, setAmount] = useState(() => Math.max(1000, Number(suggestedAmount) || 10000));
   const [reference, setReference] = useState("");
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
@@ -110,6 +110,17 @@ export function DepositPanel({ onRefresh }) {
   const [promoBonus, setPromoBonus] = useState(null);
   const [promoErr, setPromoErr] = useState("");
   const [bankVa, setBankVa] = useState(null);
+
+  useEffect(() => {
+    if (suggestedAmount && Number(suggestedAmount) > 0) {
+      setAmount(Math.max(1000, Math.ceil(Number(suggestedAmount))));
+    }
+  }, [suggestedAmount]);
+
+  const notifyDepositDone = () => {
+    onDepositSubmitted?.();
+    onRefresh?.();
+  };
 
   const load = () => investApi("/deposits").then((d) => setDeposits(d.deposits)).catch(() => {});
 
@@ -191,7 +202,7 @@ export function DepositPanel({ onRefresh }) {
         if (data.payment.orderId) setReference(data.payment.orderId);
         setMsg(`Transfer ${inr(Number(amount))} to the virtual account below. Use reference ${data.payment.virtualAccount.reference || data.payment.orderId} when paying.`);
         load();
-        onRefresh?.();
+        notifyDepositDone();
         return;
       }
       if (isGateway && (await handleGatewayCheckout(data.payment, data.deposit))) return;
@@ -205,7 +216,7 @@ export function DepositPanel({ onRefresh }) {
           );
           setReference(va.reference || "");
           load();
-          onRefresh?.();
+          notifyDepositDone();
           return;
         } catch {
           sessionStorage.removeItem("bank_deposit_va");
@@ -216,12 +227,14 @@ export function DepositPanel({ onRefresh }) {
           ? "Payment simulated — funds credited to your wallet instantly (mock gateway)."
           : data.payment?.mock
           ? "Deposit submitted (mock gateway). Pending admin approval."
+          : pendingInvest
+          ? "Deposit submitted. Once approved, return to Plans to complete your investment."
           : "Deposit submitted successfully. Admin will verify and credit your wallet."
       );
       setReference("");
       setFile(null);
       load();
-      onRefresh?.();
+      notifyDepositDone();
     } catch (e2) {
       setErr(e2.message);
     }
@@ -259,6 +272,14 @@ export function DepositPanel({ onRefresh }) {
 
   return (
     <div className={`${APP_PAGE_STACK} max-w-5xl`}>
+      {pendingInvest && (
+        <Alert type="info">
+          Depositing for <b>{pendingInvest.planName}</b> ({inr(pendingInvest.amount)} investment).
+          {walletAvailable != null && Number(walletAvailable) < Number(pendingInvest.amount) && (
+            <> Add at least <b>{inr(Math.max(0, Number(pendingInvest.amount) - Number(walletAvailable)))}</b>.</>
+          )}
+        </Alert>
+      )}
       <StepBanner
         tone="emerald"
         title="Add funds to your wallet"

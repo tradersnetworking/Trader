@@ -90,7 +90,8 @@ export default function AdminPayoutsPanel({ onUpdated }) {
           <div>
             <h3 className="font-bold text-heading">Release withdrawals to investors</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Approve pending requests and choose a payout channel — payment gateways or bank APIs (HDFC, Axis, ICICI, Yes Bank).
+              <strong>SCHEDULED</strong> payouts had a prior notice sent — click <em>Mark payout done</em> to update ledger & wallet.
+              Pending withdrawals can be released via gateway.
               {pendingCount > 0 && (
                 <span className="mt-1 block font-semibold text-amber-700 dark:text-amber-300">
                   {pendingCount} pending withdrawal{pendingCount !== 1 ? "s" : ""}
@@ -166,9 +167,21 @@ export default function AdminPayoutsPanel({ onUpdated }) {
                 <td className="p-3 font-mono text-xs">{p.destination}</td>
                 <td className="p-3">
                   <Badge status={p.status} />
+                  {p.payoutKind && p.payoutKind !== "WITHDRAWAL" && <div className="text-[10px] text-muted-foreground">{p.payoutKind}</div>}
+                  {p.noticeSentAt && <div className="text-[10px] text-emerald-600">Notice sent {new Date(p.noticeSentAt).toLocaleDateString()}</div>}
                   {p.gatewayRef && <div className="text-[10px] text-muted-foreground">{p.gateway}: {p.gatewayRef}</div>}
                 </td>
                 <td className="p-3 text-right">
+                  {p.status === "SCHEDULED" && (
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <button type="button" onClick={async () => { await investApi(`/admin/payouts/${p.id}/mark-done`, { method: "POST" }); load(); }} className="btn-gold px-3 py-1.5 text-xs">
+                        Mark payout done
+                      </button>
+                      <button type="button" onClick={async () => { await investApi(`/admin/payouts/${p.id}/cancel-scheduled`, { method: "POST" }); load(); }} className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-500/10">
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   {p.status === "PENDING" && (
                     <div className="flex flex-wrap justify-end gap-1">
                       <button type="button" onClick={() => setReleaseTarget(p)} className="btn-gold px-3 py-1.5 text-xs">

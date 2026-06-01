@@ -204,9 +204,9 @@ function MainRoutes() {
 
 
 
-      <Route path="/dashboard" element={<RequireAuth scope="main">{M(<UserDashboard />)}</RequireAuth>} />
+      <Route path="/dashboard" element={<RequireAuth scope="main"><UserDashboard /></RequireAuth>} />
 
-      <Route path="/admin" element={<RequireAuth scope="main" roles={["ADMIN", "SUPERADMIN", "STAFF"]}>{M(<AdminDashboard />)}</RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth scope="main" roles={["ADMIN", "SUPERADMIN", "STAFF"]}><AdminDashboard /></RequireAuth>} />
 
 
 

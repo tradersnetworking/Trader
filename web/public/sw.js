@@ -1,5 +1,16 @@
-const CACHE = "aex-invest-v1";
-const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/assets/icon-192.png", "/assets/icon-512.png"];
+const CACHE = "aex-invest-v2";
+const SHELL = [
+  "/",
+  "/index.html",
+  "/favicon.png",
+  "/favicon.ico",
+  "/manifest.webmanifest",
+  "/assets/favicon.png",
+  "/assets/logo.png",
+  "/assets/logo-mark.png",
+  "/assets/icon-192.png",
+  "/assets/icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

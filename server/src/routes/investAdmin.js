@@ -35,6 +35,30 @@ import {
 } from "../services/maturityPayments.js";
 import { getAllSettings, setSettings } from "../services/investSettings.js";
 import {
+  exportInvestData,
+  formatExport,
+  importInvestData,
+  INVEST_DATASETS,
+} from "../services/dataPortability.js";
+import {
+  getReferralSettings,
+  saveReferralSettings,
+} from "../services/referralSettings.js";
+import {
+  createInvestorFull,
+  updateInvestorFull,
+  adminAssignSubscription,
+  updateSubscriptionRoi,
+  scheduleManualPayout,
+  completeScheduledPayout,
+  cancelScheduledPayout,
+  adminWalletOperation,
+} from "../services/adminInvestorOps.js";
+import {
+  payReferralEarningById,
+  payAllPendingReferrals,
+} from "../services/referralPayoutJob.js";
+import {
   getEmailCommunicationBundle,
   saveEmailCommunicationConfig,
   sendPurposeTestEmail,
@@ -45,8 +69,20 @@ import {
   listAllAgreements,
   revokeAgreement,
   adminGenerateForInvestor,
+  getAgreementPdfBuffer,
+  previewTemplateContent,
+  getAgreementById,
   AGREEMENT_TYPES,
+  AGREEMENT_PLACEHOLDERS,
+  getDefaultTemplate,
+  templateContentToMarkdown,
 } from "../services/agreements.js";
+import { getAgreementSettings, updateAgreementSettings } from "../services/agreementSettings.js";
+
+function clientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  return (Array.isArray(fwd) ? fwd[0] : fwd?.split(",")[0]?.trim()) || req.socket?.remoteAddress || "";
+}
 
 const router = Router();
 const SCOPE = "invest";
@@ -213,6 +249,11 @@ router.patch(
     if (["SUPERADMIN"].includes(inv.role) && req.user.role !== "SUPERADMIN") {
       return res.status(403).json({ error: "Cannot modify super admin accounts" });
     }
+    if (req.body.kyc || req.body.bankName !== undefined) {
+      const updated = await updateInvestorFull(req.params.id, req.body, req.user);
+      const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = updated;
+      return res.json({ investor: user });
+    }
     const data = {};
     if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
     if (req.body.name !== undefined) data.name = String(req.body.name).trim();
@@ -225,27 +266,123 @@ router.patch(
 );
 
 router.post(
+  "/investors/create-full",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const result = await createInvestorFull(req.body, req.user);
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.put(
+  "/investors/:id/full",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const investor = await updateInvestorFull(req.params.id, req.body, req.user);
+      const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = investor;
+      res.json({ investor: user });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/investors/:id/subscribe",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const subscription = await adminAssignSubscription(req.params.id, req.body, req.user);
+      res.json({ subscription });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.patch(
+  "/subscriptions/:id/roi",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const subscription = await updateSubscriptionRoi(req.params.id, req.body, req.user);
+      res.json({ subscription });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/payouts/schedule",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const payout = await scheduleManualPayout(req.body, req.user);
+      res.json({ payout });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/payouts/:id/mark-done",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const payout = await completeScheduledPayout(req.params.id, req.user);
+      res.json({ payout });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/payouts/:id/cancel-scheduled",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const payout = await cancelScheduledPayout(req.params.id, req.user);
+      res.json({ payout });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
   "/wallet/adjust",
   authRequired(SCOPE),
   adminOnly,
   requirePermission("manage_investors"),
   asyncH(async (req, res) => {
-    const { investorId, amount, direction, bucket, note } = req.body;
-    const amt = Number(amount);
-    if (!investorId || !Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "Invalid adjustment" });
-    const dir = direction === "DEBIT" ? "DEBIT" : "CREDIT";
-    const target = bucket === "earnings" ? "earnings" : bucket === "invested" ? "invested" : "available";
-    const wallet = await investDb.wallet.findUnique({ where: { investorId } });
-    if (!wallet) return res.status(404).json({ error: "Wallet not found" });
-    if (dir === "DEBIT" && wallet[target] < amt) return res.status(400).json({ error: `Insufficient ${target} balance` });
-    const inc = dir === "CREDIT" ? amt : -amt;
-    await investDb.wallet.update({ where: { investorId }, data: { [target]: { increment: inc } } });
-    if (target === "available") {
-      await addLedger(investorId, { type: "ADJUSTMENT", direction: dir, amount: amt, note: note || `Admin ${dir.toLowerCase()} adjustment` });
+    try {
+      const wallet = await adminWalletOperation(req.body, req.user);
+      res.json({ wallet });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
     }
-    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "WALLET_ADJUST", entity: "Wallet", entityId: investorId, meta: JSON.stringify({ amount: amt, direction: dir, bucket: target, note }) });
-    const updated = await investDb.wallet.findUnique({ where: { investorId } });
-    res.json({ wallet: updated });
   })
 );
 
@@ -282,23 +419,35 @@ router.get(
   "/export",
   authRequired(SCOPE),
   adminOnly,
+  asyncH(async (req, res) => {
+    const datasets = req.query.datasets ? String(req.query.datasets).split(",").filter(Boolean) : null;
+    const format = String(req.query.format || "json").toLowerCase();
+    const payload = await exportInvestData(datasets);
+    const { content, mime, ext } = formatExport(payload, format);
+    if (format === "json") return res.json(payload);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `attachment; filename="akshaya-invest-export.${ext}"`);
+    res.send(content);
+  })
+);
+
+router.get(
+  "/export/datasets",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ datasets: INVEST_DATASETS });
+  })
+);
+
+router.post(
+  "/import",
+  authRequired(SCOPE),
+  adminOnly,
   requirePermission("manage_settings"),
   asyncH(async (req, res) => {
-    const [investors, plans, subscriptions, deposits, payouts, ledger, tickets, auditLogs] = await Promise.all([
-      investDb.investor.findMany({ select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true } }),
-      investDb.plan.findMany(),
-      investDb.subscription.findMany({ select: { id: true, investorId: true, planId: true, amount: true, status: true, startDate: true, maturityDate: true, createdAt: true } }),
-      investDb.deposit.findMany({ select: { id: true, investorId: true, amount: true, status: true, method: true, createdAt: true } }),
-      investDb.payout.findMany({ select: { id: true, investorId: true, amount: true, status: true, mode: true, createdAt: true } }),
-      investDb.ledgerEntry.findMany({ orderBy: { createdAt: "desc" }, take: 5000 }),
-      investDb.supportTicket.findMany({ select: { id: true, investorId: true, subject: true, status: true, createdAt: true } }),
-      investDb.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 1000 }),
-    ]);
-    res.json({
-      exportedAt: new Date().toISOString(),
-      counts: { investors: investors.length, plans: plans.length, subscriptions: subscriptions.length },
-      data: { investors, plans, subscriptions, deposits, payouts, ledger, tickets, auditLogs },
-    });
+    const result = await importInvestData(req.body, { actorId: req.user.id });
+    res.json(result);
   })
 );
 
@@ -855,8 +1004,97 @@ router.post(
   adminOnly,
   asyncH(async (req, res) => {
     const { investorId, type } = req.body;
-    const agreement = await adminGenerateForInvestor(investorId, type);
+    const agreement = await adminGenerateForInvestor(investorId, type, {
+      ipAddress: clientIp(req),
+      userAgent: req.headers["user-agent"] || "",
+    });
     res.json({ agreement });
+  })
+);
+
+router.get(
+  "/agreements/:id/view",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id, { isAdmin: true });
+    const ag = await getAgreementById(req.params.id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+    res.send(buffer);
+  })
+);
+
+router.get(
+  "/agreements/:id/download",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id, { isAdmin: true });
+    const ag = await getAgreementById(req.params.id);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+    res.send(buffer);
+  })
+);
+
+router.get(
+  "/agreement-templates/placeholders",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json({ placeholders: AGREEMENT_PLACEHOLDERS });
+  })
+);
+
+router.get(
+  "/agreement-templates/default/:type",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const def = getDefaultTemplate(req.params.type);
+    if (!def) return res.status(404).json({ error: "Unknown type" });
+    res.json({ template: { type: def.type, title: def.title, content: templateContentToMarkdown(def) } });
+  })
+);
+
+router.post(
+  "/agreement-templates/preview",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const { investorId, type, title, content, subscriptionId } = req.body;
+    if (!investorId) return res.status(400).json({ error: "investorId required" });
+    const preview = await previewTemplateContent({
+      investorId,
+      type,
+      title,
+      content,
+      subscriptionId,
+      ipAddress: clientIp(req),
+      userAgent: req.headers["user-agent"] || "",
+    });
+    res.json(preview);
+  })
+);
+
+router.get(
+  "/agreement-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json(await getAgreementSettings());
+  })
+);
+
+router.put(
+  "/agreement-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  superOnly,
+  asyncH(async (req, res) => {
+    res.json(await updateAgreementSettings(req.body));
   })
 );
 
@@ -1070,26 +1308,60 @@ router.delete(
 );
 
 /* ---------------- Referral earnings payout (admin) ---------------- */
+router.get(
+  "/referral-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (_req, res) => {
+    res.json(await getReferralSettings());
+  })
+);
+
+router.put(
+  "/referral-settings",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const settings = await saveReferralSettings(req.body);
+    await logAudit({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      actorName: req.user.name,
+      action: "REFERRAL_SETTINGS_UPDATE",
+      entity: "InvestSetting",
+    });
+    res.json(settings);
+  })
+);
+
+router.post(
+  "/referral-earnings/pay-all",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const result = await payAllPendingReferrals({
+      actor: { actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name },
+      minAmount: req.body?.minAmount,
+    });
+    res.json(result);
+  })
+);
+
 router.post(
   "/referral-earnings/:id/pay",
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (req, res) => {
-    const earning = await investDb.referralEarning.findUnique({ where: { id: req.params.id } });
-    if (!earning || earning.status !== "PENDING") return res.status(400).json({ error: "Invalid earning" });
-    await addLedger(earning.referrerId, {
-      type: "RETURN",
-      direction: "CREDIT",
-      amount: earning.amount,
-      note: "Referral commission paid",
-    });
-    await investDb.wallet.update({
-      where: { investorId: earning.referrerId },
-      data: { earnings: { increment: earning.amount } },
-    });
-    await investDb.referralEarning.update({ where: { id: earning.id }, data: { status: "PAID" } });
-    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "REFERRAL_PAY", entity: "ReferralEarning", entityId: earning.id });
-    res.json({ ok: true });
+    try {
+      await payReferralEarningById(req.params.id, {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        actorName: req.user.name,
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(400).json({ error: e.message || "Invalid earning" });
+    }
   })
 );
 

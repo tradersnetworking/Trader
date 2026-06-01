@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge, Field, Modal } from "../ui.jsx";
+import { ReferralAdminPanel } from "./ReferralAdminPanel.jsx";
 
 export function PromoCodesAdmin() {
   const [promos, setPromos] = useState([]);
@@ -124,72 +125,101 @@ export function SupportTicketsAdmin() {
   const [tickets, setTickets] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [reply, setReply] = useState("");
-  const load = () => investApi("/admin/tickets").then((d) => setTickets(d.tickets || [])).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    setErr("");
+    const q = statusFilter ? `?status=${statusFilter}` : "";
+    return investApi(`/admin/tickets${q}`)
+      .then((d) => setTickets(d.tickets || []))
+      .catch((e) => {
+        setErr(e.message || "Could not load tickets");
+        setTickets([]);
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, [statusFilter]);
+
   const send = async (id) => {
+    if (!reply.trim()) return;
     await investApi(`/admin/tickets/${id}/reply`, { method: "POST", body: { message: reply } });
     setReply("");
     load();
   };
+
+  const openCount = tickets.filter((t) => ["OPEN", "IN_PROGRESS"].includes(t.status)).length;
+
   return (
-    <div className="space-y-3">
-      {tickets.map((t) => (
-        <div key={t.id} className="card p-4">
-          <button type="button" className="flex w-full justify-between text-left" onClick={() => setExpanded(expanded === t.id ? null : t.id)}>
-            <div><b>{t.subject}</b><div className="text-xs text-muted-foreground">{t.investor?.name} · {t.investor?.email}</div></div>
-            <Badge status={t.status === "CLOSED" ? "REJECTED" : "PENDING"} />
-          </button>
-          {expanded === t.id && (
-            <div className="mt-3 border-t pt-3">
-              <p className="text-sm">{t.message}</p>
-              {(t.replies || []).map((r) => <div key={r.id} className="mt-2 rounded bg-muted/30 p-2 text-sm"><b>{r.authorName}</b>: {r.message}</div>)}
-              {t.status !== "CLOSED" && (
-                <div className="mt-3 flex gap-2">
-                  <input className="input flex-1" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Admin reply" />
-                  <button type="button" className="btn-gold text-sm" onClick={() => send(t.id)}>Reply</button>
-                  <button type="button" className="btn-outline text-sm" onClick={() => investApi(`/admin/tickets/${t.id}/close`, { method: "POST" }).then(load)}>Close</button>
-                </div>
-              )}
-            </div>
-          )}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-foreground">Support Tickets</h3>
+          <p className="text-sm text-muted-foreground">Investor tickets from the Support tab in their dashboard.</p>
         </div>
-      ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <select className="input w-auto text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="">All statuses</option>
+            {["OPEN", "IN_PROGRESS", "CLOSED"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <button type="button" className="btn-outline text-sm" onClick={load}>Refresh</button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="card p-4 text-center"><div className="text-2xl font-bold">{tickets.length}</div><div className="text-xs text-muted-foreground">Total shown</div></div>
+        <div className="card p-4 text-center"><div className="text-2xl font-bold text-amber-600">{openCount}</div><div className="text-xs text-muted-foreground">Open / in progress</div></div>
+        <div className="card p-4 text-center"><div className="text-2xl font-bold text-emerald-600">{tickets.filter((t) => t.status === "CLOSED").length}</div><div className="text-xs text-muted-foreground">Closed</div></div>
+      </div>
+
+      {err && <Alert type="error">{err}</Alert>}
+      {loading && <p className="text-sm text-muted-foreground">Loading tickets…</p>}
+
+      {!loading && !err && tickets.length === 0 && (
+        <div className="card p-8 text-center">
+          <p className="font-semibold text-foreground">No support tickets yet</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            When investors submit tickets from their dashboard Support tab, they will appear here for you to reply and close.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {tickets.map((t) => (
+          <div key={t.id} className="card p-4">
+            <button type="button" className="flex w-full justify-between gap-3 text-left" onClick={() => setExpanded(expanded === t.id ? null : t.id)}>
+              <div className="min-w-0">
+                <b>{t.subject}</b>
+                <div className="text-xs text-muted-foreground">{t.investor?.name} · {t.investor?.email}</div>
+                <div className="text-[10px] text-muted-foreground">{dateStr(t.createdAt)}</div>
+              </div>
+              <Badge status={t.status === "CLOSED" ? "REJECTED" : t.status === "IN_PROGRESS" ? "PENDING" : "OPEN"} />
+            </button>
+            {expanded === t.id && (
+              <div className="mt-3 border-t pt-3">
+                <p className="text-sm whitespace-pre-wrap">{t.message}</p>
+                {(t.replies || []).map((r) => (
+                  <div key={r.id} className="mt-2 rounded bg-muted/30 p-2 text-sm"><b>{r.authorName}</b> ({r.authorRole}): {r.message}</div>
+                ))}
+                {t.status !== "CLOSED" && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <input className="input min-w-[12rem] flex-1" value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Admin reply" />
+                    <button type="button" className="btn-gold text-sm" onClick={() => send(t.id)}>Reply</button>
+                    <button type="button" className="btn-outline text-sm" onClick={() => investApi(`/admin/tickets/${t.id}/close`, { method: "POST" }).then(load)}>Close</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 export function ReferralEarningsAdmin() {
-  const [items, setItems] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
-  const load = () => {
-    investApi("/admin/referral-earnings").then((d) => setItems(d.earnings || [])).catch(() => {});
-    investApi("/admin/referral-analytics").then(setAnalytics).catch(() => {});
-  };
-  useEffect(() => { load(); }, []);
-  return (
-    <div className="space-y-4">
-      {analytics && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="card p-4 text-center"><div className="text-xl font-bold">{analytics.clicks}</div><div className="text-xs text-muted-foreground">Link / QR clicks</div></div>
-          <div className="card p-4 text-center"><div className="text-xl font-bold">{analytics.registrations}</div><div className="text-xs text-muted-foreground">Registrations</div></div>
-          <div className="card p-4 text-center"><div className="text-xl font-bold">{analytics.conversionRate}%</div><div className="text-xs text-muted-foreground">Conversion rate</div></div>
-        </div>
-      )}
-      <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs uppercase text-muted-foreground"><th className="p-3">Referrer</th><th className="p-3">Amount</th><th className="p-3">Status</th><th className="p-3"></th></tr></thead>
-          <tbody>
-            {items.map((e) => (
-              <tr key={e.id} className="border-t">
-                <td className="p-3">{e.referrer?.name}</td>
-                <td className="p-3 font-bold">{inr(e.amount)}</td>
-                <td className="p-3"><Badge status={e.status} /></td>
-                <td className="p-3">{e.status === "PENDING" && <button type="button" className="text-xs text-emerald-600" onClick={() => investApi(`/admin/referral-earnings/${e.id}/pay`, { method: "POST" }).then(load)}>Pay</button>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <ReferralAdminPanel />;
 }

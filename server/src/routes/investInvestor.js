@@ -11,8 +11,15 @@ import {
   generateAgreement,
   generateSubscriptionAgreement,
   signAgreement,
+  getAgreementPdfBuffer,
   AGREEMENT_TYPES,
 } from "../services/agreements.js";
+import { getAgreementSettings } from "../services/agreementSettings.js";
+
+function clientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  return (Array.isArray(fwd) ? fwd[0] : fwd?.split(",")[0]?.trim()) || req.socket?.remoteAddress || "";
+}
 import {
   notifyDepositSubmitted,
   notifyWithdrawalRequested,
@@ -377,8 +384,48 @@ router.post(
   "/agreements/generate",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const agreement = await generateAgreement(req.user.id, req.body.type);
+    const agreement = await generateAgreement(req.user.id, req.body.type, {
+      ipAddress: clientIp(req),
+      userAgent: req.headers["user-agent"] || "",
+      triggerEvent: "user_requested",
+    });
     res.json({ agreement });
+  })
+);
+
+router.get(
+  "/agreements/settings/public",
+  authRequired(SCOPE),
+  asyncH(async (_req, res) => {
+    res.json(await getAgreementSettings());
+  })
+);
+
+router.get(
+  "/agreements/:id/view",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id);
+    const ag = await investDb.agreement.findUnique({ where: { id: req.params.id }, select: { agreementUid: true } });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+    res.send(buffer);
+  })
+);
+
+router.get(
+  "/agreements/:id/download",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const settings = await getAgreementSettings();
+    if (!settings.userDownloadEnabled) {
+      return res.status(403).json({ error: "Agreement downloads are disabled by the platform." });
+    }
+    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id);
+    const ag = await investDb.agreement.findUnique({ where: { id: req.params.id }, select: { agreementUid: true } });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+    res.send(buffer);
   })
 );
 
@@ -386,8 +433,12 @@ router.post(
   "/agreements/:id/sign",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const agreement = await signAgreement(req.user.id, req.params.id, req.body.signatureData);
-    res.json({ agreement });
+    const agreement = await signAgreement(req.user.id, req.params.id, req.body.signatureData, {
+      ipAddress: clientIp(req),
+      userAgent: req.headers["user-agent"] || "",
+      method: req.body.method || "draw",
+    });
+    res.json({ agreement, pdfHash: agreement.pdfHash });
   })
 );
 
@@ -498,9 +549,19 @@ router.post(
     await addLedger(req.user.id, { type: "INVESTMENT", direction: "DEBIT", amount: amt, reference: sub.id, note: `Invested in ${plan.name}` });
     await investDb.wallet.update({ where: { investorId: req.user.id }, data: { invested: { increment: amt } } });
     await creditReferralOnInvestment(req.user.id, amt, sub.id);
-    const agreement = await generateSubscriptionAgreement(req.user.id, sub.id);
+    let agreement = null;
+    let agreementError = null;
+    try {
+      agreement = await generateSubscriptionAgreement(req.user.id, sub.id, {
+        ipAddress: clientIp(req),
+        userAgent: req.headers["user-agent"] || "",
+      });
+    } catch (e) {
+      agreementError = e.message || "Agreement could not be generated";
+      console.error("[subscribe] agreement generation failed:", e);
+    }
     await notifyInvestor(req.user.id, "Investment confirmed", `You invested ${amt} in ${plan.name}.`, { type: "SUCCESS", link: "investments" });
-    res.json({ subscription: sub, agreement });
+    res.json({ subscription: sub, agreement, agreementError });
   })
 );
 

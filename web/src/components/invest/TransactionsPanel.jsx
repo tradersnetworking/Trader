@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge } from "../ui.jsx";
@@ -6,6 +6,7 @@ import CalendarPeriodFilter from "./CalendarPeriodFilter.jsx";
 import { buildStatsQuery, periodMetricLabel } from "../../lib/finance-period.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
+import { useInvestRefresh } from "../../lib/investRefresh.js";
 
 export default function TransactionsPanel() {
   const [period, setPeriod] = useState("month");
@@ -15,13 +16,14 @@ export default function TransactionsPanel() {
   const [view, setView] = useState("requests");
   const [data, setData] = useState(null);
 
-  const load = () => {
+  const load = useCallback(() => {
     const qs = buildStatsQuery(period, customFrom, customTo);
     const typeQ = typeFilter !== "all" ? `&type=${typeFilter}` : "";
     investApi(`/wallet/history?${qs}${typeQ}`).then(setData).catch(() => {});
-  };
+  }, [period, customFrom, customTo, typeFilter]);
 
-  useEffect(() => { load(); }, [period, typeFilter]);
+  useEffect(() => { load(); }, [load]);
+  useInvestRefresh(load);
 
   const applyCustom = () => load();
   const label = data?.periodLabel || "All time";

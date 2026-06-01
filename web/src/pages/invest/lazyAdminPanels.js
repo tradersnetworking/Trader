@@ -13,13 +13,14 @@ export const AuditLogPanel = lazy(() => import("../../components/invest/AdminExt
 export const PartnersCmsPanel = lazy(() => import("../../components/invest/AdminExtrasPanels.jsx").then((m) => ({ default: m.PartnersCmsPanel })));
 export const BroadcastNotificationsPanel = lazy(() => import("../../components/invest/AdminExtrasPanels.jsx").then((m) => ({ default: m.BroadcastNotificationsPanel })));
 export const SupportTicketsAdmin = lazy(() => import("../../components/invest/AdminExtrasPanels.jsx").then((m) => ({ default: m.SupportTicketsAdmin })));
-export const ReferralEarningsAdmin = lazy(() => import("../../components/invest/AdminExtrasPanels.jsx").then((m) => ({ default: m.ReferralEarningsAdmin })));
+export const ReferralEarningsAdmin = lazy(() => import("../../components/invest/ReferralAdminPanel.jsx").then((m) => ({ default: m.ReferralAdminPanel })));
+export const AccountSecurityPanel = lazy(() => import("../../components/shared/AccountSecurityPanel.jsx"));
 export const TreasuryPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.TreasuryPanel })));
 export const CohortAnalyticsPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.CohortAnalyticsPanel })));
 export const RbacPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.RbacPanel })));
 export const SupportMailPanel = lazy(() => import("../../components/invest/AdminAdvancedPanels.jsx").then((m) => ({ default: m.SupportMailPanel })));
 export const PlatformInvestmentsPanel = lazy(() => import("../../components/invest/PlatformInvestmentsPanel.jsx"));
-export const UsersManagementPanel = lazy(() => import("../../components/invest/UsersManagementPanel.jsx"));
+export const UsersManagementPanel = lazy(() => import("../../components/invest/InvestorOpsPanel.jsx"));
 export const WalletOperationsPanel = lazy(() => import("../../components/invest/AdminOpsPanels.jsx").then((m) => ({ default: m.WalletOperationsPanel })));
 export const HomepageCmsPanel = lazy(() => import("../../components/invest/AdminOpsPanels.jsx").then((m) => ({ default: m.HomepageCmsPanel })));
 export const NotificationManagementPanel = lazy(() => import("../../components/invest/AdminOpsPanels.jsx").then((m) => ({ default: m.NotificationManagementPanel })));

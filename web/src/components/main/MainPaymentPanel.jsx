@@ -1,0 +1,136 @@
+import { useEffect, useState } from "react";
+import { mainApi } from "../../lib/api.js";
+import { inr, dateStr } from "../../lib/format.js";
+import { Badge, Copyable } from "../ui.jsx";
+
+export default function MainPaymentPanel() {
+  const [bank, setBank] = useState(null);
+
+  useEffect(() => {
+    mainApi("/bank-details").then(setBank).catch(() => {});
+  }, []);
+
+  if (!bank) return <p className="text-muted-foreground">Loading payment details…</p>;
+
+  return (
+    <div className="grid min-w-0 gap-6 md:grid-cols-2">
+      <div className="card min-w-0 overflow-hidden p-5">
+        <h3 className="mb-3 font-bold">Bank Transfer (IMPS / NEFT / RTGS)</h3>
+        <div className="min-w-0 space-y-2">
+          <Copyable label="Bank Name" value={bank.bank.name} />
+          <Copyable label="Account Name" value={bank.bank.accountName} />
+          <Copyable label="Account Number" value={bank.bank.accountNumber} />
+          <Copyable label="IFSC Code" value={bank.bank.ifsc} />
+          <Copyable label="MICR Code" value={bank.bank.micr} />
+          <Copyable label="SWIFT Code" value={bank.bank.swift} />
+          <Copyable label="Branch" value={bank.bank.branch} />
+        </div>
+      </div>
+      <div className="card min-w-0 overflow-hidden p-5">
+        <h3 className="mb-3 font-bold">UPI & online gateways</h3>
+        <Copyable label="UPI ID" value={bank.upi.vpa} />
+        <p className="mt-3 text-sm text-muted-foreground">
+          Supported gateways: Razorpay, EximPe, Juspay, Cashfree, PayU, UPI. Cards: Visa, Mastercard, RuPay.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function MainMyQuotesPanel() {
+  const [quotes, setQuotes] = useState([]);
+
+  useEffect(() => {
+    mainApi("/quotes/mine").then((d) => setQuotes(d.quotes)).catch(() => {});
+  }, []);
+
+  return (
+    <div className="overflow-x-auto card">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="p-3">Product</th>
+            <th className="p-3">Direction</th>
+            <th className="p-3">Qty</th>
+            <th className="p-3">Quoted</th>
+            <th className="p-3">Status</th>
+            <th className="p-3">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {quotes.map((q) => (
+            <tr key={q.id} className="border-t">
+              <td className="p-3 font-medium">{q.productName}</td>
+              <td className="p-3">{q.direction === "SELL" ? "Supply" : "Buy"}</td>
+              <td className="p-3">{q.quantity} {q.unit}</td>
+              <td className="p-3">{q.quotedPrice ? inr(q.quotedPrice) : "—"}</td>
+              <td className="p-3"><Badge status={q.status} /></td>
+              <td className="p-3 text-muted-foreground">{dateStr(q.createdAt)}</td>
+            </tr>
+          ))}
+          {quotes.length === 0 && (
+            <tr><td colSpan="6" className="p-6 text-center text-muted-foreground">No quotes yet. Use Request Quote or Supply Offer from the sidebar.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function MainMyOrdersPanel({ onGenerateInvoice }) {
+  const [orders, setOrders] = useState([]);
+  const [busy, setBusy] = useState(null);
+
+  const load = () => mainApi("/orders/mine").then((d) => setOrders(d.orders)).catch(() => {});
+
+  useEffect(() => { load(); }, []);
+
+  const genInvoice = async (orderId) => {
+    setBusy(orderId);
+    try {
+      const d = await mainApi(`/invoices/from-order/${orderId}`, { method: "POST", body: {} });
+      await load();
+      onGenerateInvoice?.(d.invoice);
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="overflow-x-auto card">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="p-3">Order #</th>
+            <th className="p-3">Amount</th>
+            <th className="p-3">Payment</th>
+            <th className="p-3">Status</th>
+            <th className="p-3">Date</th>
+            <th className="p-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((o) => (
+            <tr key={o.id} className="border-t">
+              <td className="p-3 font-mono">{o.orderNumber}</td>
+              <td className="p-3">{inr(o.totalAmount)}</td>
+              <td className="p-3">{o.paymentGateway || "—"}</td>
+              <td className="p-3"><Badge status={o.status} /></td>
+              <td className="p-3 text-muted-foreground">{dateStr(o.createdAt)}</td>
+              <td className="p-3 text-right">
+                <button type="button" className="text-xs font-semibold text-primary" disabled={busy === o.id} onClick={() => genInvoice(o.id)}>
+                  {busy === o.id ? "…" : "Generate invoice"}
+                </button>
+              </td>
+            </tr>
+          ))}
+          {orders.length === 0 && (
+            <tr><td colSpan="6" className="p-6 text-center text-muted-foreground">No orders yet.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}

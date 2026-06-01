@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { investApi } from "../../lib/api.js";
-import { inr } from "../../lib/format.js";
+import { inr, dateStr } from "../../lib/format.js";
 import { Badge, Modal, Field, Alert } from "../ui.jsx";
 import {
   PLAN_TYPES,
@@ -11,6 +11,7 @@ import {
   lockInCategoryLabel,
   lockInMonthsFromDays,
 } from "../../lib/plan-types.js";
+import { planCalcPreview, parseSettlementCycles } from "../../lib/plan-calc.js";
 
 const PLAN_TYPES_LIST = PLAN_TYPES;
 
@@ -72,8 +73,22 @@ export default function AdminPlansPanel({ canManage }) {
   };
   const del = async (id) => { if (confirm("Delete plan?")) { await investApi(`/admin/plans/${id}`, { method: "DELETE" }); load(); } };
 
+  const previewCycle = parseSettlementCycles(form.settlementCycles)[0] || "MONTHLY";
+  const previewAmount = useMemo(() => {
+    const min = Number(form.minInvestment) || 0;
+    const max = Number(form.maxInvestment) || min;
+    return Math.round((min + max) / 2);
+  }, [form.minInvestment, form.maxInvestment]);
+  const preview = useMemo(() => {
+    if (!form.monthlyRoiPct || !form.lockInDays) return null;
+    return planCalcPreview(previewAmount, form, previewCycle);
+  }, [form.monthlyRoiPct, form.lockInDays, form.lockInMonths, previewAmount, previewCycle]);
+
   return (
     <div>
+      <Alert type="info">
+        Edit <strong>profit share %</strong> and <strong>lock-in period</strong> here — min/max capital, annual ROI, maturity projections, and investor agreements update automatically when investors subscribe.
+      </Alert>
       {canManage ? <button onClick={openNew} className="btn-primary mb-4">+ Create Plan</button> : <Alert type="info">You do not have permission to create, edit or delete plans.</Alert>}
       <div className="mb-4 flex flex-wrap gap-2">
         {PLAN_TYPES_LIST.map((t) => (
@@ -103,8 +118,11 @@ export default function AdminPlansPanel({ canManage }) {
             {tierPlans.map((p) => (
               <div key={p.id} className="card overflow-hidden">
                 <div className="px-4 py-3 text-white" style={{ background: p.color }}>
-                  <div className="flex justify-between"><b>{p.name}</b><span className="badge bg-white/20 text-white">{p.planType}</span></div>
-                  <div className="text-xs text-white/80">{lockInCategoryLabel(p.lockInDays)} sub-category</div>
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                    <span className="shrink-0 rounded-lg bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase">{p.planType}</span>
+                  </div>
+                  <b className="block break-words text-sm leading-snug sm:text-base">{p.name}</b>
+                  <div className="mt-1 text-xs text-white/80">{lockInCategoryLabel(p.lockInDays)} sub-category</div>
                 </div>
                 <div className="space-y-1 p-4 text-sm">
                   <div className="flex justify-between"><span className="text-slate-400">Lock-in</span><b>{p.lockInDays} days</b></div>
@@ -149,11 +167,34 @@ export default function AdminPlansPanel({ canManage }) {
           </div>
           <p className="text-xs text-slate-400">Lock-in: {form.lockInDays} days ({lockInCategoryLabel(form.lockInDays)}) — capital range {PLAN_CAPITAL[form.planType]?.label}</p>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Settlement Cycles"><select className="input" value={form.settlementCycles} onChange={(e) => setForm({ ...form, settlementCycles: e.target.value })}><option value="MONTHLY">Monthly</option><option value="WEEKLY">Weekly</option><option value="WEEKLY,MONTHLY">Weekly & Monthly</option></select></Field>
+            <Field label="Settlement Cycles">
+              <select className="input" value={form.settlementCycles} onChange={(e) => setForm({ ...form, settlementCycles: e.target.value })}>
+                <option value="MONTHLY">Monthly</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="QUARTERLY">Quarterly</option>
+                <option value="WEEKLY,MONTHLY">Weekly & Monthly</option>
+                <option value="MONTHLY,QUARTERLY">Monthly & Quarterly</option>
+                <option value="WEEKLY,MONTHLY,QUARTERLY">Weekly, Monthly & Quarterly</option>
+              </select>
+            </Field>
             <Field label="Card Color"><input className="input h-10" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
           </div>
           <Field label="Description"><textarea className="input" rows={2} value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active (shown to investors)</label>
+          {preview && (
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+              <p className="mb-2 font-semibold text-foreground">Live calculation preview ({inr(previewAmount)} sample)</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Annual ROI</span><b>{preview.annualRoiPct}%</b></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Monthly return</span><b>{inr(preview.monthlyReturn)}</b></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">{preview.settlementLabel} payout</span><b>{inr(preview.settlementPayout)}</b></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Maturity date</span><b>{dateStr(preview.maturityDate)}</b></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Total profit till maturity</span><b className="text-emerald-700">{inr(preview.totalSimpleProfit)}</b></div>
+                <div className="flex justify-between gap-2"><span className="text-muted-foreground">Expected total return</span><b>{inr(preview.expectedTotalReturn)}</b></div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Investors receive an agreement auto-generated with these terms when they subscribe.</p>
+            </div>
+          )}
           <p className="text-xs text-slate-400">Annual ROI auto-calculated as monthly × 12 = {Number(form.monthlyRoiPct || 0) * 12}%.</p>
           <button className="btn-gold w-full">{editing ? "Update Plan" : "Create Plan"}</button>
         </form>

@@ -51,10 +51,18 @@ function SummaryRow({ label, value, accent }) {
   );
 }
 
-export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
-  const [step, setStep] = useState(0);
-  const [amount, setAmount] = useState(String(plan.minInvestment));
-  const [cycle, setCycle] = useState(parseSettlementCycles(plan.settlementCycles)[0] || "MONTHLY");
+export default function InvestSubscribeWizard({
+  plan,
+  onClose,
+  onDone,
+  onNeedDeposit,
+  initialAmount,
+  initialStep = 0,
+  initialCycle,
+}) {
+  const [step, setStep] = useState(initialStep);
+  const [amount, setAmount] = useState(String(initialAmount ?? plan.minInvestment));
+  const [cycle, setCycle] = useState(initialCycle || parseSettlementCycles(plan.settlementCycles)[0] || "MONTHLY");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptRisk, setAcceptRisk] = useState(false);
   const [calc, setCalc] = useState(null);
@@ -68,9 +76,27 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
   const cycles = useMemo(() => parseSettlementCycles(plan.settlementCycles), [plan.settlementCycles]);
   const annualPct = plan.annualRoiPct ?? Number(plan.monthlyRoiPct) * 12;
 
+  const refreshWallet = () => investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {});
+
   useEffect(() => {
-    investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {});
+    refreshWallet();
   }, []);
+
+  const goDepositForFunds = (amt = Number(amount)) => {
+    const payload = {
+      planId: plan.id,
+      planName: plan.name,
+      amount: amt,
+      settlementCycle: cycle,
+      step,
+    };
+    if (onNeedDeposit) {
+      onNeedDeposit(payload);
+      onClose();
+      return;
+    }
+    setNeedFunds(true);
+  };
 
   useEffect(() => {
     const validation = validateAmount(amount, plan);
@@ -99,7 +125,7 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
     setErr("");
     const amt = Number(amount);
     if (wallet && wallet.available < amt) {
-      setNeedFunds(true);
+      goDepositForFunds(amt);
       return;
     }
     setLoading(true);
@@ -125,10 +151,10 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
     return (
       <Modal open onClose={() => setNeedFunds(false)} title="Insufficient Wallet Balance">
         <Alert type="info">You need {inr(Number(amount))} but only have {inr(wallet?.available || 0)} available.</Alert>
-        <p className="mt-3 text-sm text-muted-foreground">Add at least {inr(Math.max(shortfall, 0))} before investing.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Add at least {inr(Math.max(shortfall, 0))} — we will bring you back to this plan after deposit.</p>
         <div className="mt-4 flex gap-2">
           <button type="button" className="btn-outline flex-1" onClick={() => setNeedFunds(false)}>Adjust Amount</button>
-          <Link to={investPath("/dashboard?tab=money&moneyTab=deposit")} className="btn-gold flex-1 text-center" onClick={onClose}>Add Funds</Link>
+          <button type="button" className="btn-gold flex-1" onClick={() => goDepositForFunds(Number(amount))}>Add Funds & Continue</button>
         </div>
       </Modal>
     );
@@ -140,9 +166,10 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
         <Alert type="success">Investment successful! Your agreement is ready for e-signature.</Alert>
         <p className="mt-3 text-sm"><b>{pendingAgreement.title}</b></p>
         <p className="text-xs text-muted-foreground">Ref: {pendingAgreement.agreementUid || pendingAgreement.id}</p>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button type="button" className="btn-outline flex-1" onClick={() => { setPendingAgreement(null); onDone(pendingAgreement); }}>Sign Later</button>
           <button type="button" className="btn-gold flex-1" onClick={() => { const ag = pendingAgreement; setPendingAgreement(null); onDone(ag, true); }}>Sign Now</button>
+          <button type="button" className="btn-outline flex-1" onClick={() => { setPendingAgreement(null); onDone(pendingAgreement, false, true); }}>Invest in Another Plan</button>
         </div>
       </Modal>
     );
@@ -185,6 +212,14 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
             />
           </Field>
           {amountErr && <Alert type="error">{amountErr}</Alert>}
+          {wallet && !amountErr && Number(amount) > wallet.available && (
+            <Alert type="info">
+              Wallet balance {inr(wallet.available)} is less than {inr(Number(amount))}.{" "}
+              <button type="button" className="font-semibold text-gold-600 underline" onClick={() => goDepositForFunds(Number(amount))}>
+                Add funds first
+              </button>
+            </Alert>
+          )}
           {calc && !amountErr && (
             <div className="rounded-xl bg-muted/40 p-4 text-sm">
               <SummaryRow label="Monthly return" value={inr(calc.monthlyReturn)} accent="text-emerald-600" />
@@ -298,12 +333,23 @@ export default function InvestSubscribeWizard({ plan, onClose, onDone }) {
             <SummaryRow label="Wallet available" value={inr(wallet?.available || 0)} />
             <SummaryRow label="After investment" value={inr(Math.max(0, (wallet?.available || 0) - Number(amount)))} />
           </div>
-          <p className="text-center text-xs text-muted-foreground">KYC must be approved. Funds are debited instantly from your wallet balance.</p>
+          {wallet && wallet.available < Number(amount) && (
+            <Alert type="info">
+              Insufficient balance. Deposit at least {inr(Number(amount) - wallet.available)} to complete this investment.
+            </Alert>
+          )}
+          <p className="text-center text-xs text-muted-foreground">KYC must be approved. Funds are debited instantly from your wallet balance. You can subscribe to multiple plans.</p>
           <div className="flex gap-2">
             <button type="button" className="btn-outline flex-1" onClick={back}>Back</button>
-            <button type="button" className="btn-gold flex-1" disabled={loading || Boolean(amountErr)} onClick={subscribe}>
-              {loading ? "Processing…" : "Confirm & Invest from Wallet"}
-            </button>
+            {wallet && wallet.available < Number(amount) ? (
+              <button type="button" className="btn-gold flex-1" onClick={() => goDepositForFunds(Number(amount))}>
+                Add Funds & Continue
+              </button>
+            ) : (
+              <button type="button" className="btn-gold flex-1" disabled={loading || Boolean(amountErr)} onClick={subscribe}>
+                {loading ? "Processing…" : "Confirm & Invest from Wallet"}
+              </button>
+            )}
           </div>
         </div>
       )}

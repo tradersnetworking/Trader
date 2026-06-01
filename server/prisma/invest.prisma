@@ -106,6 +106,7 @@ model Subscription {
   amount          Float
   settlementCycle String   @default("MONTHLY")
   monthlyRoiPct   Float
+  roiOverrideNote String?  // admin note when ROI differs from plan default
   lockInDays      Int
   compounding     Boolean  @default(false)
   startDate       DateTime @default(now())
@@ -221,9 +222,13 @@ model Payout {
   destination String   // upi id or masked account
   gateway     String   @default("RAZORPAYX") // RAZORPAYX, CASHFREE, JUSPAY
   gatewayRef  String?
-  status      String   @default("PENDING") // PENDING, PROCESSING, SUCCESS, FAILED
+  status      String   @default("PENDING") // PENDING, SCHEDULED, PROCESSING, SUCCESS, FAILED, CANCELLED
   remarks     String?
   reference   String?  // e.g. MATURITY:subscriptionId:maturityPayoutId
+  payoutKind  String   @default("WITHDRAWAL") // WITHDRAWAL, ROI_RETURN, MANUAL_CREDIT
+  noticeSentAt DateTime?
+  scheduledById String?
+  completedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -303,6 +308,10 @@ model Agreement {
   triggerEvent    String?  // subscription_created, maturity_settled
   status          String   @default("PENDING_SIGNATURE") // PENDING_SIGNATURE, SIGNED, REVOKED, PURGED
   signatureData   String?
+  signMethod      String?  @default("draw") // draw, otp, checkbox
+  pdfHash         String?
+  ipAddress       String?
+  userAgent       String?
   signedAt        DateTime?
   purgedAt        DateTime?
   createdAt       DateTime @default(now())

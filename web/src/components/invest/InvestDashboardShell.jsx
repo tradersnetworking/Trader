@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useLayoutEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Logo, Badge, UserAvatar } from "../ui.jsx";
 import BrandMark from "../BrandMark.jsx";
@@ -26,6 +26,8 @@ export default function InvestDashboardShell({
   navBadges = {},
   onNotificationsClick,
   onLogout,
+  onRefresh,
+  refreshing = false,
   headerActions,
   children,
 }) {
@@ -34,6 +36,20 @@ export default function InvestDashboardShell({
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("invest-sidebar-collapsed") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const sidebarNavRef = useRef(null);
+  const sidebarScrollTop = useRef(0);
+
+  const handleTabChange = useCallback(
+    (id) => {
+      if (sidebarNavRef.current) sidebarScrollTop.current = sidebarNavRef.current.scrollTop;
+      onTabChange(id);
+    },
+    [onTabChange]
+  );
+
+  useLayoutEffect(() => {
+    if (sidebarNavRef.current) sidebarNavRef.current.scrollTop = sidebarScrollTop.current;
+  }, [activeTab]);
 
   useEffect(() => {
     localStorage.setItem("invest-sidebar-collapsed", collapsed ? "1" : "0");
@@ -73,7 +89,8 @@ export default function InvestDashboardShell({
     return (
       <button
         type="button"
-        onClick={() => onTabChange(item.id)}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => handleTabChange(item.id)}
         title={collapsed && !mobile ? item.label : undefined}
         className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
           active
@@ -116,14 +133,14 @@ export default function InvestDashboardShell({
         }`}
       >
         {collapsed && !mobile ? (
-          <Logo className="h-10 w-10" variant="mark" />
+          <Link to={role === "admin" ? investPath("/admin") : investPath("/dashboard")} className="block">
+            <Logo variant="mark" className="h-10 w-10" />
+          </Link>
         ) : (
           <>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              line1="Akshaya Exim"
-              line2="Invest"
-              subtitle={role === "admin" ? "Admin Portal" : "Investor Portal"}
+              subtitle={role === "admin" ? "Invest · Admin Portal" : "Invest · Investor Portal"}
               compact={mobile}
               className="min-w-0 flex-1"
             />
@@ -141,13 +158,15 @@ export default function InvestDashboardShell({
         )}
       </div>
 
-      <nav className="invest-sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-3">
+      <nav ref={sidebarNavRef} className="invest-sidebar-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain p-3">
         {navItems.map((item, i) =>
           item.section ? (
             (!collapsed || mobile) && (
               <div
                 key={`section-${i}`}
-                className="mb-1 mt-4 border-t border-sidebar-border/60 px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground first:mt-1 first:border-t-0 first:pt-0"
+                role="presentation"
+                aria-hidden="true"
+                className="pointer-events-none mb-1 mt-4 select-none border-t border-sidebar-border/60 px-3 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 first:mt-1 first:border-t-0 first:pt-0"
               >
                 {sectionLabel(item.section)}
               </div>
@@ -261,14 +280,12 @@ export default function InvestDashboardShell({
           <div className="border-b border-border/50 px-3 py-2 md:hidden">
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              line1="Akshaya Exim"
-              line2="Invest"
-              subtitle={pageTitle || (role === "admin" ? "Admin Portal" : "Investor Portal")}
+              subtitle={pageTitle || (role === "admin" ? "Invest · Admin" : "Invest · Dashboard")}
               compact
               className="min-w-0 max-w-full"
             />
             {pageSubtitle && (
-              <p className="mt-0.5 truncate pl-9 text-[10px] text-muted-foreground sm:pl-10">{pageSubtitle}</p>
+              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{pageSubtitle}</p>
             )}
           </div>
 
@@ -304,6 +321,21 @@ export default function InvestDashboardShell({
                 <span className="hidden sm:inline-flex">
                   <Badge status={user.role} />
                 </span>
+              )}
+              {onRefresh && (
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  disabled={refreshing}
+                  className="icon-btn icon-btn-sm relative md:icon-btn-md md:inline-flex"
+                  aria-label={refreshing ? t("dashboard.refreshing") : t("dashboard.refresh")}
+                  title={refreshing ? t("dashboard.refreshing") : t("dashboard.refresh")}
+                >
+                  <NavIcon
+                    name="refresh"
+                    className={`h-3.5 w-3.5 text-muted-foreground md:h-4 md:w-4 ${refreshing ? "animate-spin" : ""}`}
+                  />
+                </button>
               )}
               <button
                 type="button"
@@ -351,7 +383,8 @@ export default function InvestDashboardShell({
             <button
               key={item.id}
               type="button"
-              onClick={() => onTabChange(item.id)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => handleTabChange(item.id)}
               className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${active ? "text-primary" : "text-muted-foreground"}`}
             >
               <span

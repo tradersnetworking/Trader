@@ -23,15 +23,24 @@ export default function PlanCard({ plan, onSubscribe, featured, previewAmount })
 
   return (
     <article className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${isFeatured ? "ring-2 ring-gold/60" : ""}`}>
-      {isFeatured && (
-        <div className="absolute right-3 top-3 z-10 rounded-full bg-gold px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow">Popular</div>
-      )}
-      <div className={`bg-gradient-to-br ${grad} px-5 py-5 text-white`}>
+      <div className={`bg-gradient-to-br ${grad} px-4 py-4 text-white sm:px-5 sm:py-5`}>
+        {isFeatured && (
+          <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex shrink-0 rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-black shadow-sm">
+              Popular
+            </span>
+            <span className="inline-flex shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              Recommended
+            </span>
+          </div>
+        )}
         <div className="flex items-start justify-between gap-2">
-          <span className="text-3xl drop-shadow">{ICONS[plan.planType] || "⭐"}</span>
-          <span className="rounded-lg bg-white/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider">{plan.planType}</span>
+          <span className="shrink-0 text-2xl drop-shadow sm:text-3xl">{ICONS[plan.planType] || "⭐"}</span>
+          <span className="shrink-0 rounded-lg bg-white/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wider">
+            {plan.planType}
+          </span>
         </div>
-        <h3 className="mt-3 text-xl font-extrabold leading-tight">{plan.name}</h3>
+        <h3 className="mt-2.5 break-words text-base font-extrabold leading-snug sm:mt-3 sm:text-lg md:text-xl">{plan.name}</h3>
         <p className="mt-1 text-xs text-white/80">{lockInCategoryLabel(plan.lockInDays)} lock-in</p>
       </div>
 

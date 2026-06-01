@@ -22,6 +22,7 @@ model User {
   accountType   String   @default("B2C")
   companyName   String?
   gstNumber     String?
+  billingAddress String?
   googleId      String?
   isActive      Boolean  @default(true)
   emailVerified Boolean  @default(false)
@@ -33,6 +34,7 @@ model User {
   products      Product[]
   quotes        Quote[]
   orders        Order[]
+  invoices      Invoice[]
 }
 
 model Category {
@@ -113,8 +115,36 @@ model Order {
   paymentGateway String?
   paymentRef   String?
   paymentStatus String  @default("UNPAID")
+  invoices     Invoice[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  invoiceNumber  String    @unique
+  userId         String
+  user           User      @relation(fields: [userId], references: [id])
+  orderId        String?
+  order          Order?    @relation(fields: [orderId], references: [id])
+  quoteId        String?
+  status         String    @default("DRAFT") // DRAFT, ISSUED, PAID, CANCELLED
+  billToName     String
+  billToCompany  String?
+  billToGst      String?
+  billToAddress  String?
+  billToEmail    String
+  items          String    @default("[]") // JSON line items
+  subtotal       Float
+  taxPct         Float     @default(0)
+  taxAmount      Float     @default(0)
+  totalAmount    Float
+  currency       String    @default("INR")
+  notes          String?
+  dueDate        DateTime?
+  issuedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 model Setting {

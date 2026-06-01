@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
@@ -9,7 +9,7 @@ import SubscribeModal from "../../components/SubscribeModal.jsx";
 import InvestDashboardShell from "../../components/invest/InvestDashboardShell.jsx";
 import MaturityChoiceModal from "../../components/invest/MaturityChoiceModal.jsx";
 import InvestorOverviewPanel from "../../components/invest/InvestorOverviewPanel.jsx";
-import PanelSkeleton from "../../components/invest/PanelSkeleton.jsx";
+import { TabPanel, DashboardTabFallback } from "../../components/invest/DashboardTabFallback.jsx";
 import { INVESTOR_NAV, translateNavLabel } from "../../lib/invest-nav.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { PLAN_TYPES, LOCK_IN_SUB_CATEGORIES } from "../../lib/plan-types.js";
@@ -17,6 +17,7 @@ import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import WalletQuickActions from "../../components/invest/WalletQuickActions.jsx";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
 import ShareProfitButton from "../../components/invest/ShareProfitButton.jsx";
+import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
 import KpiStatCard from "../../components/invest/InvestDashboardWidgets.jsx";
 import {
   MoneyHubPanel,
@@ -34,10 +35,14 @@ import {
 import { investSecurityApi } from "../../lib/api.js";
 import { useNavigate } from "react-router-dom";
 import { investPath } from "../../lib/site.js";
-
-function TabPanel({ children }) {
-  return <Suspense fallback={<PanelSkeleton />}>{children}</Suspense>;
-}
+import PendingInvestBanner from "../../components/invest/PendingInvestBanner.jsx";
+import {
+  savePendingInvest,
+  loadPendingInvest,
+  clearPendingInvest,
+  canAffordPending,
+} from "../../lib/pendingInvest.js";
+import { emitInvestRefresh, useInvestRefresh } from "../../lib/investRefresh.js";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -51,7 +56,13 @@ export default function InvestorDashboard() {
   const tab = legacyMoney[rawTab] ? "money" : rawTab;
   const moneySubTab = legacyMoney[rawTab] || sp.get("moneyTab") || "overview";
   const subId = sp.get("subId");
-  const setTab = (id, extra = {}) => setSp({ tab: id, ...extra });
+  const resumePlan = sp.get("resumePlan") === "1";
+  const setTab = (id, extra = {}) => {
+    const params = { tab: id, ...extra };
+    if (id !== "investments") delete params.subId;
+    setSp(params);
+  };
+  const clearResumePlan = () => setSp({ tab: "plans" }, { replace: true });
   useEffect(() => {
     if (!INVESTOR_TAB_IDS.includes(tab)) setSp({ tab: "overview" }, { replace: true });
   }, [tab, setSp]);
@@ -64,19 +75,51 @@ export default function InvestorDashboard() {
   const [maturityChoices, setMaturityChoices] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
   const [pendingAgreementId, setPendingAgreementId] = useState(null);
+  const [pendingInvest, setPendingInvest] = useState(() => loadPendingInvest());
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadCore = () => {
+  const syncPendingInvest = useCallback(() => {
+    setPendingInvest(loadPendingInvest());
+  }, []);
+
+  const dismissPendingInvest = useCallback(() => {
+    clearPendingInvest();
+    setPendingInvest(null);
+  }, []);
+
+  const handleNeedDeposit = useCallback((payload) => {
+    savePendingInvest(payload);
+    setPendingInvest(payload);
+    setTab("money", { moneyTab: "deposit", resumePlan: "1" });
+  }, [setTab]);
+
+  const fetchCore = useCallback(async () => {
     refreshInvest();
-    investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {});
-    investApi("/subscriptions").then((d) => setSubs(d.subscriptions)).catch(() => {});
-    investApi("/kyc").then((d) => setKyc(d.kyc)).catch(() => {});
-    investApi("/maturity-choices").then((d) => setMaturityChoices(d.subscriptions || [])).catch(() => {});
-    Promise.all([
-      investApi("/notifications").catch(() => ({ count: 0 })),
-      investApi("/notifications/list").catch(() => ({ unreadCount: 0 })),
-    ]).then(([maturity, inbox]) => setNotificationCount((maturity.count || 0) + (inbox.unreadCount || 0)));
-  };
-  useEffect(() => { loadCore(); }, []);
+    await Promise.all([
+      investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {}),
+      investApi("/subscriptions").then((d) => setSubs(d.subscriptions)).catch(() => {}),
+      investApi("/kyc").then((d) => setKyc(d.kyc)).catch(() => {}),
+      investApi("/maturity-choices").then((d) => setMaturityChoices(d.subscriptions || [])).catch(() => {}),
+      Promise.all([
+        investApi("/notifications").catch(() => ({ count: 0 })),
+        investApi("/notifications/list").catch(() => ({ unreadCount: 0 })),
+      ]).then(([maturity, inbox]) => setNotificationCount((maturity.count || 0) + (inbox.unreadCount || 0))),
+    ]);
+    syncPendingInvest();
+  }, [refreshInvest, syncPendingInvest]);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchCore();
+      emitInvestRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchCore, refreshing]);
+
+  useEffect(() => { fetchCore(); }, [fetchCore]);
 
   useEffect(() => {
     if (!invest || invest.role !== "INVESTOR") return;
@@ -98,6 +141,8 @@ export default function InvestorDashboard() {
       notificationCount={notificationCount}
       onNotificationsClick={() => setTab("notifications")}
       onLogout={logoutInvest}
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
       headerActions={
         <>
           <WalletQuickActions compact layout="inline" onDeposit={() => setTab("money", { moneyTab: "deposit" })} onWithdraw={() => setTab("money", { moneyTab: "withdraw" })} />
@@ -105,7 +150,7 @@ export default function InvestorDashboard() {
         </>
       }
     >
-      <MaturityChoiceModal subscriptions={maturityChoices} onDone={loadCore} />
+      <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore(); emitInvestRefresh(); }} />
       {kyc?.status !== "APPROVED" && tab !== "overview" && tab !== "kyc" && (
         <div className="mb-4"><Alert type="info">Complete your KYC and add funds before investing.</Alert></div>
       )}
@@ -120,13 +165,32 @@ export default function InvestorDashboard() {
       )}
       {tab === "plans" && (
         <Plans
-          onRefresh={loadCore}
+          wallet={wallet}
+          pendingInvest={pendingInvest}
+          autoResume={resumePlan}
+          onResumeHandled={clearResumePlan}
+          onRefresh={() => { fetchCore(); emitInvestRefresh(); }}
+          onNeedDeposit={handleNeedDeposit}
+          onDismissPending={dismissPendingInvest}
           onSignAgreement={(id) => { setPendingAgreementId(id); setTab("agreements"); }}
         />
       )}
       {tab === "investments" && !subId && <Investments subs={subs} onNavigate={setTab} onOpenDetail={setSubDetail} />}
-      {subId && <TabPanel><InvestmentDetailPanel subscriptionId={subId} onBack={clearSubDetail} /></TabPanel>}
-      {tab === "money" && <TabPanel><MoneyHubPanel wallet={wallet} onRefresh={loadCore} initialSubTab={moneySubTab} /></TabPanel>}
+      {tab === "investments" && subId && (
+        <TabPanel><InvestmentDetailPanel subscriptionId={subId} onBack={clearSubDetail} /></TabPanel>
+      )}
+      {tab === "money" && (
+        <TabPanel>
+          <MoneyHubPanel
+            wallet={wallet}
+            onRefresh={() => { fetchCore(); emitInvestRefresh(); }}
+            initialSubTab={moneySubTab}
+            pendingInvest={pendingInvest}
+            onContinuePending={() => setTab("plans", { resumePlan: "1" })}
+            onDismissPending={dismissPendingInvest}
+          />
+        </TabPanel>
+      )}
       {tab === "transactions" && <TabPanel><TransactionsPanel /></TabPanel>}
       {tab === "ledger" && (
         <TabPanel>
@@ -139,9 +203,9 @@ export default function InvestorDashboard() {
       {tab === "referral" && <TabPanel><ReferralPanel /></TabPanel>}
       {tab === "support" && <TabPanel><SupportPanel /></TabPanel>}
       {tab === "notifications" && (
-        <TabPanel><NotificationsPanel onRead={() => loadCore()} /></TabPanel>
+        <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
       )}
-      {tab === "kyc" && <TabPanel><KycPanel kyc={kyc} onRefresh={loadCore} /></TabPanel>}
+      {tab === "kyc" && <TabPanel><KycPanel kyc={kyc} onRefresh={fetchCore} /></TabPanel>}
       {tab === "agreements" && (
         <TabPanel>
           <InvestorAgreementsPanel
@@ -151,29 +215,112 @@ export default function InvestorDashboard() {
         </TabPanel>
       )}
       {tab === "profile" && (
-        <div className="mt-6 space-y-6">
+        <div className="mt-6">
           <Profile />
+        </div>
+      )}
+      {tab === "account" && (
+        <div className="mt-6 space-y-6">
+          <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>
           <TabPanel><SecuritySettingsPanel /></TabPanel>
           <TabPanel><PushNotificationsToggle /></TabPanel>
         </div>
+      )}
+      {!INVESTOR_TAB_IDS.includes(tab) && (
+        <DashboardTabFallback title="Dashboard" onGoOverview={() => setTab("overview")} />
       )}
     </InvestDashboardShell>
   );
 }
 
-function Plans({ onRefresh, onSignAgreement }) {
+function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, onNeedDeposit, onDismissPending, onSignAgreement }) {
   const [plans, setPlans] = useState([]);
   const [sub, setSub] = useState(null);
+  const [resume, setResume] = useState(null);
   const [filterTier, setFilterTier] = useState("");
   const [filterLockIn, setFilterLockIn] = useState("");
-  useEffect(() => { investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {}); }, []);
+
+  const loadPlans = useCallback(() => {
+    investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {});
+  }, []);
+
+  useEffect(() => { loadPlans(); }, [loadPlans]);
+  useInvestRefresh(loadPlans);
+
+  const openPlan = useCallback((plan, opts = {}) => {
+    if (wallet && wallet.available < plan.minInvestment && !opts.forceWizard) {
+      onNeedDeposit?.({
+        planId: plan.id,
+        planName: plan.name,
+        amount: plan.minInvestment,
+        settlementCycle: (plan.settlementCycles || "MONTHLY").split(",")[0]?.trim() || "MONTHLY",
+        step: 1,
+      });
+      return;
+    }
+    setResume(opts.resume || null);
+    setSub(plan);
+  }, [wallet, onNeedDeposit]);
+
+  useEffect(() => {
+    if (!autoResume || !pendingInvest || !plans.length || !wallet) return;
+    const plan = plans.find((p) => p.id === pendingInvest.planId);
+    if (!plan) return;
+    if (canAffordPending(pendingInvest, wallet.available)) {
+      openPlan(plan, {
+        forceWizard: true,
+        resume: {
+          amount: pendingInvest.amount,
+          step: pendingInvest.step ?? 6,
+          cycle: pendingInvest.settlementCycle,
+        },
+      });
+    }
+    onResumeHandled?.();
+  }, [autoResume, pendingInvest, plans, wallet, openPlan, onResumeHandled]);
+
   const shown = plans.filter((p) => {
     if (filterTier && p.planType !== filterTier) return false;
     if (filterLockIn && Math.round(p.lockInDays / 30) !== Number(filterLockIn)) return false;
     return true;
   });
+
+  const handleSubscribeDone = (agreement, signNow, anotherPlan) => {
+    clearPendingInvest();
+    setSub(null);
+    setResume(null);
+    onRefresh();
+    if (anotherPlan) return;
+    if (signNow && agreement?.id) onSignAgreement?.(agreement.id);
+  };
+
   return (
     <>
+      {pendingInvest && (
+        <div className="mb-4">
+          <PendingInvestBanner
+            pending={pendingInvest}
+            walletAvailable={wallet?.available}
+            onContinue={() => {
+              const plan = plans.find((p) => p.id === pendingInvest.planId);
+              if (plan) {
+                openPlan(plan, {
+                  forceWizard: true,
+                  resume: {
+                    amount: pendingInvest.amount,
+                    step: canAffordPending(pendingInvest, wallet?.available) ? (pendingInvest.step ?? 6) : 1,
+                    cycle: pendingInvest.settlementCycle,
+                  },
+                });
+              } else {
+                onNeedDeposit?.(pendingInvest);
+              }
+            }}
+            onDismiss={onDismissPending}
+          />
+        </div>
+      )}
+      <p className="mb-4 text-sm text-muted-foreground">Subscribe to as many plans as you like — each investment is tracked separately.</p>
       <div className="mb-3 flex flex-wrap gap-2">
         <button type="button" onClick={() => setFilterTier("")} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${!filterTier ? "bg-primary/15 text-accent-tone" : "bg-muted text-muted-foreground"}`}>All tiers</button>
         {PLAN_TYPES.map((t) => (
@@ -186,16 +333,16 @@ function Plans({ onRefresh, onSignAgreement }) {
           <button key={m} type="button" onClick={() => setFilterLockIn(String(m))} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${filterLockIn === String(m) ? "bg-gold/15 text-gold-700" : "bg-muted text-muted-foreground"}`}>{m}mo</button>
         ))}
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{shown.map((p) => <PlanCard key={p.id} plan={p} onSubscribe={setSub} />)}</div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{shown.map((p) => <PlanCard key={p.id} plan={p} onSubscribe={(plan) => openPlan(plan)} />)}</div>
       {sub && (
         <SubscribeModal
           plan={sub}
-          onClose={() => setSub(null)}
-          onDone={(agreement, signNow) => {
-            setSub(null);
-            onRefresh();
-            if (signNow && agreement?.id) onSignAgreement?.(agreement.id);
-          }}
+          onClose={() => { setSub(null); setResume(null); }}
+          onNeedDeposit={onNeedDeposit}
+          initialAmount={resume?.amount}
+          initialStep={resume?.step}
+          initialCycle={resume?.cycle}
+          onDone={handleSubscribeDone}
         />
       )}
     </>

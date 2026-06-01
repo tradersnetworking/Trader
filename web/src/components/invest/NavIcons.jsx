@@ -166,6 +166,12 @@ const ICONS = {
       <path d="M12 17h.01" />
     </Svg>
   ),
+  refresh: (p) => (
+    <Svg {...p}>
+      <path d="M21 12a9 9 0 10-2.64 6.36" />
+      <path d="M21 3v6h-6" />
+    </Svg>
+  ),
 };
 
 export function NavIcon({ name, className = "h-5 w-5", ...props }) {

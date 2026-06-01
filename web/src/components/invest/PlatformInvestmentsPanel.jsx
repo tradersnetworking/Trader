@@ -76,7 +76,7 @@ export default function PlatformInvestmentsPanel() {
                 </td>
                 <td className="p-3">{s.plan?.name}</td>
                 <td className="p-3 font-semibold">{inr(s.amount)}</td>
-                <td className="p-3">{s.monthlyRoiPct}%</td>
+                <td className="p-3">{s.monthlyRoiPct}%{s.roiOverrideNote ? " *" : ""}</td>
                 <td className="p-3">{dateStr(s.startDate)}</td>
                 <td className="p-3">{dateStr(s.maturityDate)} ({daysLeft(s.maturityDate)}d)</td>
                 <td className="p-3"><Badge status={s.status} /></td>

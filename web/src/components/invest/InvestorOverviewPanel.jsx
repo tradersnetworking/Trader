@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Alert } from "../ui.jsx";
+import { useInvestRefresh } from "../../lib/investRefresh.js";
 import {
   INVEST_STAT_GRID,
   INVEST_DASHBOARD_SPLIT,
@@ -41,6 +42,7 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
     investApi(`/dashboard${qs}`).then(setData).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(() => { load(); }, []);
+  useInvestRefresh(useCallback(() => load(), [period, customFrom, customTo]));
 
   const handlePeriod = (p) => {
     setPeriod(p);

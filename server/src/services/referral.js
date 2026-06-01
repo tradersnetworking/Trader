@@ -79,6 +79,8 @@ export async function getReferralStats(investorId) {
   });
 
   const levelPcts = await getReferralLevelPcts();
+  const { getPublicReferralSettings } = await import("./referralSettings.js");
+  const programSettings = await getPublicReferralSettings();
 
   return {
     referralCode: code,
@@ -88,6 +90,7 @@ export async function getReferralStats(investorId) {
     totalEarnings: paidAgg._sum.amount || 0,
     pendingEarnings: pendingAgg._sum.amount || 0,
     levelCommissions: levelPcts.map((pct, i) => ({ level: i + 1, pct })),
+    programSettings,
     earnings,
     referredUsers,
   };
@@ -154,7 +157,7 @@ export async function creditReferralOnInvestment(investorId, amount, subscriptio
     if (pct <= 0) continue;
     const commission = Math.round((Number(amount) * pct) / 100);
     if (commission <= 0) continue;
-    const earning = await investDb.referralEarning.create({
+    let earning = await investDb.referralEarning.create({
       data: {
         referrerId: chain[i],
         referredId: investorId,
@@ -163,6 +166,8 @@ export async function creditReferralOnInvestment(investorId, amount, subscriptio
         note: `Level ${i + 1}: ${pct}% referral commission on investment`,
       },
     });
+    const { maybeAutoPayOnCreate } = await import("./referralPayoutJob.js");
+    earning = (await maybeAutoPayOnCreate(earning)) || earning;
     created.push(earning);
   }
   return created;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { getToken, investApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
@@ -6,6 +6,8 @@ import KpiStatCard from "./InvestDashboardWidgets.jsx";
 import WalletQuickActions from "./WalletQuickActions.jsx";
 import { DepositPanel, WithdrawPanel } from "./WalletFinancePanels.jsx";
 import TransactionsPanel from "./TransactionsPanel.jsx";
+import PendingInvestBanner from "./PendingInvestBanner.jsx";
+import { pendingDepositAmount } from "../../lib/pendingInvest.js";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -14,8 +16,21 @@ const TABS = [
   { id: "history", label: "History" },
 ];
 
-export default function MoneyHubPanel({ wallet, onRefresh, initialSubTab = "overview" }) {
+export default function MoneyHubPanel({
+  wallet,
+  onRefresh,
+  initialSubTab = "overview",
+  pendingInvest,
+  onContinuePending,
+  onDismissPending,
+}) {
   const [sub, setSub] = useState(initialSubTab);
+
+  useEffect(() => {
+    setSub(initialSubTab);
+  }, [initialSubTab]);
+
+  const suggestedDeposit = pendingInvest ? pendingDepositAmount(pendingInvest, wallet?.available) : 0;
 
   const downloadStatement = async () => {
     const res = await fetch("/api/invest/wallet/statement.csv", {
@@ -33,6 +48,14 @@ export default function MoneyHubPanel({ wallet, onRefresh, initialSubTab = "over
 
   return (
     <div className="page-stack">
+      {pendingInvest && (
+        <PendingInvestBanner
+          pending={pendingInvest}
+          walletAvailable={wallet?.available}
+          onContinue={onContinuePending}
+          onDismiss={onDismissPending}
+        />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-foreground">Money Hub</h2>
@@ -70,7 +93,15 @@ export default function MoneyHubPanel({ wallet, onRefresh, initialSubTab = "over
         </>
       )}
 
-      {sub === "deposit" && <DepositPanel onRefresh={onRefresh} />}
+      {sub === "deposit" && (
+        <DepositPanel
+          onRefresh={onRefresh}
+          suggestedAmount={suggestedDeposit > 0 ? suggestedDeposit : pendingInvest?.amount}
+          pendingInvest={pendingInvest}
+          walletAvailable={wallet?.available}
+          onDepositSubmitted={onRefresh}
+        />
+      )}
       {sub === "withdraw" && <WithdrawPanel wallet={wallet} onRefresh={onRefresh} />}
       {sub === "history" && <TransactionsPanel />}
     </div>

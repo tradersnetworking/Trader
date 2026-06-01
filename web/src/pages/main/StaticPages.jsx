@@ -1,8 +1,14 @@
 import { Link } from "react-router-dom";
+import { Logo } from "../../components/ui.jsx";
 
-export function StaticPage({ title, children }) {
+export function StaticPage({ title, children, showLogo = true }) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
+      {showLogo && (
+        <Link to="/" className="mb-6 inline-block">
+          <Logo variant="full" className="h-16 w-auto max-w-[10rem] sm:h-20 sm:max-w-[12rem]" />
+        </Link>
+      )}
       <h1 className="text-3xl font-extrabold text-navy">{title}</h1>
       <div className="prose prose-sm mt-6 max-w-none space-y-4 text-slate-600 dark:text-slate-300">{children}</div>
     </div>

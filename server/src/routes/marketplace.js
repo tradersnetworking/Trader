@@ -5,12 +5,20 @@ import { asyncH, authRequired, requireRole, optionalAuth } from "../middleware.j
 import { config } from "../config.js";
 import { listGateways, createOrder } from "../payments/gateways.js";
 import { payoutGatewayStatus } from "../payments/payouts.js";
+import { getAllSettings, setSettings } from "../services/investSettings.js";
 import { upload, fileUrl } from "../utils/upload.js";
 import { BULK_QUANTITY_UNITS, getCatalogStats } from "../data/categories.js";
+import {
+  exportMainData,
+  formatExport,
+  importMainData,
+  MAIN_DATASETS,
+} from "../services/dataPortability.js";
 
 const router = Router();
 const SCOPE = "main";
-const isAdmin = requireRole("ADMIN", "SUPERADMIN");
+const isAdmin = requireRole("ADMIN", "SUPERADMIN", "STAFF");
+const superOnly = requireRole("SUPERADMIN");
 
 function slugify(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
@@ -266,6 +274,265 @@ router.get(
   })
 );
 
+/* ---------------- Invoices ---------------- */
+router.get("/invoices/seller", (_req, res) => res.json({ seller: sellerDetails() }));
+
+router.get(
+  "/invoices/mine",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const invoices = await mainDb.invoice.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ invoices: invoices.map(serializeInvoice) });
+  })
+);
+
+router.get(
+  "/invoices/:id",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const inv = await mainDb.invoice.findUnique({ where: { id: req.params.id } });
+    if (!inv) return res.status(404).json({ error: "Invoice not found" });
+    const isOwner = inv.userId === req.user.id;
+    const admin = ["ADMIN", "SUPERADMIN", "STAFF"].includes(req.user.role);
+    if (!isOwner && !admin) return res.status(403).json({ error: "Forbidden" });
+    res.json({ invoice: serializeInvoice(inv), seller: sellerDetails() });
+  })
+);
+
+router.post(
+  "/invoices",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const user = await mainDb.user.findUnique({ where: { id: req.user.id } });
+    const {
+      billToName,
+      billToCompany,
+      billToGst,
+      billToAddress,
+      billToEmail,
+      items,
+      taxPct,
+      notes,
+      dueDate,
+      orderId,
+      quoteId,
+      status,
+    } = req.body;
+    const { lines, subtotal, taxAmount, totalAmount } = calcInvoiceTotals(items, taxPct);
+    if (!lines.length) return res.status(400).json({ error: "At least one line item required" });
+    const inv = await mainDb.invoice.create({
+      data: {
+        invoiceNumber: invoiceNumber(),
+        userId: req.user.id,
+        orderId: orderId || null,
+        quoteId: quoteId || null,
+        status: status === "ISSUED" ? "ISSUED" : "DRAFT",
+        billToName: billToName || user.name,
+        billToCompany: billToCompany || user.companyName,
+        billToGst: billToGst || user.gstNumber,
+        billToAddress: billToAddress || user.billingAddress,
+        billToEmail: billToEmail || user.email,
+        items: JSON.stringify(lines),
+        subtotal,
+        taxPct: Number(taxPct) || 0,
+        taxAmount,
+        totalAmount,
+        notes: notes || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        issuedAt: status === "ISSUED" ? new Date() : null,
+      },
+    });
+    res.json({ invoice: serializeInvoice(inv) });
+  })
+);
+
+router.put(
+  "/invoices/:id",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const existing = await mainDb.invoice.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.id) return res.status(404).json({ error: "Invoice not found" });
+    if (existing.status !== "DRAFT") return res.status(400).json({ error: "Only draft invoices can be edited" });
+    const { billToName, billToCompany, billToGst, billToAddress, billToEmail, items, taxPct, notes, dueDate, status } = req.body;
+    const { lines, subtotal, taxAmount, totalAmount } = calcInvoiceTotals(items ?? parseInvoiceItems(existing.items), taxPct ?? existing.taxPct);
+    const nextStatus = status === "ISSUED" ? "ISSUED" : "DRAFT";
+    const inv = await mainDb.invoice.update({
+      where: { id: req.params.id },
+      data: {
+        billToName,
+        billToCompany,
+        billToGst,
+        billToAddress,
+        billToEmail,
+        items: JSON.stringify(lines),
+        subtotal,
+        taxPct: Number(taxPct ?? existing.taxPct) || 0,
+        taxAmount,
+        totalAmount,
+        notes,
+        dueDate: dueDate ? new Date(dueDate) : existing.dueDate,
+        status: nextStatus,
+        issuedAt: nextStatus === "ISSUED" ? new Date() : null,
+      },
+    });
+    res.json({ invoice: serializeInvoice(inv) });
+  })
+);
+
+router.post(
+  "/invoices/from-order/:orderId",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const order = await mainDb.order.findUnique({ where: { id: req.params.orderId } });
+    if (!order || order.userId !== req.user.id) return res.status(404).json({ error: "Order not found" });
+    const user = await mainDb.user.findUnique({ where: { id: req.user.id } });
+    const orderItems = JSON.parse(order.items || "[]");
+    const items = orderItems.map((it) => ({
+      description: it.name || it.description || "Order item",
+      qty: it.qty || it.quantity || 1,
+      unit: it.unit || "unit",
+      rate: it.price || it.rate || 0,
+    }));
+    const { lines, subtotal, taxAmount, totalAmount } = calcInvoiceTotals(items, req.body.taxPct || 0);
+    const inv = await mainDb.invoice.create({
+      data: {
+        invoiceNumber: invoiceNumber(),
+        userId: req.user.id,
+        orderId: order.id,
+        status: "ISSUED",
+        billToName: user.name,
+        billToCompany: user.companyName,
+        billToGst: user.gstNumber,
+        billToAddress: user.billingAddress,
+        billToEmail: user.email,
+        items: JSON.stringify(lines),
+        subtotal,
+        taxPct: Number(req.body.taxPct) || 0,
+        taxAmount,
+        totalAmount,
+        issuedAt: new Date(),
+      },
+    });
+    res.json({ invoice: serializeInvoice(inv) });
+  })
+);
+
+router.get(
+  "/admin/orders",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (_req, res) => {
+    const orders = await mainDb.order.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { id: true, name: true, email: true, companyName: true } } },
+    });
+    res.json({
+      orders: orders.map((o) => ({ ...o, items: JSON.parse(o.items || "[]") })),
+    });
+  })
+);
+
+router.put(
+  "/admin/orders/:id",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const { status, paymentStatus } = req.body;
+    const order = await mainDb.order.update({
+      where: { id: req.params.id },
+      data: { status, paymentStatus },
+    });
+    res.json({ order: { ...order, items: JSON.parse(order.items || "[]") } });
+  })
+);
+
+router.get(
+  "/admin/invoices",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (_req, res) => {
+    const invoices = await mainDb.invoice.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { id: true, name: true, email: true, companyName: true } } },
+    });
+    res.json({ invoices: invoices.map(serializeInvoice) });
+  })
+);
+
+router.post(
+  "/admin/invoices",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const { userId, billToName, billToCompany, billToGst, billToAddress, billToEmail, items, taxPct, notes, dueDate, orderId, quoteId, status } = req.body;
+    if (!userId) return res.status(400).json({ error: "userId required" });
+    const user = await mainDb.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const { lines, subtotal, taxAmount, totalAmount } = calcInvoiceTotals(items, taxPct);
+    if (!lines.length) return res.status(400).json({ error: "At least one line item required" });
+    const nextStatus = status === "DRAFT" ? "DRAFT" : "ISSUED";
+    const inv = await mainDb.invoice.create({
+      data: {
+        invoiceNumber: invoiceNumber(),
+        userId,
+        orderId: orderId || null,
+        quoteId: quoteId || null,
+        status: nextStatus,
+        billToName: billToName || user.name,
+        billToCompany: billToCompany || user.companyName,
+        billToGst: billToGst || user.gstNumber,
+        billToAddress: billToAddress || user.billingAddress,
+        billToEmail: billToEmail || user.email,
+        items: JSON.stringify(lines),
+        subtotal,
+        taxPct: Number(taxPct) || 0,
+        taxAmount,
+        totalAmount,
+        notes: notes || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        issuedAt: nextStatus === "ISSUED" ? new Date() : null,
+      },
+    });
+    res.json({ invoice: serializeInvoice(inv) });
+  })
+);
+
+router.put(
+  "/admin/invoices/:id",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const { status, billToName, billToCompany, billToGst, billToAddress, billToEmail, items, taxPct, notes, dueDate } = req.body;
+    const existing = await mainDb.invoice.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ error: "Invoice not found" });
+    const data = {};
+    if (status) {
+      data.status = status;
+      if (status === "ISSUED" && !existing.issuedAt) data.issuedAt = new Date();
+    }
+    if (billToName != null) data.billToName = billToName;
+    if (billToCompany != null) data.billToCompany = billToCompany;
+    if (billToGst != null) data.billToGst = billToGst;
+    if (billToAddress != null) data.billToAddress = billToAddress;
+    if (billToEmail != null) data.billToEmail = billToEmail;
+    if (notes != null) data.notes = notes;
+    if (dueDate != null) data.dueDate = dueDate ? new Date(dueDate) : null;
+    if (items) {
+      const { lines, subtotal, taxAmount, totalAmount } = calcInvoiceTotals(items, taxPct ?? existing.taxPct);
+      data.items = JSON.stringify(lines);
+      data.subtotal = subtotal;
+      data.taxAmount = taxAmount;
+      data.totalAmount = totalAmount;
+    }
+    if (taxPct != null) data.taxPct = Number(taxPct) || 0;
+    const inv = await mainDb.invoice.update({ where: { id: req.params.id }, data });
+    res.json({ invoice: serializeInvoice(inv) });
+  })
+);
+
 /* ---------------- Admin: users + stats ---------------- */
 router.get(
   "/admin/users",
@@ -344,14 +611,15 @@ router.get(
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (_req, res) => {
-    const [users, products, quotes, orders, openQuotes] = await Promise.all([
+    const [users, products, quotes, orders, openQuotes, invoices] = await Promise.all([
       mainDb.user.count(),
       mainDb.product.count(),
       mainDb.quote.count(),
       mainDb.order.count(),
       mainDb.quote.count({ where: { status: "PENDING" } }),
+      mainDb.invoice.count(),
     ]);
-    res.json({ stats: { users, products, quotes, orders, openQuotes } });
+    res.json({ stats: { users, products, quotes, orders, openQuotes, invoices } });
   })
 );
 
@@ -363,6 +631,60 @@ router.get(
   isAdmin,
   asyncH(async (_req, res) => {
     res.json({ collection: await listGateways(), payouts: await payoutGatewayStatus() });
+  })
+);
+
+router.get(
+  "/admin/settings",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    res.json({ settings: await getAllSettings(false) });
+  })
+);
+
+router.put(
+  "/admin/settings",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const settings = await setSettings(req.body);
+    res.json({ settings });
+  })
+);
+
+router.get(
+  "/admin/export/datasets",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (_req, res) => {
+    res.json({ datasets: MAIN_DATASETS });
+  })
+);
+
+router.get(
+  "/admin/export",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const datasets = req.query.datasets ? String(req.query.datasets).split(",").filter(Boolean) : null;
+    const format = String(req.query.format || "json").toLowerCase();
+    const payload = await exportMainData(datasets);
+    const { content, mime, ext } = formatExport(payload, format);
+    if (format === "json") return res.json(payload);
+    res.setHeader("Content-Type", mime);
+    res.setHeader("Content-Disposition", `attachment; filename="akshaya-main-export.${ext}"`);
+    res.send(content);
+  })
+);
+
+router.post(
+  "/admin/import",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const result = await importMainData(req.body, { actorId: req.user.id });
+    res.json(result);
   })
 );
 

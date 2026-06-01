@@ -1,7 +1,7 @@
 {
-  "name": "Akshaya Invest",
-  "short_name": "Akshaya Invest",
-  "description": "Invest. Earn. Grow. — Akshaya Exim Traders investment portal",
+  "name": "Akshaya EXIM TRADERS",
+  "short_name": "Akshaya Exim",
+  "description": "Akshaya EXIM TRADERS — Global export, import & investment portal",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

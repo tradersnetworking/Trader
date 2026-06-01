@@ -1,57 +1,90 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
 import { Stat, Badge, Modal, Field, Alert } from "../../components/ui.jsx";
 import PaymentGatewaysPanel from "../../components/PaymentGatewaysPanel.jsx";
+import MainDashboardShell from "../../components/main/MainDashboardShell.jsx";
+import MainAdminOrdersPanel from "../../components/main/MainAdminOrdersPanel.jsx";
+import MainAdminInvoicesPanel from "../../components/main/MainAdminInvoicesPanel.jsx";
+import { DashboardTabFallback } from "../../components/invest/DashboardTabFallback.jsx";
+import { getMainAdminNav, mainNavLabel, MAIN_ADMIN_MOBILE_PRIMARY } from "../../lib/main-nav.js";
+import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
+import DataPortabilityPanel from "../../components/shared/DataPortabilityPanel.jsx";
 
 export default function AdminDashboard() {
-  const { main } = useAuth();
+  const { main, logoutMain } = useAuth();
   const isSuper = main?.role === "SUPERADMIN";
-  const [tab, setTab] = useState("overview");
-  const tabs = [["overview", "Overview"], ["products", "Products"], ["categories", "Categories"], ["quotes", "Quotes / RFQ"], ["users", "Users"], ["gateways", "Payment Gateways"]];
-  if (isSuper) tabs.push(["staff", "Staff & Roles"]);
+  const navItems = useMemo(() => getMainAdminNav(isSuper), [isSuper]);
+  const tabIds = useMemo(() => navItems.filter((n) => n.id).map((n) => n.id), [navItems]);
+
+  const [sp, setSp] = useSearchParams();
+  const tab = tabIds.includes(sp.get("tab")) ? sp.get("tab") : "overview";
+  const setTab = (id) => setSp({ tab: id });
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setRefreshKey((k) => k + 1);
+    setTimeout(() => setRefreshing(false), 400);
+  };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold text-navy">{isSuper ? "Super Admin" : "Admin"} • Marketplace</h1>
-          <p className="text-sm text-slate-500">akshayaexim.com / .in control panel</p>
-        </div>
-        <Badge status={main?.role} />
-      </div>
-
-      <div className="mt-6 flex gap-1 overflow-x-auto border-b">
-        {tabs.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={`shrink-0 whitespace-nowrap px-4 py-2 text-sm font-semibold ${tab === id ? "border-b-2 border-navy text-navy" : "text-slate-400"}`}>{label}</button>
-        ))}
-      </div>
-
-      <div className="mt-6">
-        {tab === "overview" && <Overview />}
-        {tab === "products" && <ProductsAdmin />}
-        {tab === "categories" && <CategoriesAdmin />}
-        {tab === "quotes" && <QuotesAdmin />}
-        {tab === "users" && <UsersAdmin isSuper={isSuper} />}
-        {tab === "gateways" && <PaymentGatewaysPanel fetchGateways={() => mainApi("/admin/gateways")} />}
-        {tab === "staff" && isSuper && <StaffAdmin />}
-      </div>
-    </div>
+    <MainDashboardShell
+      user={main}
+      mode="admin"
+      navItems={navItems}
+      activeTab={tab}
+      onTabChange={setTab}
+      pageTitle={mainNavLabel(navItems, tab)}
+      pageSubtitle={`${isSuper ? "Super Admin" : main?.role === "STAFF" ? "Staff" : "Admin"} • akshayaexim.com`}
+      mobilePrimaryIds={MAIN_ADMIN_MOBILE_PRIMARY}
+      onLogout={logoutMain}
+      onRefresh={handleRefresh}
+      refreshing={refreshing}
+    >
+      {tab === "overview" && <Overview key={refreshKey} />}
+      {tab === "products" && <ProductsAdmin key={refreshKey} />}
+      {tab === "categories" && <CategoriesAdmin key={refreshKey} />}
+      {tab === "quotes" && <QuotesAdmin key={refreshKey} />}
+      {tab === "orders" && <MainAdminOrdersPanel key={refreshKey} />}
+      {tab === "invoices" && <MainAdminInvoicesPanel key={refreshKey} />}
+      {tab === "users" && <UsersAdmin isSuper={isSuper} key={refreshKey} />}
+      {tab === "gateways" && (
+        <PaymentGatewaysPanel
+          key={refreshKey}
+          fetchGateways={() => mainApi("/admin/gateways")}
+          editable={isSuper}
+          loadSettings={isSuper ? () => mainApi("/admin/settings") : undefined}
+          saveSettings={isSuper ? (body) => mainApi("/admin/settings", { method: "PUT", body }) : undefined}
+        />
+      )}
+      {tab === "staff" && isSuper && <StaffAdmin key={refreshKey} />}
+      {tab === "backup" && (
+        <DataPortabilityPanel portal="main" canImport={isSuper} key={refreshKey} />
+      )}
+      {tab === "account" && <AccountSecurityPanel portal="main" key={refreshKey} />}
+      {!tabIds.includes(tab) && (
+        <DashboardTabFallback title="Section unavailable" onGoOverview={() => setTab("overview")} />
+      )}
+    </MainDashboardShell>
   );
 }
 
 function Overview() {
   const [s, setS] = useState(null);
   useEffect(() => { mainApi("/admin/stats").then((d) => setS(d.stats)).catch(() => {}); }, []);
-  if (!s) return <p className="text-slate-400">Loading…</p>;
+  if (!s) return <p className="text-muted-foreground">Loading…</p>;
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
       <Stat label="Users" value={s.users} accent="blue" />
       <Stat label="Products" value={s.products} accent="emerald" />
       <Stat label="Quotes" value={s.quotes} accent="violet" />
       <Stat label="Open RFQs" value={s.openQuotes} accent="gold" />
       <Stat label="Orders" value={s.orders} accent="cyan" />
+      <Stat label="Invoices" value={s.invoices ?? 0} accent="indigo" />
     </div>
   );
 }
@@ -71,8 +104,8 @@ function CategoriesAdmin() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cats.map((c) => (
           <div key={c.id} className="card p-4">
-            <div className="flex items-center justify-between"><h3 className="font-bold text-navy">{c.name}</h3><button onClick={() => del(c.id)} className="text-xs text-red-500">Delete</button></div>
-            <div className="mt-2 flex flex-wrap gap-1">{(c.children || []).map((s) => <span key={s.id} className="badge bg-slate-100 text-slate-600">{s.name}</span>)}</div>
+            <div className="flex items-center justify-between"><h3 className="font-bold">{c.name}</h3><button onClick={() => del(c.id)} className="text-xs text-red-500">Delete</button></div>
+            <div className="mt-2 flex flex-wrap gap-1">{(c.children || []).map((s) => <span key={s.id} className="badge bg-muted text-muted-foreground">{s.name}</span>)}</div>
           </div>
         ))}
       </div>
@@ -123,15 +156,15 @@ function ProductsAdmin() {
       <button onClick={openNew} className="btn-primary mb-4">+ Add Product</button>
       <div className="overflow-x-auto card">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400"><tr><th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Price</th><th className="p-3">Min Qty</th><th className="p-3"></th></tr></thead>
+          <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Price</th><th className="p-3">Min Qty</th><th className="p-3"></th></tr></thead>
           <tbody>
             {products.map((p) => (
               <tr key={p.id} className="border-t">
-                <td className="p-3 font-medium text-navy">{p.name}<div className="text-xs text-slate-400">{p.category?.name}</div></td>
+                <td className="p-3 font-medium">{p.name}<div className="text-xs text-muted-foreground">{p.category?.name}</div></td>
                 <td className="p-3"><span className={`badge ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span></td>
                 <td className="p-3">{inr(p.basePrice)}/{p.unit}</td>
                 <td className="p-3">{p.minOrderQty}</td>
-                <td className="p-3 text-right"><button onClick={() => openEdit(p)} className="text-xs font-semibold text-navy">Edit</button> <button onClick={() => del(p.id)} className="ml-2 text-xs text-red-500">Delete</button></td>
+                <td className="p-3 text-right"><button onClick={() => openEdit(p)} className="text-xs font-semibold text-primary">Edit</button> <button onClick={() => del(p.id)} className="ml-2 text-xs text-red-500">Delete</button></td>
               </tr>
             ))}
           </tbody>
@@ -173,26 +206,26 @@ function QuotesAdmin() {
   return (
     <div className="overflow-x-auto card">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400"><tr><th className="p-3">Product</th><th className="p-3">Dir</th><th className="p-3">Qty</th><th className="p-3">Contact</th><th className="p-3">Status</th><th className="p-3"></th></tr></thead>
+        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Product</th><th className="p-3">Dir</th><th className="p-3">Qty</th><th className="p-3">Contact</th><th className="p-3">Status</th><th className="p-3"></th></tr></thead>
         <tbody>
           {quotes.map((q) => (
             <tr key={q.id} className="border-t">
-              <td className="p-3 font-medium text-navy">{q.productName}</td>
+              <td className="p-3 font-medium">{q.productName}</td>
               <td className="p-3">{q.direction === "SELL" ? "Supply" : "Buy"}</td>
               <td className="p-3">{q.quantity} {q.unit}</td>
-              <td className="p-3 text-xs">{q.contactName}<div className="text-slate-400">{q.contactEmail}</div></td>
+              <td className="p-3 text-xs">{q.contactName}<div className="text-muted-foreground">{q.contactEmail}</div></td>
               <td className="p-3"><Badge status={q.status} /></td>
-              <td className="p-3 text-right"><button onClick={() => open(q)} className="text-xs font-semibold text-navy">Respond</button></td>
+              <td className="p-3 text-right"><button onClick={() => open(q)} className="text-xs font-semibold text-primary">Respond</button></td>
             </tr>
           ))}
-          {quotes.length === 0 && <tr><td colSpan="6" className="p-6 text-center text-slate-400">No quotes.</td></tr>}
+          {quotes.length === 0 && <tr><td colSpan="6" className="p-6 text-center text-muted-foreground">No quotes.</td></tr>}
         </tbody>
       </table>
       <Modal open={!!editing} onClose={() => setEditing(null)} title="Respond to Quote">
         {editing && (
           <form onSubmit={save} className="space-y-3">
-            <p className="text-sm text-slate-500">{editing.productName} • {editing.quantity} {editing.unit} • {editing.contactEmail}</p>
-            {editing.message && <p className="rounded bg-slate-50 p-2 text-sm">{editing.message}</p>}
+            <p className="text-sm text-muted-foreground">{editing.productName} • {editing.quantity} {editing.unit} • {editing.contactEmail}</p>
+            {editing.message && <p className="rounded bg-muted/50 p-2 text-sm">{editing.message}</p>}
             <Field label="Status"><select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{["PENDING", "RESPONDED", "ACCEPTED", "REJECTED", "CLOSED"].map((s) => <option key={s}>{s}</option>)}</select></Field>
             <Field label="Quoted Price (₹)"><input className="input" type="number" value={form.quotedPrice} onChange={(e) => setForm({ ...form, quotedPrice: e.target.value })} /></Field>
             <Field label="Response"><textarea className="input" rows={3} value={form.adminResponse} onChange={(e) => setForm({ ...form, adminResponse: e.target.value })} /></Field>
@@ -225,18 +258,18 @@ function UsersAdmin({ isSuper }) {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-500">Admins can create buyer/seller accounts. Staff and Admin roles are managed by Super Admin only.</p>
+        <p className="text-sm text-muted-foreground">Manage buyer/seller accounts. Super Admin can change roles.</p>
         <button onClick={() => { setCreateOpen(true); setErr(""); setMsg(""); }} className="btn-primary">+ Create User</button>
       </div>
       {msg && <div className="mb-3"><Alert type="success">{msg}</Alert></div>}
       <div className="overflow-x-auto card">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th></tr></thead>
+        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th></tr></thead>
         <tbody>
           {users.map((u) => (
             <tr key={u.id} className="border-t">
-              <td className="p-3 font-medium text-navy">{u.name}</td>
-              <td className="p-3 text-slate-500">{u.email}</td>
+              <td className="p-3 font-medium">{u.name}</td>
+              <td className="p-3 text-muted-foreground">{u.email}</td>
               <td className="p-3">{u.accountType}</td>
               <td className="p-3">{isSuper ? (
                 <select className="rounded border px-1 text-xs" value={u.role} onChange={(e) => update(u.id, { role: e.target.value })}>{["USER", "STAFF", "ADMIN", "SUPERADMIN"].map((r) => <option key={r}>{r}</option>)}</select>
@@ -255,7 +288,6 @@ function UsersAdmin({ isSuper }) {
           <Field label="Password"><input className="input" type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
           <Field label="Account Type"><select className="input" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}><option value="B2B">B2B</option><option value="B2C">B2C</option></select></Field>
           <Field label="Company Name (optional)"><input className="input" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} /></Field>
-          <p className="text-xs text-slate-400">Creates a USER account. Admins cannot create Staff, Admin or Super Admin accounts.</p>
           <button className="btn-gold w-full">Create User</button>
         </form>
       </Modal>
@@ -269,8 +301,8 @@ function StaffAdmin() {
   const save = async (e) => { e.preventDefault(); setErr(""); setMsg(""); try { await mainApi("/admin/staff", { method: "POST", body: form }); setMsg(`Created ${form.email}`); setForm({ name: "", email: "", password: "", role: "STAFF" }); } catch (e2) { setErr(e2.message); } };
   return (
     <div className="max-w-md card p-6">
-      <h3 className="mb-3 font-bold text-navy">Create Staff / Admin Account</h3>
-      <p className="mb-3 text-xs text-slate-400">Super Admin only. Cannot create Super Admin accounts from here.</p>
+      <h3 className="mb-3 font-bold">Create Staff / Admin Account</h3>
+      <p className="mb-3 text-xs text-muted-foreground">Super Admin only. Cannot create Super Admin accounts from here.</p>
       <form onSubmit={save} className="space-y-3">
         {msg && <Alert type="success">{msg}</Alert>}
         {err && <Alert type="error">{err}</Alert>}

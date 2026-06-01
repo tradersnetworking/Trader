@@ -121,4 +121,66 @@ router.get(
   })
 );
 
+router.put(
+  "/profile",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { name, phone, companyName, gstNumber, accountType, billingAddress } = req.body;
+    const data = {};
+    if (name != null) data.name = name;
+    if (phone != null) data.phone = phone;
+    if (companyName != null) data.companyName = companyName;
+    if (gstNumber != null) data.gstNumber = gstNumber;
+    if (billingAddress != null) data.billingAddress = billingAddress;
+    if (accountType === "B2B" || accountType === "B2C") data.accountType = accountType;
+    const user = await mainDb.user.update({ where: { id: req.user.id }, data });
+    res.json({ user: publicUser(user) });
+  })
+);
+
+router.post(
+  "/change-password",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password required" });
+    if (String(newPassword).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    const user = await mainDb.user.findUnique({ where: { id: req.user.id } });
+    if (!user?.passwordHash) return res.status(400).json({ error: "No password on file. Use Forgot Password to set one first." });
+    if (!comparePassword(currentPassword, user.passwordHash)) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    await mainDb.user.update({
+      where: { id: req.user.id },
+      data: { passwordHash: hashPassword(newPassword) },
+    });
+    res.json({ ok: true, message: "Password updated" });
+  })
+);
+
+router.post(
+  "/change-email",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { currentPassword, newEmail } = req.body;
+    if (!currentPassword || !newEmail) return res.status(400).json({ error: "Password and new email required" });
+    const normalized = String(newEmail).toLowerCase().trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return res.status(400).json({ error: "Invalid email address" });
+    const user = await mainDb.user.findUnique({ where: { id: req.user.id } });
+    if (!user?.passwordHash) return res.status(400).json({ error: "No password on file. Use Forgot Password to set one first." });
+    if (!comparePassword(currentPassword, user.passwordHash)) {
+      return res.status(401).json({ error: "Password is incorrect" });
+    }
+    if (normalized === user.email) return res.status(400).json({ error: "New email is the same as current" });
+    const clash = await mainDb.user.findUnique({ where: { email: normalized } });
+    if (clash) return res.status(409).json({ error: "Email already in use" });
+    const updated = await mainDb.user.update({
+      where: { id: req.user.id },
+      data: { email: normalized },
+    });
+    const token = signToken({ id: updated.id, role: updated.role, email: updated.email }, SCOPE);
+    res.json({ ok: true, token, user: publicUser(updated), message: "Email updated" });
+  })
+);
+
 export default router;

@@ -11,7 +11,7 @@ import { Logo } from "./ui.jsx";
 import { investHash, investPath, mainUrl } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
-function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions }) {
+function Shell({ homeTo, brandSub, links, actions }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -22,8 +22,6 @@ function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions }) {
           <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2">
             <BrandMark
               to={homeTo}
-              line1={brandLine1}
-              line2={brandLine2}
               subtitle={brandSub}
               onDark
               compact
@@ -62,8 +60,6 @@ function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions }) {
       <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-3 md:flex lg:px-6">
         <BrandMark
           to={homeTo}
-          line1={brandLine1}
-          line2={brandLine2}
           subtitle={brandSub}
           onDark
           className="shrink-0 max-w-[min(100%,14rem)] lg:max-w-xs"
@@ -138,8 +134,6 @@ export function MarketplaceLayout({ children }) {
     <div className="app-shell site-main-shell overflow-x-clip">
       <Shell
         homeTo="/"
-        brandLine1="Akshaya Exim"
-        brandLine2="Traders"
         brandSub="Global Export & Import"
         links={links}
         actions={actions}
@@ -202,8 +196,6 @@ export function InvestLayout({ children }) {
     <div className="app-shell site-invest-shell">
       <Shell
         homeTo={home}
-        brandLine1="Akshaya Exim"
-        brandLine2="Invest"
         brandSub="Smart Investment"
         links={links}
         actions={actions}
@@ -221,10 +213,7 @@ function MarketplaceFooter() {
     <footer className="hero-gradient mt-12 text-slate-300">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Logo className="h-10 w-auto max-w-[7rem] sm:max-w-[8rem]" variant="full" />
-            <span className="font-bold text-white">Akshaya Exim Traders</span>
-          </div>
+          <Logo className="h-16 w-auto max-w-[9rem] sm:h-20 sm:max-w-[11rem]" variant="full" />
           <p className="mt-3 text-sm">
             Global export & import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies,
             textiles & more. B2B & B2C trade across India and abroad.

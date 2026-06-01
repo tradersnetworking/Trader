@@ -128,6 +128,7 @@ export default function InvestSettingsPanel() {
 
 
         <h3 className="pt-2 font-bold text-navy dark:text-white">Referrals</h3>
+        <p className="text-xs text-muted-foreground">For payout frequency, minimum payout, and bulk pay — use <strong>Referral Payouts → Commission & frequency</strong> in the admin sidebar.</p>
 
         <Field label="Level 1 commission %"><input className="input" type="number" step="0.1" value={form.referral_level_1_pct ?? form.referral_commission_pct ?? "2"} onChange={(e) => set("referral_level_1_pct", e.target.value)} /></Field>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

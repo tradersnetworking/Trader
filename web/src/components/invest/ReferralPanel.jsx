@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge } from "../ui.jsx";
@@ -8,6 +8,7 @@ import { APP_PAGE_STACK, APP_STAT_GRID } from "../../lib/ui-system.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
 import ShareProfitButton from "./ShareProfitButton.jsx";
 import { useI18n } from "../../lib/i18n/context.jsx";
+import { useInvestRefresh } from "../../lib/investRefresh.js";
 
 export default function ReferralPanel() {
   const { t } = useI18n();
@@ -18,7 +19,7 @@ export default function ReferralPanel() {
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     investApi("/referral/stats")
       .then((d) => {
@@ -31,11 +32,12 @@ export default function ReferralPanel() {
       .then((d) => setLeaderboard(d.leaderboard || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  };
+  }, [refreshInvest]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+  useInvestRefresh(load);
 
   const code = data?.referralCode || invest?.referralCode || "";
   const link = code ? buildReferralLink(code) : "";
@@ -78,14 +80,25 @@ export default function ReferralPanel() {
         <KpiStatCard tone="blue" icon="⏳" label="Pending" value={inr(data?.pendingEarnings || 0)} loading={loading} />
       </div>
 
-      {(data?.levelCommissions || []).some((l) => l.pct > 0) && (
+      {(data?.programSettings || data?.levelCommissions) && (
         <div className="card p-4">
-          <h3 className="text-heading mb-2 text-sm font-bold">Commission levels</h3>
-          <div className="flex flex-wrap gap-2">
-            {data.levelCommissions.filter((l) => l.pct > 0).map((l) => (
+          <h3 className="text-heading mb-2 text-sm font-bold">Program terms</h3>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {(data.levelCommissions || data.programSettings?.levelCommissions || []).filter((l) => l.pct > 0).map((l) => (
               <span key={l.level} className="badge bg-primary/10 text-accent-tone">Level {l.level}: {l.pct}%</span>
             ))}
           </div>
+          {data.programSettings && (
+            <p className="text-xs text-muted-foreground">
+              Payout: {{
+                MANUAL: "Processed by admin",
+                ON_INVEST: "Credited when your referral invests",
+                WEEKLY: "Weekly batch payout",
+                MONTHLY: "Monthly batch payout",
+              }[data.programSettings.payoutFrequency] || data.programSettings.payoutFrequency}
+              {data.programSettings.minPayout > 0 && ` · Minimum ₹${data.programSettings.minPayout}`}
+            </p>
+          )}
         </div>
       )}
 

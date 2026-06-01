@@ -90,6 +90,8 @@ export const en = {
     investorRole: "Investor",
     superAdmin: "Super Admin",
     notifications: "Notifications",
+    refresh: "Refresh",
+    refreshing: "Refreshing…",
     logout: "Logout",
     collapseSidebar: "Collapse",
     expandSidebar: "Expand",

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { investPath } from "../../../lib/site.js";
 import { useI18n } from "../../../lib/i18n/context.jsx";
+import { Logo } from "../../ui.jsx";
 
 const FEATURE_KEYS = [
   { icon: "📊", titleKey: "feature42Plans", descKey: "feature42Desc", bg: "bg-amber-500/10", color: "text-amber-600 dark:text-amber-400" },
@@ -183,6 +184,9 @@ export function InvestLandingHero({ cms, invest }) {
     <section className="hero-gradient relative overflow-hidden text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.12)_0,transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 py-12 text-center sm:py-16 md:py-20">
+        <Link to={investPath("")} className="mx-auto mb-6 inline-block">
+          <Logo variant="full" className="mx-auto h-20 w-auto max-w-[11rem] sm:h-24 sm:max-w-[13rem] md:h-28 md:max-w-[15rem]" />
+        </Link>
         <span className="badge border border-amber-500/40 bg-amber-500/10 text-amber-300">
           {t("home.heroBadge")}
         </span>

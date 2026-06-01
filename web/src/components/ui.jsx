@@ -56,20 +56,23 @@ export function UserAvatar({ user, size = 36, className = "" }) {
 
 
 
-export function Logo({ className = "h-10 w-auto max-w-[10rem]", variant = "header" }) {
+export function Logo({ className, variant = "full" }) {
   const useMark = variant === "mark";
   const src = useMark ? "/assets/logo-mark.png" : "/assets/logo.png";
-  const sizeClass = variant === "full" ? className : `${className} max-w-[10rem] sm:max-w-[11rem]`;
+  const defaultClass = useMark
+    ? "h-9 w-9 sm:h-10 sm:w-10"
+    : "h-14 w-auto max-w-[9rem] sm:h-16 sm:max-w-[10rem]";
+  const sizeClass = className || defaultClass;
 
   return (
-    <span className={`brand-logo-wrap shrink-0 ${useMark ? "h-9 w-9 sm:h-10 sm:w-10" : ""}`}>
+    <span className={`brand-logo-wrap shrink-0 ${useMark ? "inline-flex" : ""}`}>
       <img
         src={src}
-        alt="Akshaya Exim Traders"
+        alt="Akshaya EXIM TRADERS"
         className={`brand-logo ${sizeClass}`}
         draggable={false}
-        width={useMark ? 40 : 160}
-        height={useMark ? 40 : 40}
+        width={useMark ? 40 : 180}
+        height={useMark ? 40 : 72}
       />
     </span>
   );

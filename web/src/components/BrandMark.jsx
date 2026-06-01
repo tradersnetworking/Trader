@@ -2,8 +2,7 @@ import { Link } from "react-router-dom";
 import { Logo } from "./ui.jsx";
 
 /**
- * Logo mark + site title on one line (Kuber-style). Use on mobile headers and light sidebars.
- * Avoids full logo.png (white text) on light backgrounds.
+ * Brand header: full Akshaya EXIM TRADERS logo (default) or compact mark + text.
  */
 export default function BrandMark({
   to = "/",
@@ -14,9 +13,27 @@ export default function BrandMark({
   onDark = false,
   compact = false,
   grow = false,
+  fullLogo = true,
   className = "",
 }) {
-  const inner = (
+  const fullLogoClass = compact
+    ? "h-12 w-auto max-w-[7.5rem] sm:h-14 sm:max-w-[8.5rem]"
+    : "h-14 w-auto max-w-[8.5rem] sm:h-16 sm:max-w-[10rem] lg:max-w-[11rem]";
+
+  const inner = fullLogo ? (
+    <div className={`flex min-w-0 max-w-full flex-col gap-0.5 ${className}`}>
+      <Logo variant="full" className={fullLogoClass} />
+      {subtitle && (
+        <div
+          className={`truncate text-[9px] uppercase tracking-[0.18em] sm:text-[10px] ${
+            onDark ? "text-slate-300" : "text-muted-foreground"
+          }`}
+        >
+          {subtitle}
+        </div>
+      )}
+    </div>
+  ) : (
     <div className={`flex min-w-0 max-w-full items-center gap-2 ${className}`}>
       <Logo
         variant="mark"
