@@ -506,7 +506,7 @@ export function AdminAgreementsPanel({ isSuper }) {
         documentKey={pdfView?.id}
         agreementId={pdfView?.id}
         agreementUid={pdfView?.agreementUid}
-        fetchBlob={() => fetchAgreementPdfBlob(pdfView.id, { admin: true })}
+        fetchBlob={() => (pdfView?.id ? fetchAgreementPdfBlob(pdfView.id, { admin: true }) : Promise.reject(new Error("No agreement selected")))}
       />
     </div>
   );
