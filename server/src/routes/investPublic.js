@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH } from "../middleware.js";
-import { normalizePlanRoi, planCalcPreview, validateSettlementCycle } from "../utils/invest.js";
+import { normalizePlanRoi, planCalcPreview, validateSettlementCycle, sortPlansByTier } from "../utils/invest.js";
 import { listGateways } from "../payments/gateways.js";
 import { getSetting } from "../services/investSettings.js";
 import { getPrimaryBankDetails, getDepositAccountsForInvestor } from "../services/paymentGateways.js";
@@ -17,9 +17,8 @@ router.get(
   asyncH(async (_req, res) => {
     const plans = await investDb.plan.findMany({
       where: { isActive: true },
-      orderBy: [{ planType: "asc" }, { lockInDays: "asc" }],
     });
-    res.json({ plans: plans.map(normalizePlanRoi) });
+    res.json({ plans: sortPlansByTier(plans.map(normalizePlanRoi)) });
   })
 );
 

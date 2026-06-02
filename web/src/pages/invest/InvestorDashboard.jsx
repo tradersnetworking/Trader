@@ -12,7 +12,7 @@ import InvestorOverviewPanel from "../../components/invest/InvestorOverviewPanel
 import { TabPanel, DashboardTabFallback } from "../../components/invest/DashboardTabFallback.jsx";
 import { INVESTOR_NAV, translateNavLabel } from "../../lib/invest-nav.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
-import { PLAN_TYPES, LOCK_IN_SUB_CATEGORIES } from "../../lib/plan-types.js";
+import { PLAN_TYPES, LOCK_IN_SUB_CATEGORIES, sortPlansByTier } from "../../lib/plan-types.js";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import WalletQuickActions from "../../components/invest/WalletQuickActions.jsx";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
@@ -241,7 +241,7 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
   const [filterLockIn, setFilterLockIn] = useState("");
 
   const loadPlans = useCallback(() => {
-    investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {});
+    investApi("/public/plans").then((d) => setPlans(sortPlansByTier(d.plans || []))).catch(() => {});
   }, []);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);

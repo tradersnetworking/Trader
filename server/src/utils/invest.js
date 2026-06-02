@@ -45,6 +45,21 @@ export function validateSettlementCycle(plan, cycle) {
 /** Plan tiers by investment capital (₹). Lock-in is a separate sub-category (1–60 months). */
 export const PLAN_TYPES = ["STARTER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
 
+/** Sort key for plan tier (STARTER first — not alphabetical). */
+export function planTierOrder(planType) {
+  const i = PLAN_TYPES.indexOf(String(planType || "").toUpperCase());
+  return i === -1 ? PLAN_TYPES.length : i;
+}
+
+/** Order plans: STARTER → DIAMOND, then shortest lock-in within each tier. */
+export function sortPlansByTier(plans = []) {
+  return [...plans].sort((a, b) => {
+    const byTier = planTierOrder(a.planType) - planTierOrder(b.planType);
+    if (byTier !== 0) return byTier;
+    return Number(a.lockInDays || 0) - Number(b.lockInDays || 0);
+  });
+}
+
 export const PLAN_CAPITAL = {
   STARTER: { min: 100000, max: 500000, label: "₹1 – 5 Lakhs", monthlyRoiPct: 10, color: "#2e7d32" },
   BRONZE: { min: 600000, max: 1000000, label: "₹6 – 10 Lakhs", monthlyRoiPct: 12, color: "#a9622b" },

@@ -7,6 +7,7 @@ import {
   resolveMainShareImage,
   resolveInvestShareImage,
   absoluteOgImage,
+  isInvestHomePath,
 } from "./shareImages.js";
 import {
   BRAND_MAIN,
@@ -107,11 +108,14 @@ export function buildPlanOgDescription(plan) {
   return `${plan.name}: invest ${inr(plan.minInvestment)}–${inr(plan.maxInvestment)}, ${monthly}% monthly ROI (~${annual}% p.a.), ${lockInLabel(plan.lockInDays)} lock-in. Transparent plans on Akshaya Exim Invest.`;
 }
 
-export function buildReferralOgDescription(code) {
-  const c = String(code || "").trim();
-  return c
-    ? `Invitation to AKSHAYA Exim Invest (referral ${c}). Compare investment plans with published monthly ROI, flexible lock-in, KYC onboarding and secure wallet payouts.`
-    : INVEST_HOME_DEFAULT.description;
+/** Invest home OG/title/description (CMS hero or defaults). */
+export function resolveInvestHomeMeta(homepageCms) {
+  return {
+    title: homepageCms?.homepage_hero_title || INVEST_HOME_DEFAULT.title,
+    description: homepageCms?.homepage_hero_subtitle || INVEST_HOME_DEFAULT.description,
+    image: resolveInvestShareImage("/", null, false),
+    siteName: BRAND_INVEST,
+  };
 }
 
 export function resolveMainPageMeta(pathname, siteCfg, product = null) {
@@ -167,23 +171,18 @@ export function resolveInvestPageMeta({ pathname, plan, refCode, homepageCms, ha
   }
 
   const refMatch = pathname.match(/^\/ref\/([^/]+)/i);
-  if (refMatch) {
-    const code = decodeURIComponent(refMatch[1]);
+  if (refMatch || refCode) {
+    const home = resolveInvestHomeMeta(homepageCms);
     return {
-      title: `Join ${BRAND_INVEST} — Referral Invite`,
-      description: buildReferralOgDescription(code),
-      image: resolveInvestShareImage(pathname, null, false),
-      siteName: BRAND_INVEST,
+      ...home,
+      image: resolveInvestShareImage(isInvestHomePath(pathname, hasPlanQuery) ? pathname : "/", null, false),
     };
   }
 
-  const heroTitle = homepageCms?.homepage_hero_title || INVEST_HOME_DEFAULT.title;
-  const heroSub = homepageCms?.homepage_hero_subtitle || INVEST_HOME_DEFAULT.description;
+  const home = resolveInvestHomeMeta(homepageCms);
   return {
-    title: heroTitle,
-    description: heroSub,
+    ...home,
     image: resolveInvestShareImage(pathname, null, hasPlanQuery),
-    siteName: BRAND_INVEST,
   };
 }
 

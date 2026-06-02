@@ -5,7 +5,7 @@ import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
 import PlanCard from "../../components/PlanCard.jsx";
 import SubscribeModal from "../../components/SubscribeModal.jsx";
-import { PLAN_TYPES, PLAN_CAPITAL } from "../../lib/plan-types.js";
+import { PLAN_TYPES, PLAN_CAPITAL, sortPlansByTier } from "../../lib/plan-types.js";
 import { investPath } from "../../lib/site.js";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
 import { useI18n } from "../../lib/i18n/context.jsx";
@@ -35,7 +35,7 @@ export default function InvestHome() {
   const [cms, setCms] = useState(null);
 
   useEffect(() => {
-    investApi("/public/plans").then((d) => setPlans(d.plans)).catch(() => {});
+    investApi("/public/plans").then((d) => setPlans(sortPlansByTier(d.plans || []))).catch(() => {});
     investApi("/public/maintenance").then(setMaintenance).catch(() => {});
     investApi("/public/partners").then((d) => setPartners(d.partners || [])).catch(() => {});
     investApi("/public/homepage").then((d) => setCms(d.homepage || {})).catch(() => {});
@@ -46,9 +46,15 @@ export default function InvestHome() {
     const ref = searchParams.get("ref");
     if (planId) setHighlightPlanId(planId);
     if (ref) {
+      const code = ref.trim().toUpperCase();
       try {
-        localStorage.setItem("invest_ref", ref);
+        localStorage.setItem("invest_ref", code);
       } catch {}
+      fetch("/api/invest/public/referral/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, event: "CLICK" }),
+      }).catch(() => {});
     }
     if (planId || window.location.hash === "#plans") {
       requestAnimationFrame(() => {

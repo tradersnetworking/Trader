@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 
@@ -323,6 +323,9 @@ function InvestRoutes() {
 export default function App() {
 
   const loc = useLocation();
+
+  const [, bumpHost] = useState(0);
+  useEffect(() => subscribeHostKind(() => bumpHost((n) => n + 1)), []);
 
   const mode = useSiteMode();
   const routeSet = getRouteSet(mode);

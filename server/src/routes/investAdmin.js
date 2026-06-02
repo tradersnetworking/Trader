@@ -2,7 +2,7 @@ import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
 import { hashPassword } from "../utils/auth.js";
-import { annualRoiPct, PLAN_TYPES, PLAN_CAPITAL, lockInDaysFromMonths, normalizePlanRoi } from "../utils/invest.js";
+import { annualRoiPct, PLAN_TYPES, PLAN_CAPITAL, lockInDaysFromMonths, normalizePlanRoi, sortPlansByTier } from "../utils/invest.js";
 import { disburse, payoutGatewayStatus } from "../payments/payouts.js";
 import { listGateways } from "../payments/gateways.js";
 import {
@@ -131,9 +131,9 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    const plans = await investDb.plan.findMany({ orderBy: { lockInDays: "asc" } });
+    const plans = await investDb.plan.findMany();
     res.json({
-      plans: plans.map(normalizePlanRoi),
+      plans: sortPlansByTier(plans.map(normalizePlanRoi)),
       planTypes: PLAN_TYPES_LIST,
       planCapital: PLAN_CAPITAL,
       lockInMonthsOptions: Array.from({ length: 60 }, (_, i) => i + 1),

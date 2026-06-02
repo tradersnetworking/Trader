@@ -13,6 +13,7 @@ import { copyTextToClipboard } from "../../lib/clipboard.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
 import { planOgImagePath, absoluteOgImage } from "../../lib/shareImages.js";
+import { INVEST_HOME_DEFAULT } from "../../lib/shareMeta.js";
 
 export default function ShareProfitButton({
   type = "profit",
@@ -52,9 +53,7 @@ export default function ShareProfitButton({
   });
   const shareTitle = resolvedPlanName
     ? `${resolvedPlanName} — Akshaya Invest`
-    : type === "referral"
-      ? "Join Akshaya Exim Invest"
-      : "Akshaya Exim Invest";
+    : INVEST_HOME_DEFAULT.title;
   const previewImagePath =
     type === "investment" || resolvedPlan
       ? planOgImagePath(resolvedPlan)

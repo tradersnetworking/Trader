@@ -139,13 +139,14 @@ if (fs.existsSync(webDist)) {
       return res.redirect(301, `${proto}://invest.${baseHost}${tail}${qs}`);
     }
 
-    // Invest subdomain should not serve marketplace-only paths
+    // Invest subdomain: redirect marketplace-only paths (not /dashboard or /admin — those are the invest portal too)
     if (kind === "invest" && !isLocal) {
-      const mainOnly = ["/products", "/sell", "/categories", "/dashboard", "/admin"];
-      if (mainOnly.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
+      const marketplaceOnly = ["/products", "/sell", "/categories", "/about", "/returns", "/faq"];
+      if (marketplaceOnly.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
         const baseHost = req.hostname.replace(/^invest\./i, "");
         const proto = req.protocol || "https";
-        return res.redirect(301, `${proto}://${baseHost}${req.path}`);
+        const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        return res.redirect(301, `${proto}://${baseHost}${req.path}${qs}`);
       }
     }
 

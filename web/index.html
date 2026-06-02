@@ -5,12 +5,21 @@
     <script>
       (function () {
         var h = (location.hostname || "").toLowerCase().replace(/^www\./, "");
-        if (!h.startsWith("invest.") && "serviceWorker" in navigator) {
-          window.__aexSwCleanup = navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(regs.map(function (r) { return r.unregister(); }));
-          });
-        } else {
+        var root = document.documentElement;
+        if (h.startsWith("invest.")) {
+          root.classList.add("site-invest");
+          root.classList.remove("site-main");
           window.__aexSwCleanup = Promise.resolve();
+        } else {
+          root.classList.add("site-main");
+          root.classList.remove("site-invest");
+          if ("serviceWorker" in navigator) {
+            window.__aexSwCleanup = navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            });
+          } else {
+            window.__aexSwCleanup = Promise.resolve();
+          }
         }
       })();
     </script>

@@ -7,11 +7,17 @@ import {
 } from "./shareMeta.js";
 
 /** Social / referral share links — uses additional domain when enabled, else invest subdomain. */
+/** Referral invite URL — invest home with ?ref= so link previews match homepage OG meta. */
 export function buildReferralLink(code) {
-  const raw = String(code || "").trim();
+  const raw = String(code || "").trim().toUpperCase();
   if (!raw) return "";
-  const segment = encodeURIComponent(raw);
-  return investShareUrl(`/ref/${segment}`);
+  try {
+    const u = new URL(investShareUrl("/") || "https://invest.akshayaexim.com/");
+    u.searchParams.set("ref", raw);
+    return u.toString();
+  } catch {
+    return `https://invest.akshayaexim.com/?ref=${encodeURIComponent(raw)}`;
+  }
 }
 
 /** @deprecated use buildPlanShareUrl from shareMeta.js */
@@ -89,7 +95,9 @@ export const SHARE_PLATFORMS = [
     icon: "✉️",
     href: (text, url) => {
       const subject =
-        url && url.includes("invest") ? "AKSHAYA Exim Invest — Investment Plan" : "AKSHAYA EXIM TRADERS";
+        url && url.includes("invest")
+          ? INVEST_HOME_DEFAULT.title
+          : "AKSHAYA EXIM TRADERS";
       return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
     },
   },

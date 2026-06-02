@@ -4,12 +4,26 @@ import { getPortalConfig } from "./portalConfig.js";
 /** @typedef {"main-host" | "invest-host" | "local"} HostKind */
 
 let investAliasHosts = new Set();
+const hostListeners = new Set();
 
 /** Called after /api/invest/public/portal-config loads */
 export function setInvestAliasHosts(hosts = []) {
   investAliasHosts = new Set(
     hosts.map((h) => String(h).toLowerCase().replace(/^www\./, "").split(":")[0]).filter(Boolean)
   );
+  hostListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/** Re-render when additional invest domains are registered (post portal-config). */
+export function subscribeHostKind(cb) {
+  hostListeners.add(cb);
+  return () => hostListeners.delete(cb);
 }
 
 function normHost(hostname) {

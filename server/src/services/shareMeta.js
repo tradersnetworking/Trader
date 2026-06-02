@@ -130,18 +130,6 @@ export async function resolveShareMeta(req) {
   const planId = req.query?.plan;
 
   if (kind === "invest" || kind === "invest-alias") {
-    const refMatch = pathOnly.match(/^\/ref\/([^/]+)/i);
-    if (refMatch) {
-      const code = decodeURIComponent(refMatch[1]);
-      return {
-        title: `Join ${BRAND_INVEST} — Referral Invite`,
-        description: `Invitation to AKSHAYA Exim Invest (referral ${code}). Compare investment plans with published monthly ROI, flexible lock-in, KYC onboarding and secure wallet payouts.`,
-        image: absoluteUrl(origin, INVEST_PLANS),
-        url: fullUrl,
-        siteName: BRAND_INVEST,
-      };
-    }
-
     if (planId) {
       const plan = await investDb.plan.findFirst({ where: { id: String(planId), isActive: true } });
       if (plan) {
@@ -154,6 +142,19 @@ export async function resolveShareMeta(req) {
           siteName: BRAND_INVEST,
         };
       }
+    }
+
+    const refMatch = pathOnly.match(/^\/ref\/([^/]+)/i);
+    const refQuery = req.query?.ref;
+    if (refMatch || refQuery) {
+      const homeMeta = await getInvestHomeMeta();
+      return {
+        title: homeMeta.title,
+        description: homeMeta.description,
+        image: absoluteUrl(origin, INVEST_PLANS),
+        url: fullUrl.split("#")[0],
+        siteName: homeMeta.siteName,
+      };
     }
 
     const homeMeta = await getInvestHomeMeta();

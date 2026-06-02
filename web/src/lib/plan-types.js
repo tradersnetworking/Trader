@@ -2,6 +2,20 @@
 
 export const PLAN_TYPES = ["STARTER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
 
+export function planTierOrder(planType) {
+  const i = PLAN_TYPES.indexOf(String(planType || "").toUpperCase());
+  return i === -1 ? PLAN_TYPES.length : i;
+}
+
+/** STARTER first, then lock-in ascending within each tier. */
+export function sortPlansByTier(plans = []) {
+  return [...plans].sort((a, b) => {
+    const byTier = planTierOrder(a.planType) - planTierOrder(b.planType);
+    if (byTier !== 0) return byTier;
+    return Number(a.lockInDays || 0) - Number(b.lockInDays || 0);
+  });
+}
+
 /** Capital range per category (in ₹). */
 export const PLAN_CAPITAL = {
   STARTER: { min: 100000, max: 500000, label: "₹1 – 5 Lakhs", color: "#2e7d32", monthlyRoiPct: 10 },
