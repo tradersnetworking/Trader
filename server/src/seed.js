@@ -10,6 +10,7 @@ import { buildPlanCatalog, catalogKey } from "./data/investmentPlans.js";
 import { dedupeInvestPlans } from "./services/investPlans.js";
 import { normalizeInvestBrandingText, BRAND_INVEST, INVEST_HERO_SUBTITLE } from "./data/brand.js";
 import { annualRoiPct } from "./utils/invest.js";
+import { estimateBasePrice, resetPricingRunState } from "./services/productPricing.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 
@@ -278,6 +279,7 @@ async function seedMain() {
   // Reset catalog so the full EXIM taxonomy is (re)applied on every seed run.
   await mainDb.product.deleteMany({});
   await mainDb.category.deleteMany({});
+  resetPricingRunState();
   let productCount = 0;
 
   for (const c of TAXONOMY) {
@@ -299,6 +301,13 @@ async function seedMain() {
       const listingType = s.listingType || c.listingType || "EXPORT";
       for (const productName of s.products) {
         const img = imageForProduct(productName, s.name, c.name);
+        const basePrice = estimateBasePrice({
+          name: productName,
+          unit,
+          listingType,
+          categoryName: c.name,
+          subCategoryName: s.name,
+        });
         await mainDb.product.create({
           data: {
             name: productName,
@@ -307,7 +316,7 @@ async function seedMain() {
             tradeType: "B2B",
             unit,
             minOrderQty: defaultMinOrder(unit),
-            basePrice: 0,
+            basePrice,
             origin: listingType === "IMPORT" ? "Required" : "India",
             categoryId: child.id,
             images: JSON.stringify(img ? [img] : []),

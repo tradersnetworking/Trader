@@ -7,7 +7,7 @@ import { navIconBg, navIconFg } from "../../lib/invest-nav.js";
 import { NavIcon } from "../invest/NavIcons.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "../invest/LanguageSelector.jsx";
-import { investUrl } from "../../lib/site.js";
+import { openStaffPortal } from "../../lib/staffPortal.js";
 
 export default function MainDashboardShell({
   user,
@@ -200,13 +200,18 @@ export default function MainDashboardShell({
             </Link>
           )}
           {["ADMIN", "SUPERADMIN"].includes(user?.role) && (
-            <a
-              href={investUrl("/admin")}
-              className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-              onClick={() => setUserOpen(false)}
+            <button
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => {
+                setUserOpen(false);
+                openStaffPortal({ fromPortal: "main", toPortal: "invest", next: "/admin" }).catch((e) =>
+                  alert(e.message || "Could not open investment dashboard")
+                );
+              }}
             >
               Investment Dashboard
-            </a>
+            </button>
           )}
           <button
             type="button"

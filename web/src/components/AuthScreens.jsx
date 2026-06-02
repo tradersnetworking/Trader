@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/store.jsx";
+import { applyStaffSiblingLogin } from "../lib/staffPortal.js";
 import { Field, Alert, PasswordInput } from "./ui.jsx";
 import { AUTH_CARD, AUTH_LINK, AUTH_MUTED, AUTH_PRIMARY_BTN } from "../lib/ui-system.js";
 import GoogleButton from "./GoogleButton.jsx";
@@ -58,6 +59,7 @@ function useLogin(scope) {
 
 export function LoginScreen({ scope, staff }) {
   const p = paths(scope);
+  const auth = useAuth();
   const login = useLogin(scope);
   const nav = useNavigate();
   const { t } = useI18n();
@@ -89,8 +91,13 @@ export function LoginScreen({ scope, staff }) {
     return ["ADMIN", "SUPERADMIN", "STAFF"].includes(user.role) ? "/admin" : "/dashboard";
   };
 
-  const commitLogin = (token, user, { kycTab } = {}) => {
-    flushSync(() => login(token, user));
+  const commitLogin = (res, { kycTab } = {}) => {
+    const token = res.token;
+    const user = res.user;
+    flushSync(() => {
+      login(token, user);
+      applyStaffSiblingLogin(res, auth);
+    });
     if (scope === "invest" && kycTab) {
       nav(investPath("/dashboard?tab=kyc"));
       return;
@@ -107,7 +114,7 @@ export function LoginScreen({ scope, staff }) {
         method: "POST",
         body: { loginOtpToken, email: form.email, code: loginOtpCode, staff: !!staff },
       });
-      commitLogin(res.token, res.user);
+      commitLogin(res);
     } catch (e2) {
       setErr(e2.message);
     } finally {
@@ -138,7 +145,7 @@ export function LoginScreen({ scope, staff }) {
         setLoading(false);
         return;
       }
-      commitLogin(res.token, res.user);
+      commitLogin(res);
     } catch (e2) { setErr(e2.message); } finally { setLoading(false); }
   };
 
@@ -146,7 +153,7 @@ export function LoginScreen({ scope, staff }) {
     setErr("");
     try {
       const res = await api(scope, "/auth/google", { method: "POST", body: { credential } });
-      commitLogin(res.token, res.user, { kycTab: scope === "invest" && res.needsKycSetup });
+      commitLogin(res, { kycTab: scope === "invest" && res.needsKycSetup });
     } catch (e2) { setErr(e2.message); }
   };
 
@@ -156,7 +163,7 @@ export function LoginScreen({ scope, staff }) {
     setLoading(true);
     try {
       const { token, user } = await loginWithPasskey(form.email);
-      commitLogin(token, user);
+      commitLogin({ token, user });
     } catch (e2) {
       setErr(e2.message || "Passkey login cancelled");
     } finally {
@@ -169,7 +176,7 @@ export function LoginScreen({ scope, staff }) {
     setLoading(true);
     try {
       const { token, user } = await verify2FAWithPasskey(form.email);
-      commitLogin(token, user);
+      commitLogin({ token, user });
     } catch (e2) {
       setErr(e2.message || "Passkey verification cancelled");
     } finally {

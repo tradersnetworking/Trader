@@ -1,27 +1,51 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { investPath, investUrl, mainUrl } from "../../lib/site.js";
+import { investPath } from "../../lib/site.js";
+import { openStaffPortal } from "../../lib/staffPortal.js";
 
 /** Quick links between marketplace and investment dashboards for admin / super admin. */
 export default function StaffPortalLinks({ portal = "invest", className = "" }) {
+  const [busy, setBusy] = useState(null);
+
+  const go = async (toPortal, next, label) => {
+    setBusy(label);
+    try {
+      await openStaffPortal({ fromPortal: portal, toPortal, next });
+    } catch (e) {
+      alert(e.message || "Could not open dashboard");
+      setBusy(null);
+    }
+  };
+
   return (
     <div className={`flex flex-wrap gap-2 border-b border-border pb-4 ${className}`}>
-      {portal === "invest" ? (
-        <a href={mainUrl("/admin")} className="btn-outline text-sm">
-          Marketplace Dashboard
-        </a>
-      ) : (
+      {portal === "main" ? (
         <Link to="/admin" className="btn-outline text-sm">
           Marketplace Dashboard
         </Link>
-      )}
-      {portal === "main" ? (
-        <a href={investUrl("/admin")} className="btn-gold text-sm">
-          Investment Dashboard
-        </a>
       ) : (
+        <button
+          type="button"
+          className="btn-outline text-sm"
+          disabled={!!busy}
+          onClick={() => go("main", "/admin", "market")}
+        >
+          {busy === "market" ? "Opening…" : "Marketplace Dashboard"}
+        </button>
+      )}
+      {portal === "invest" ? (
         <Link to={investPath("/admin")} className="btn-gold text-sm">
           Investment Dashboard
         </Link>
+      ) : (
+        <button
+          type="button"
+          className="btn-gold text-sm"
+          disabled={!!busy}
+          onClick={() => go("invest", "/admin", "invest")}
+        >
+          {busy === "invest" ? "Opening…" : "Investment Dashboard"}
+        </button>
       )}
     </div>
   );

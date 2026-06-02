@@ -36,6 +36,11 @@ import {
   testMailboxSmtp,
   testMailboxImap,
 } from "../services/mailboxConfig.js";
+import {
+  enrichProductForDisplay,
+  backfillZeroProductPrices,
+  estimateBasePrice,
+} from "../services/productPricing.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -160,18 +165,66 @@ router.get(
       take: Number(take),
       skip: Number(skip),
     });
-    res.json({ products: products.map((p) => ({ ...p, images: JSON.parse(p.images || "[]") })) });
+    res.json({
+      products: products.map((p) =>
+        enrichProductForDisplay({ ...p, images: JSON.parse(p.images || "[]") })
+      ),
+    });
   })
 );
 
 router.get(
   "/products/:slug",
   asyncH(async (req, res) => {
-    const p = await mainDb.product.findUnique({ where: { slug: req.params.slug }, include: { category: true } });
+    const p = await mainDb.product.findUnique({
+      where: { slug: req.params.slug },
+      include: { category: { include: { parent: true } } },
+    });
     if (!p) return res.status(404).json({ error: "Not found" });
-    res.json({ product: { ...p, images: JSON.parse(p.images || "[]") } });
+    res.json({
+      product: enrichProductForDisplay({ ...p, images: JSON.parse(p.images || "[]") }),
+    });
   })
 );
+
+/** Set indicative prices on catalog rows still at ₹0 (admin; optional Google CSE). */
+router.post(
+  "/products/backfill-prices",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const useGoogle = req.body?.useGoogle === true || req.query?.useGoogle === "true";
+    const result = await backfillZeroProductPrices(mainDb, { useGoogle });
+    res.json({
+      ok: true,
+      message: `Updated ${result.updated} of ${result.total} products with indicative prices.`,
+      ...result,
+    });
+  })
+);
+
+async function resolveCreateBasePrice(b) {
+  if (Number(b.basePrice) > 0) return Number(b.basePrice);
+  let categoryName = "";
+  let subCategoryName = "";
+  if (b.categoryId) {
+    const cat = await mainDb.category.findUnique({
+      where: { id: String(b.categoryId) },
+      include: { parent: true },
+    });
+    if (cat?.parent) {
+      categoryName = cat.parent.name;
+      subCategoryName = cat.name;
+    } else if (cat) categoryName = cat.name;
+  }
+  return estimateBasePrice({
+    name: b.name,
+    unit: b.unit || "kg",
+    listingType: b.listingType === "IMPORT" ? "IMPORT" : "EXPORT",
+    categoryName,
+    subCategoryName,
+  });
+}
 
 router.post(
   "/products",
@@ -188,7 +241,7 @@ router.post(
         tradeType: b.tradeType || "BOTH",
         unit: b.unit || "kg",
         minOrderQty: Number(b.minOrderQty || 1),
-        basePrice: Number(b.basePrice || 0),
+        basePrice: await resolveCreateBasePrice(b),
         currency: b.currency || "INR",
         images: JSON.stringify(b.images || []),
         origin: b.origin,

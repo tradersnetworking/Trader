@@ -7,7 +7,8 @@ import { getAdminNav, getNavLabel, navShortLabel, navIconBg, navIconFg, translat
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { NavIcon } from "./NavIcons.jsx";
 import { inr } from "../../lib/format.js";
-import { investPath, mainUrl } from "../../lib/site.js";
+import { investPath } from "../../lib/site.js";
+import { openStaffPortal } from "../../lib/staffPortal.js";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "./LanguageSelector.jsx";
 import SupportWidget from "./SupportWidget.jsx";
@@ -255,13 +256,18 @@ export default function InvestDashboardShell({
             </Link>
           )}
           {["ADMIN", "SUPERADMIN"].includes(user?.role) && (
-            <a
-              href={mainUrl("/admin")}
-              className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-              onClick={() => setUserOpen(false)}
+            <button
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => {
+                setUserOpen(false);
+                openStaffPortal({ fromPortal: "invest", toPortal: "main", next: "/admin" }).catch((e) =>
+                  alert(e.message || "Could not open marketplace dashboard")
+                );
+              }}
             >
               Marketplace Dashboard
-            </a>
+            </button>
           )}
           <button
             type="button"

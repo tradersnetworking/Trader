@@ -217,10 +217,25 @@ function ProductsAdmin() {
     } catch (e2) { setErr(e2.message); }
   };
   const del = async (id) => { if (confirm("Delete product?")) { await mainApi(`/products/${id}`, { method: "DELETE" }); load(); } };
+  const backfillPrices = async () => {
+    if (!confirm("Fill indicative prices for all products still at ₹0? You can edit any price afterward.")) return;
+    try {
+      const res = await mainApi("/products/backfill-prices", { method: "POST", body: {} });
+      alert(res.message || "Prices updated");
+      load();
+    } catch (e2) {
+      alert(e2.message);
+    }
+  };
 
   return (
     <div>
-      <button onClick={openNew} className="btn-primary mb-4">+ Add Product</button>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button type="button" onClick={openNew} className="btn-primary">+ Add Product</button>
+        <button type="button" onClick={backfillPrices} className="btn-outline">
+          Fill missing prices (indicative)
+        </button>
+      </div>
       <div className="overflow-x-auto card">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Price</th><th className="p-3">Min Qty</th><th className="p-3"></th></tr></thead>
@@ -248,7 +263,7 @@ function ProductsAdmin() {
           <div className="grid grid-cols-3 gap-3">
             <Field label="Unit"><input className="input" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></Field>
             <Field label="Min Order Qty"><input className="input" type="number" value={form.minOrderQty} onChange={(e) => setForm({ ...form, minOrderQty: e.target.value })} /></Field>
-            <Field label="Base Price (₹)"><input className="input" type="number" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} /></Field>
+            <Field label="Base Price (₹)"><input className="input" type="number" min="0" step="0.01" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: e.target.value })} placeholder="Leave 0 for auto indicative price" /></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Origin"><input className="input" value={form.origin || ""} onChange={(e) => setForm({ ...form, origin: e.target.value })} /></Field>

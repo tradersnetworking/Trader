@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { investApi, mainApi, setToken } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
+import { applyStaffSiblingLogin } from "../../lib/staffPortal.js";
 import { Field, Alert, PasswordInput } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
 import StaffPortalLinks from "./StaffPortalLinks.jsx";
@@ -10,7 +11,8 @@ import StaffPortalLinks from "./StaffPortalLinks.jsx";
  * Change login email & password from dashboard (invest or main portal).
  */
 export default function AccountSecurityPanel({ portal = "invest" }) {
-  const { invest, main, loginInvest, loginMain, refreshInvest, refreshMain } = useAuth();
+  const auth = useAuth();
+  const { invest, main, loginInvest, loginMain, refreshInvest, refreshMain } = auth;
   const user = portal === "invest" ? invest : main;
   const api = portal === "invest" ? investApi : mainApi;
   const onEmailUpdated = portal === "invest" ? loginInvest : loginMain;
@@ -61,6 +63,7 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
       if (res.token) {
         setToken(portal, res.token);
         onEmailUpdated(res.token, res.user);
+        applyStaffSiblingLogin(res, auth);
       } else {
         await refresh();
       }

@@ -22,8 +22,22 @@ import {
 } from "../services/webauthnService.js";
 import { setPending2FA, getPending2FA, consumePending2FA } from "../services/loginPending2fa.js";
 import { startLoginOtp, verifyLoginOtp } from "../services/loginOtp.js";
+import {
+  appendStaffSiblingToLogin,
+  isInvestStaffRole,
+  syncStaffEmailChange,
+  syncStaffPasswordHash,
+  issueSiblingStaffAuth,
+  reissueStaffEmailTokens,
+} from "../services/staffAccountLink.js";
+import { createStaffHandoff, consumeStaffHandoff } from "../services/staffHandoff.js";
 
 const router = Router();
+
+async function jsonInvestLogin(res, investor, payload, req) {
+  const body = await appendStaffSiblingToLogin("invest", investor, payload, req);
+  res.json(body);
+}
 const SCOPE = "invest";
 
 const userInclude = { kyc: { select: { photo: true, selfie: true } } };
@@ -57,7 +71,7 @@ router.post(
     try {
       const investor = await verifyLoginAuthentication(email, assertion, "auth:login", req);
       const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-      res.json({ token, user: publicInvestor(investor) });
+      await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey login failed" });
     }
@@ -94,7 +108,7 @@ router.post(
       }
       consumePending2FA(email);
       const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-      res.json({ token, user: publicInvestor(investor) });
+      await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey 2FA failed" });
     }
@@ -246,7 +260,7 @@ router.post(
     }
 
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-    res.json({ token, user: publicInvestor(investor) });
+    await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
   })
 );
 
@@ -261,7 +275,7 @@ router.post(
       return res.status(403).json({ error: "Not a staff account" });
     }
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-    res.json({ token, user: publicInvestor(investor) });
+    await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
   })
 );
 
@@ -316,7 +330,12 @@ router.post(
     if (!password || String(password).length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
-    await investDb.investor.update({ where: { id: investor.id }, data: { passwordHash: hashPassword(password), resetToken: null, resetExpires: null } });
+    const passwordHash = hashPassword(password);
+    await investDb.investor.update({
+      where: { id: investor.id },
+      data: { passwordHash, resetToken: null, resetExpires: null },
+    });
+    if (isInvestStaffRole(investor.role)) await syncStaffPasswordHash(investor.email, passwordHash);
     res.json({ ok: true });
   })
 );
@@ -344,11 +363,13 @@ router.post(
     if (!comparePassword(currentPassword, investor.passwordHash)) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
+    const passwordHash = hashPassword(newPassword);
     await investDb.investor.update({
       where: { id: req.user.id },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: { passwordHash },
     });
-    res.json({ ok: true, message: "Password updated" });
+    if (isInvestStaffRole(investor.role)) await syncStaffPasswordHash(investor.email, passwordHash);
+    res.json({ ok: true, message: "Password updated on investment and marketplace dashboards." });
   })
 );
 
@@ -366,14 +387,65 @@ router.post(
       return res.status(401).json({ error: "Password is incorrect" });
     }
     if (normalized === investor.email) return res.status(400).json({ error: "New email is the same as current" });
-    const clash = await investDb.investor.findUnique({ where: { email: normalized } });
-    if (clash) return res.status(409).json({ error: "Email already in use" });
-    const updated = await investDb.investor.update({
-      where: { id: req.user.id },
-      data: { email: normalized },
-    });
+
+    let updated = investor;
+    let linkedUser = null;
+    if (isInvestStaffRole(investor.role)) {
+      try {
+        const synced = await syncStaffEmailChange({
+          fromScope: "invest",
+          accountId: investor.id,
+          newEmail: normalized,
+        });
+        updated = synced.investor || updated;
+        linkedUser = synced.user;
+      } catch (e) {
+        return res.status(e.status || 500).json({ error: e.message || "Email update failed" });
+      }
+    } else {
+      const clash = await investDb.investor.findUnique({ where: { email: normalized } });
+      if (clash) return res.status(409).json({ error: "Email already in use" });
+      updated = await investDb.investor.update({
+        where: { id: req.user.id },
+        data: { email: normalized },
+      });
+    }
+
     const token = await reissueAuthToken(SCOPE, { id: updated.id, role: updated.role, email: updated.email }, req.user.sid);
-    res.json({ ok: true, token, user: publicInvestor(updated), message: "Email updated" });
+    const staffMsg = isInvestStaffRole(investor.role) ? "Email updated on both dashboards." : "Email updated.";
+    const body = { ok: true, token, user: publicInvestor(updated), message: staffMsg };
+    if (linkedUser) {
+      const extra = await reissueStaffEmailTokens({ user: linkedUser }, { main: null });
+      Object.assign(body, extra);
+    }
+    res.json(body);
+  })
+);
+
+router.post(
+  "/staff-handoff",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    if (req.body.target !== "main") return res.status(400).json({ error: 'target must be "main"' });
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    if (!investor || !isInvestStaffRole(investor.role)) {
+      return res.status(403).json({ error: "Admin or super admin only" });
+    }
+    const { mainToken, mainUser } = await issueSiblingStaffAuth("invest", investor, req);
+    if (!mainToken || !mainUser) {
+      return res.status(404).json({ error: "No linked marketplace staff account for this email" });
+    }
+    const code = createStaffHandoff("main", mainToken, mainUser);
+    res.json({ code });
+  })
+);
+
+router.post(
+  "/staff-handoff/complete",
+  asyncH(async (req, res) => {
+    const row = consumeStaffHandoff(req.body.code, SCOPE);
+    if (!row) return res.status(400).json({ error: "Invalid or expired link. Sign in again." });
+    res.json({ token: row.token, user: row.user });
   })
 );
 

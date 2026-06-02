@@ -52,6 +52,7 @@ import ReferralLandingPage from "./pages/invest/ReferralLandingPage.jsx";
 import { InvestRiskDisclosure, InvestTermsOfService, InvestPrivacyPolicy, InvestAmlPolicy, InvestCookiePolicy } from "./pages/invest/InvestLegalPages.jsx";
 
 import { LoginScreen, RegisterScreen, ForgotScreen, ResetScreen } from "./components/AuthScreens.jsx";
+import StaffHandoffScreen from "./components/shared/StaffHandoffScreen.jsx";
 import MainSiteMeta from "./components/main/MainSiteMeta.jsx";
 import InvestSiteMeta from "./components/invest/InvestSiteMeta.jsx";
 
@@ -204,6 +205,8 @@ function MainRoutes() {
 
       <Route path="/staff-login" element={M(<LoginScreen scope="main" staff />)} />
 
+      <Route path="/staff-handoff" element={M(<StaffHandoffScreen scope="main" />)} />
+
       <Route path="/register" element={M(<RegisterScreen scope="main" />)} />
 
       <Route path="/forgot-password" element={M(<ForgotScreen scope="main" />)} />
@@ -227,6 +230,8 @@ function MainRoutes() {
           <Route path="/invest/login" element={I(<LoginScreen scope="invest" />)} />
 
           <Route path="/invest/staff-login" element={I(<LoginScreen scope="invest" staff />)} />
+
+          <Route path="/invest/staff-handoff" element={I(<StaffHandoffScreen scope="invest" />)} />
 
           <Route path="/invest/register" element={I(<LazyPage><LazyInvestRegisterWizard /></LazyPage>)} />
 
@@ -287,6 +292,8 @@ function InvestRoutes() {
       <Route path={p("/login")} element={I(<LoginScreen scope="invest" />)} />
 
       <Route path={p("/staff-login")} element={I(<LoginScreen scope="invest" staff />)} />
+
+      <Route path={p("/staff-handoff")} element={I(<StaffHandoffScreen scope="invest" />)} />
 
       <Route path={p("/register")} element={I(<LazyPage><LazyInvestRegisterWizard /></LazyPage>)} />
 

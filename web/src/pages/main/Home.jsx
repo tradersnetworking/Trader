@@ -149,7 +149,11 @@ export default function Home() {
                 <div className="flex flex-1 flex-col p-4">
                   <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2">{p.name}</Link>
                   <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
-                  <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
+                  <div className="mt-2 flex flex-wrap items-baseline gap-1">
+                    <span className="text-lg font-bold text-navy">{inr(p.basePrice)}</span>
+                    <span className="text-xs font-normal text-slate-400">/{p.unit}</span>
+                    {p.priceEstimated && <span className="text-[10px] text-amber-700">Indicative</span>}
+                  </div>
                   <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
                   <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold mt-3">Request Quote</button>
                 </div>

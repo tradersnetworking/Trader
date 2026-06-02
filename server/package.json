@@ -12,6 +12,7 @@
     "db:setup": "npm run prisma:generate && npm run db:push",
     "seed": "node src/seed.js",
     "seed:plans": "node src/seed.js --plans-only",
+    "backfill-prices": "node scripts/backfill-product-prices.mjs",
     "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs"
   },
   "dependencies": {

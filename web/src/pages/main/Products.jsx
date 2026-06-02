@@ -73,9 +73,14 @@ export default function Products() {
               <div className="flex flex-1 flex-col p-4">
                 <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2 hover:text-gold">{p.name}</Link>
                 <p className="text-xs text-slate-400">{p.category?.name} • {p.origin || "Global"}</p>
-                <div className="mt-2 flex items-baseline gap-1">
+                <div className="mt-2 flex flex-wrap items-baseline gap-1">
                   <span className="text-xl font-extrabold text-navy">{inr(p.basePrice)}</span>
                   <span className="text-xs text-slate-400">/{p.unit}</span>
+                  {p.priceEstimated && (
+                    <span className="text-[10px] font-medium text-amber-700" title="Indicative market rate — request a quote for final pricing">
+                      Indicative
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400">MOQ {p.minOrderQty} {p.unit}</p>
                 <div className="mt-3 grid grid-cols-2 gap-1.5">

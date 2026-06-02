@@ -29,7 +29,17 @@ export default function ProductDetail() {
           <span className={`badge ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType === "EXPORT" ? "Available to Export" : "Import Requirement"}</span>
           <h1 className="mt-2 text-3xl font-extrabold text-navy">{p.name}</h1>
           <p className="text-sm text-slate-400">{p.category?.name} • Origin: {p.origin || "—"} {p.hsCode && `• HS ${p.hsCode}`}</p>
-          <div className="mt-4 text-3xl font-extrabold text-navy">{inr(p.basePrice)}<span className="text-base font-normal text-slate-400">/{p.unit}</span></div>
+          <div className="mt-4 flex flex-wrap items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-navy">
+              {inr(p.basePrice)}
+              <span className="text-base font-normal text-slate-400">/{p.unit}</span>
+            </span>
+            {p.priceEstimated && (
+              <span className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Indicative market rate — request quote for final price
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500">Minimum order: {p.minOrderQty} {p.unit} • Trade: {p.tradeType}</p>
           <p className="mt-4 text-slate-600">{p.description}</p>
           <div className="mt-6 flex flex-wrap gap-2">

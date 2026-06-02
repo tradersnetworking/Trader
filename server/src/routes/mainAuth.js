@@ -7,9 +7,23 @@ import { issueAuthToken, reissueAuthToken, revokeAuthSession } from "../services
 import { sendMail } from "../utils/mailer.js";
 import { verifyGoogleIdToken } from "../utils/google.js";
 import { isGoogleLoginEnabled } from "../services/mainSiteSettings.js";
+import {
+  appendStaffSiblingToLogin,
+  isMainStaffRole,
+  syncStaffEmailChange,
+  syncStaffPasswordHash,
+  issueSiblingStaffAuth,
+  reissueStaffEmailTokens,
+} from "../services/staffAccountLink.js";
+import { createStaffHandoff, consumeStaffHandoff } from "../services/staffHandoff.js";
 
 const router = Router();
 const SCOPE = "main";
+
+async function jsonMainLogin(res, user, payload, req) {
+  const body = await appendStaffSiblingToLogin("main", user, payload, req);
+  res.json(body);
+}
 
 function publicUser(u) {
   if (!u) return null;
@@ -65,7 +79,7 @@ router.post(
       return res.status(403).json({ error: "Not a staff account" });
     }
     const token = await issueAuthToken(SCOPE, { id: user.id, role: user.role, email: user.email });
-    res.json({ token, user: publicUser(user) });
+    await jsonMainLogin(res, user, { token, user: publicUser(user) }, req);
   })
 );
 
@@ -164,11 +178,13 @@ router.post(
     if (!comparePassword(currentPassword, user.passwordHash)) {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
+    const passwordHash = hashPassword(newPassword);
     await mainDb.user.update({
       where: { id: req.user.id },
-      data: { passwordHash: hashPassword(newPassword) },
+      data: { passwordHash },
     });
-    res.json({ ok: true, message: "Password updated" });
+    if (isMainStaffRole(user.role)) await syncStaffPasswordHash(user.email, passwordHash);
+    res.json({ ok: true, message: "Password updated on marketplace and investment dashboards." });
   })
 );
 
@@ -186,14 +202,65 @@ router.post(
       return res.status(401).json({ error: "Password is incorrect" });
     }
     if (normalized === user.email) return res.status(400).json({ error: "New email is the same as current" });
-    const clash = await mainDb.user.findUnique({ where: { email: normalized } });
-    if (clash) return res.status(409).json({ error: "Email already in use" });
-    const updated = await mainDb.user.update({
-      where: { id: req.user.id },
-      data: { email: normalized },
-    });
+
+    let updated = user;
+    let linkedInvestor = null;
+    if (isMainStaffRole(user.role)) {
+      try {
+        const synced = await syncStaffEmailChange({
+          fromScope: "main",
+          accountId: user.id,
+          newEmail: normalized,
+        });
+        updated = synced.user || updated;
+        linkedInvestor = synced.investor;
+      } catch (e) {
+        return res.status(e.status || 500).json({ error: e.message || "Email update failed" });
+      }
+    } else {
+      const clash = await mainDb.user.findUnique({ where: { email: normalized } });
+      if (clash) return res.status(409).json({ error: "Email already in use" });
+      updated = await mainDb.user.update({
+        where: { id: req.user.id },
+        data: { email: normalized },
+      });
+    }
+
     const token = await reissueAuthToken(SCOPE, { id: updated.id, role: updated.role, email: updated.email }, req.user.sid);
-    res.json({ ok: true, token, user: publicUser(updated), message: "Email updated" });
+    const staffMsg = isMainStaffRole(user.role) ? "Email updated on both dashboards." : "Email updated.";
+    const body = { ok: true, token, user: publicUser(updated), message: staffMsg };
+    if (linkedInvestor) {
+      const extra = await reissueStaffEmailTokens({ investor: linkedInvestor }, { invest: null });
+      Object.assign(body, extra);
+    }
+    res.json(body);
+  })
+);
+
+router.post(
+  "/staff-handoff",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    if (req.body.target !== "invest") return res.status(400).json({ error: 'target must be "invest"' });
+    const user = await mainDb.user.findUnique({ where: { id: req.user.id } });
+    if (!user || !isMainStaffRole(user.role)) {
+      return res.status(403).json({ error: "Admin or super admin only" });
+    }
+    const { investToken, investUser } = await issueSiblingStaffAuth("main", user, req);
+    if (!investToken || !investUser) {
+      return res.status(404).json({ error: "No linked investment staff account for this email" });
+    }
+    const code = createStaffHandoff("invest", investToken, investUser);
+    res.json({ code });
+  })
+);
+
+router.post(
+  "/staff-handoff/complete",
+  asyncH(async (req, res) => {
+    const row = consumeStaffHandoff(req.body.code, SCOPE);
+    if (!row) return res.status(400).json({ error: "Invalid or expired link. Sign in again." });
+    res.json({ token: row.token, user: row.user });
   })
 );
 
