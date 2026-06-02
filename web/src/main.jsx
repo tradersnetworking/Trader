@@ -36,4 +36,11 @@ async function bootstrap() {
   );
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error("[bootstrap]", err);
+  const root = document.getElementById("root");
+  if (root) {
+    root.innerHTML =
+      '<div style="padding:2rem;font-family:system-ui,sans-serif;text-align:center"><h1>Unable to load app</h1><p>Please refresh the page. If this continues, clear site data and try again.</p></div>';
+  }
+});

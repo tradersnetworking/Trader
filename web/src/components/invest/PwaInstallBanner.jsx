@@ -21,11 +21,10 @@ export default function PwaInstallBanner() {
       setAboveNav(!!document.querySelector(".invest-mobile-nav"));
     };
     sync();
-    const obs = new MutationObserver(sync);
-    obs.observe(document.body, { childList: true, subtree: true });
+    const t = window.setTimeout(sync, 400);
     const unsub = subscribePwaInstallReady(sync);
     return () => {
-      obs.disconnect();
+      window.clearTimeout(t);
       unsub();
     };
   }, []);

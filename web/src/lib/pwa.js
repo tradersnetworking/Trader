@@ -6,6 +6,7 @@ const DISMISS_MS = 7 * 24 * 60 * 60 * 1000;
 
 let deferredPrompt = null;
 let swRegistration = null;
+let installListenerAttached = false;
 
 function upsertLink(rel, href, extra = {}) {
   if (!href) return;
@@ -66,7 +67,10 @@ export function configurePortalPwa(mode) {
     upsertMeta("apple-mobile-web-app-capable", "yes");
     upsertMeta("apple-mobile-web-app-title", "AKSHAYA Invest");
     upsertMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    if (!installListenerAttached) {
+      window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      installListenerAttached = true;
+    }
     return;
   }
 
@@ -75,11 +79,16 @@ export function configurePortalPwa(mode) {
   removeMeta("mobile-web-app-capable");
   removeMeta("apple-mobile-web-app-capable");
   removeMeta("apple-mobile-web-app-title");
-  window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+  if (installListenerAttached) {
+    window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    installListenerAttached = false;
+  }
 }
 
 export async function registerInvestServiceWorker() {
   if (!("serviceWorker" in navigator)) return null;
+  const host = window.location.hostname.toLowerCase().replace(/^www\./, "");
+  if (!host.startsWith("invest.")) return null;
   try {
     swRegistration = await navigator.serviceWorker.register("/sw.js");
     return swRegistration;

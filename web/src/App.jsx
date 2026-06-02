@@ -6,6 +6,7 @@ import { MarketplaceLayout, InvestLayout } from "./components/Layouts.jsx";
 
 import { useAuth } from "./lib/store.jsx";
 import { getToken } from "./lib/api.js";
+import { configurePortalPwa, registerInvestServiceWorker, unregisterServiceWorker } from "./lib/pwa.js";
 
 import {
 
@@ -159,11 +160,9 @@ function SiteClassSync() {
 
     applySiteRootClass(mode);
 
-    import("./lib/pwa.js").then(({ configurePortalPwa, registerInvestServiceWorker, unregisterServiceWorker }) => {
-      configurePortalPwa(mode);
-      if (mode === "invest") registerInvestServiceWorker();
-      else unregisterServiceWorker();
-    });
+    configurePortalPwa(mode);
+    if (mode === "invest") registerInvestServiceWorker();
+    else unregisterServiceWorker();
 
   }, [mode]);
 
