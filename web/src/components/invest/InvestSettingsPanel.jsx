@@ -53,7 +53,7 @@ export default function InvestSettingsPanel() {
 
     <div className="max-w-3xl space-y-6">
 
-      <Alert type="info">Super Admin site settings — portal branding, contact, SMTP, and default company details shown when no payment account is configured.</Alert>
+      <Alert type="info">Site settings — portal branding, contact, company bank fallback, referrals, and security. Configure SMTP/IMAP mailboxes under <strong>Mail Settings</strong> in the sidebar.</Alert>
 
       <AdditionalDomainsPanel />
 
@@ -102,7 +102,7 @@ export default function InvestSettingsPanel() {
 
 
         <h3 className="pt-2 font-bold text-navy dark:text-white">SMTP (Email)</h3>
-        <Alert type="info">Per-mailbox SMTP/IMAP credentials are configured under <strong>Email & Communication</strong> (5 mailboxes per portal). Legacy fields below remain as env fallback only.</Alert>
+        <Alert type="info">Per-mailbox SMTP/IMAP credentials are configured under <strong>Mail Settings</strong> (5 mailboxes per portal). Legacy fields below remain as env fallback only.</Alert>
 
         <div className="grid grid-cols-2 gap-3">
 

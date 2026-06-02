@@ -93,15 +93,17 @@ export const ADMIN_NAV = [
 
   { id: "partners", label: "Partners", icon: "investors", color: "emerald" },
 
-  { id: "homepage-cms", label: "Homepage CMS", icon: "plans", color: "gold" },
+  { section: "Site, Content & Mail" },
+
+  { id: "settings", label: "Site Settings", icon: "settings", color: "slate" },
+
+  { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold" },
+
+  { id: "communication", label: "Mail Settings", icon: "support", color: "cyan", superOnly: true },
 
   { section: "Platform Settings" },
 
   { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan" },
-
-  { id: "communication", label: "Email & Communication", icon: "support", color: "cyan", superOnly: true },
-
-  { id: "settings", label: "Site & API Settings", icon: "settings", color: "slate" },
 
   { id: "rbac", label: "Permissions", icon: "staff", color: "blue", superOnly: true },
 
@@ -284,6 +286,12 @@ export function navShortLabel(label) {
     "Promo Codes": "Promos",
 
     "Mail Desk": "Mail",
+
+    "Site Settings": "Site",
+
+    "Content Settings": "Content",
+
+    "Mail Settings": "Mail",
 
     "Platform Ledger": "Ledger",
 

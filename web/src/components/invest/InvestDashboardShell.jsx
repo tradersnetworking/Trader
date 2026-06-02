@@ -249,13 +249,15 @@ export default function InvestDashboardShell({
               Admin Portal
             </Link>
           )}
-          <Link
-            to={mainUrl("/")}
-            className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-            onClick={() => setUserOpen(false)}
-          >
-            Marketplace Home
-          </Link>
+          {role !== "investor" && (
+            <Link
+              to={mainUrl("/")}
+              className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => setUserOpen(false)}
+            >
+              Marketplace Home
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => {

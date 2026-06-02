@@ -78,7 +78,7 @@ export default function InvestAdminDashboard() {
     investApi("/admin/permissions")
       .then((d) => {
         const p = d.permissions || [];
-        setPermissions(isSuper ? (p.length ? p : ALL_ADMIN_PERMISSIONS) : (p.length ? p : DEFAULT_ADMIN_PERMISSIONS));
+        setPermissions(isSuper ? ALL_ADMIN_PERMISSIONS : (p.length ? p : DEFAULT_ADMIN_PERMISSIONS));
       })
       .catch(() => setPermissions(isSuper ? ALL_ADMIN_PERMISSIONS : DEFAULT_ADMIN_PERMISSIONS));
   }, [isSuper]);
@@ -164,7 +164,7 @@ export default function InvestAdminDashboard() {
       case "wallet-ops":
         return gate("manage_investors", "Wallet Operations", <TabPanel><WalletOperationsPanel /></TabPanel>);
       case "homepage-cms":
-        return gate("manage_settings", "Homepage CMS", <TabPanel><HomepageCmsPanel /></TabPanel>);
+        return gate("manage_settings", "Content Settings", <TabPanel><HomepageCmsPanel /></TabPanel>);
       case "notifications-admin":
         return gate("broadcast_notifications", "Notifications", <TabPanel><NotificationManagementPanel /></TabPanel>);
       case "backup":
@@ -194,9 +194,9 @@ export default function InvestAdminDashboard() {
       case "gateways":
         return gate("manage_gateways", "Payment Gateways", <TabPanel><DepositPaymentAccountsPanel editable={hasPerm("manage_gateways")} /></TabPanel>);
       case "communication":
-        return gate("manage_settings", "Email & Communication", <TabPanel><CommunicationSettingsPanel /></TabPanel>);
+        return gate("manage_settings", "Mail Settings", <TabPanel><CommunicationSettingsPanel /></TabPanel>);
       case "settings":
-        return gate("manage_settings", "Site & API Settings", <TabPanel><InvestSettingsPanel /></TabPanel>);
+        return gate("manage_settings", "Site Settings", <TabPanel><InvestSettingsPanel /></TabPanel>);
       case "staff":
         return gate("manage_staff", "Admin Accounts", <TabPanel><StaffAdmin /></TabPanel>);
       default:

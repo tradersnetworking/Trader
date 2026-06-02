@@ -57,6 +57,13 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
     { icon: "support", color: "indigo", label: "Mail Desk", onClick: () => onNavigate("support-mail") },
   ];
   if (canManagePlans) actions.push({ icon: "plans", color: "gold", label: "Plans", onClick: () => onNavigate("plans") });
+  if (isSuper) {
+    actions.push(
+      { icon: "settings", color: "slate", label: "Site Settings", onClick: () => onNavigate("settings") },
+      { icon: "plans", color: "gold", label: "Content Settings", onClick: () => onNavigate("homepage-cms") },
+      { icon: "support", color: "cyan", label: "Mail Settings", onClick: () => onNavigate("communication") },
+    );
+  }
 
   return (
     <div className="page-stack">
