@@ -88,7 +88,7 @@ export default function PlanShareIcons({
   });
 
   const shareTitle = resolvedPlan?.name
-    ? `${resolvedPlan.name} — AKASHYA INVESTMENTS`
+    ? `${resolvedPlan.name} — AKSHYA INVESTMENTS`
     : INVEST_HOME_DEFAULT.title;
 
   const stop = (e) => {

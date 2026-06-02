@@ -74,7 +74,7 @@ export default function ShareProfitButton({
   });
 
   const shareTitle = resolvedPlanName
-    ? `${resolvedPlanName} — AKASHYA INVESTMENTS`
+    ? `${resolvedPlanName} — AKSHYA INVESTMENTS`
     : INVEST_HOME_DEFAULT.title;
 
   const drawCard = useCallback(() => {

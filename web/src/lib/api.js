@@ -71,6 +71,31 @@ export async function investApiForm(path, formData, method = "POST") {
   return data;
 }
 
+/** Binary response (PDF, CSV) for invest portal. */
+export async function investFetchBlob(path, { method = "GET" } = {}) {
+  const headers = {};
+  const token = getToken("invest");
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/invest${path}`, { method, headers });
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok) {
+    if (ct.includes("application/json")) {
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        /* ignore */
+      }
+      throw new ApiError(data.error || `Request failed (${res.status})`, { status: res.status, code: data?.code });
+    }
+    const text = await res.text();
+    throw new ApiError(text?.slice(0, 200) || `Request failed (${res.status})`, { status: res.status });
+  }
+  const blob = await res.blob();
+  if (!blob.size) throw new ApiError("Empty file returned", { status: res.status });
+  return blob;
+}
+
 /** Invalidate server session then clear local token. */
 export async function logoutScope(scope) {
   try {

@@ -182,7 +182,7 @@ export function LoginScreen({ scope, staff }) {
   return (
     <Shell scope={scope}
       title={staff ? tx("staffLogin", "Staff / Admin Login") : (scope === "invest" ? tx("investorLogin", "Investor Login") : tx("userLogin", "User Login"))}
-      subtitle={staff ? tx("staffSubtitle", "Authorized personnel only") : (scope === "invest" ? tx("welcomeInvest", "Welcome back to AKASHYA INVESTMENTS") : tx("welcomeMain", "Welcome back to Akshaya Exim"))}>
+      subtitle={staff ? tx("staffSubtitle", "Authorized personnel only") : (scope === "invest" ? tx("welcomeInvest", "Welcome back to AKSHYA INVESTMENTS") : tx("welcomeMain", "Welcome back to Akshaya Exim"))}>
       {scope === "invest" && (
         <Link to={investPath("")} className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-amber-600">
           {tx("backToHome", "← Back to home")}
@@ -299,7 +299,7 @@ export function RegisterScreen({ scope }) {
   };
 
   return (
-    <Shell scope={scope} title={scope === "invest" ? "Create Investor Account" : "Create Account"} subtitle={scope === "invest" ? "Join AKASHYA INVESTMENTS" : "Join Akshaya Exim Traders"}>
+    <Shell scope={scope} title={scope === "invest" ? "Create Investor Account" : "Create Account"} subtitle={scope === "invest" ? "Join AKSHYA INVESTMENTS" : "Join Akshaya Exim Traders"}>
       <form onSubmit={submit} className="space-y-4">
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Full Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>

@@ -481,11 +481,16 @@ router.get(
   "/agreements/:id/view",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id);
-    const ag = await investDb.agreement.findUnique({ where: { id: req.params.id }, select: { agreementUid: true } });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
-    res.send(buffer);
+    try {
+      const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id);
+      const ag = await investDb.agreement.findUnique({ where: { id: req.params.id }, select: { agreementUid: true } });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || "Could not generate agreement PDF" });
+    }
   })
 );
 
@@ -971,23 +976,59 @@ router.post(
   })
 );
 
-/* -------- wallet statement CSV -------- */
+/* -------- wallet statement CSV / PDF -------- */
+async function loadWalletStatementData(investorId) {
+  const [investor, wallet, entries] = await Promise.all([
+    investDb.investor.findUnique({
+      where: { id: investorId },
+      select: { id: true, name: true, email: true },
+    }),
+    investDb.wallet.findUnique({ where: { investorId } }),
+    investDb.ledgerEntry.findMany({
+      where: { investorId },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    }),
+  ]);
+  return { investor, wallet, entries };
+}
+
 router.get(
   "/wallet/statement.csv",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const entries = await investDb.ledgerEntry.findMany({
-      where: { investorId: req.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    });
-    const lines = ["Date,Type,Direction,Amount,Balance After,Note"];
+    const { entries } = await loadWalletStatementData(req.user.id);
+    const lines = ["Date,Type,Direction,Amount,Balance After,Reference,Note"];
     for (const e of entries) {
-      lines.push([e.createdAt.toISOString(), e.type, e.direction, e.amount, e.balanceAfter, `"${(e.note || "").replace(/"/g, "'")}"`].join(","));
+      lines.push(
+        [
+          e.createdAt.toISOString(),
+          e.type,
+          e.direction,
+          e.amount,
+          e.balanceAfter,
+          `"${(e.reference || "").replace(/"/g, "'")}"`,
+          `"${(e.note || "").replace(/"/g, "'")}"`,
+        ].join(",")
+      );
     }
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=wallet-statement.csv");
     res.send(lines.join("\n"));
+  })
+);
+
+router.get(
+  "/wallet/statement.pdf",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { generateWalletStatementPdf } = await import("../services/walletStatementPdf.js");
+    const data = await loadWalletStatementData(req.user.id);
+    const buffer = await generateWalletStatementPdf(data);
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=wallet-statement-${stamp}.pdf`);
+    res.send(buffer);
   })
 );
 

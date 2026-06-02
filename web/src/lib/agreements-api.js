@@ -1,39 +1,31 @@
-import { getToken } from "./api.js";
+import { investFetchBlob } from "./api.js";
+
+function isPdfBlob(blob) {
+  if (!blob?.size) return false;
+  if (blob.type?.includes("pdf")) return true;
+  return true;
+}
 
 export async function fetchAgreementPdfBlob(agreementId, { download = false, admin = false } = {}) {
   const base = admin ? `/admin/agreements/${agreementId}` : `/agreements/${agreementId}`;
   const path = download ? `${base}/download` : `${base}/view`;
-  const token = getToken("invest");
-  const res = await fetch(`/api/invest${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) {
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      let data = {};
-      try {
-        data = await res.json();
-      } catch {
-        /* ignore */
-      }
-      throw new Error(data.error || `Could not load PDF (${res.status})`);
-    }
-    const text = await res.text();
-    throw new Error(text?.slice(0, 200) || `Could not load PDF (${res.status})`);
+  const blob = await investFetchBlob(path);
+  if (!isPdfBlob(blob)) {
+    throw new Error("Could not load agreement PDF. Please sign in again and retry.");
   }
-  const blob = await res.blob();
-  if (!blob.size) throw new Error("Agreement PDF is empty");
   return blob;
 }
 
+export async function openAgreementPdfInNewTab(agreementId, { admin = false } = {}) {
+  const blob = await fetchAgreementPdfBlob(agreementId, { admin });
+  const tabUrl = URL.createObjectURL(blob);
+  window.open(tabUrl, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(tabUrl), 120_000);
+}
+
 export async function fetchAgreementUserSettings() {
-  const token = getToken("invest");
-  const res = await fetch("/api/invest/agreements/settings/public", {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed");
-  return data;
+  const { investApi } = await import("./api.js");
+  return investApi("/agreements/settings/public");
 }
 
 export async function fetchAgreementAdminSettings() {

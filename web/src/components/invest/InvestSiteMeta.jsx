@@ -29,6 +29,8 @@ export default function InvestSiteMeta() {
           /marketplace|Global Export|export and import agricultural/i.test(sub) ||
           (!/INR/i.test(sub) && (/^Explore Akshaya/i.test(sub) || /EXIM TRADERS/i.test(sub))) ||
           /Invest with Akshaya Investments/i.test(sub) ||
+          /Invest with Akashya Investments/i.test(sub) ||
+          /AKASHYA INVESTMENTS/i.test(sub) ||
           /capital secured/i.test(sub);
         setHomepageCms(
           staleMain

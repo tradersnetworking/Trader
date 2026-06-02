@@ -65,7 +65,7 @@ export default function ReferralPanel() {
           <div>
             <h2 className="text-xl font-extrabold text-foreground">Referral Program</h2>
             <p className="mt-1 max-w-lg text-sm text-muted-foreground">
-              Invite friends to AKASHYA INVESTMENTS. Earn commission when they invest. Share your link on WhatsApp, Telegram & social media.
+              Invite friends to AKSHYA INVESTMENTS. Earn commission when they invest. Share your link on WhatsApp, Telegram & social media.
             </p>
           </div>
           <ShareProfitButton type="referral" amount="" label="Share program" />

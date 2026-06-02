@@ -104,7 +104,9 @@ async function getInvestHomeMeta() {
     const rawDesc = (await getSetting("homepage_hero_subtitle")) || INVEST_HOME.description;
     const { title, description } = normalizeInvestHomeCopy(rawTitle, rawDesc);
     let siteName = (await getSetting("site_name")) || BRAND_INVEST;
-    if (/^Akshaya/i.test(siteName) || /Exim (Traders|Invest)/i.test(siteName)) siteName = BRAND_INVEST;
+    if (/^Akshaya/i.test(siteName) || /^Akashya/i.test(siteName) || /AKASHYA/i.test(siteName) || /Exim (Traders|Invest)/i.test(siteName)) {
+      siteName = BRAND_INVEST;
+    }
     investHomeCache = { title, description, siteName };
   } catch {
     investHomeCache = { ...INVEST_HOME, siteName: BRAND_INVEST };

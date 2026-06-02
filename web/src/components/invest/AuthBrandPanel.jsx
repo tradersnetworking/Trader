@@ -27,7 +27,7 @@ export default function AuthBrandPanel() {
           className="mb-8"
         />
         <p className="text-xl font-light leading-relaxed text-slate-300">
-          Smart investment. Secure future. Grow your wealth with AKASHYA INVESTMENTS structured plans — transparent ROI, flexible lock-ins, INR settlements.
+          Smart investment. Secure future. Grow your wealth with AKSHYA INVESTMENTS structured plans — transparent ROI, flexible lock-ins, INR settlements.
         </p>
         <div className="mt-12 grid grid-cols-2 gap-6">
           {stats.map(([val, lbl]) => (

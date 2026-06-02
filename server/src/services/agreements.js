@@ -186,19 +186,19 @@ export async function previewTemplateContent({ investorId, type, title, content,
   return { filledData, filledTitle: filled.title, filledContent: filled.markdown };
 }
 
-/** Investor dashboard: hide archived plans and agreements tied to ended investments */
+/** Investor dashboard: include signed/archived agreements; hide only revoked */
 export async function listInvestorAgreements(investorId) {
   const rows = await investDb.agreement.findMany({
     where: {
       investorId,
-      status: { notIn: ["PURGED", "REVOKED"] },
+      status: { notIn: ["REVOKED"] },
     },
     orderBy: { createdAt: "desc" },
     include: { subscription: { include: { plan: true } } },
   });
   return rows.filter((ag) => {
+    if (ag.status === "PURGED" || ag.status === "SIGNED") return true;
     if (!ag.subscriptionId) return true;
-    if (ag.status === "SIGNED") return true;
     const st = ag.subscription?.status;
     return st === "ACTIVE" || st === "PENDING";
   });
@@ -321,10 +321,8 @@ export async function getAgreementPdfBuffer(agreementId, requesterId, { isAdmin 
   });
   if (!ag) throw new Error("Agreement not found");
   if (!isAdmin && ag.investorId !== requesterId) throw new Error("Forbidden");
-  if (!isAdmin && ag.status === "PURGED") {
-    throw new Error("This agreement is no longer available. The linked investment has ended.");
-  }
-  if (!isAdmin && ag.subscriptionId && ag.status !== "SIGNED") {
+  if (ag.status === "REVOKED") throw new Error("This agreement has been revoked.");
+  if (!isAdmin && ag.subscriptionId && !["SIGNED", "PURGED"].includes(ag.status)) {
     const st = ag.subscription?.status;
     if (st && !["ACTIVE", "PENDING"].includes(st)) {
       throw new Error("This agreement is no longer available. The investment has ended.");
@@ -339,14 +337,22 @@ export async function getAgreementPdfBuffer(agreementId, requesterId, { isAdmin 
   }
   const template = await normalizeAgreementTemplate(ag);
   const signatureBase64 = await resolveSignatureForAgreement(ag);
-  const { buffer } = await generateAgreementPDF({
-    template: { ...template, title: fillTemplatePlaceholders(template.title || ag.title, filledData) },
-    filledData,
-    agreementUid: ag.agreementUid,
-    userName: ag.investor?.name || filledData.FULL_NAME || filledData.INVESTOR_NAME,
-    signatureBase64: signatureBase64 || undefined,
-  });
-  return buffer;
+  try {
+    const { buffer } = await generateAgreementPDF({
+      template: {
+        ...template,
+        title: fillTemplatePlaceholders(String(template.title || ag.title || "Agreement"), filledData),
+      },
+      filledData,
+      agreementUid: ag.agreementUid || ag.id.slice(-8),
+      userName: ag.investor?.name || filledData.FULL_NAME || filledData.INVESTOR_NAME,
+      signatureBase64: signatureBase64 || undefined,
+    });
+    if (!buffer?.length) throw new Error("PDF generation produced an empty file");
+    return buffer;
+  } catch (err) {
+    throw new Error(err.message || "Could not generate agreement PDF");
+  }
 }
 
 export async function purgeAgreementsForSubscription(subscriptionId, reason = "Plan lifecycle completed") {

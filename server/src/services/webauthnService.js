@@ -28,7 +28,7 @@ export function resolveRpFromRequest(req) {
     // Parent registrable domain — matches passkeys registered on invest.* hosts
     rpID = hostname.slice("invest.".length);
   }
-  return { rpName: "AKASHYA INVESTMENTS", rpID, origin: url.origin };
+  return { rpName: "AKSHYA INVESTMENTS", rpID, origin: url.origin };
 }
 
 function rpConfig(req) {

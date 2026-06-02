@@ -65,8 +65,8 @@ export function configurePortalPwa(mode) {
     upsertMeta("theme-color", "#002366");
     upsertMeta("mobile-web-app-capable", "yes");
     upsertMeta("apple-mobile-web-app-capable", "yes");
-    upsertMeta("apple-mobile-web-app-title", "Akshaya Investments");
-    upsertMeta("application-name", "Akshaya Investments");
+    upsertMeta("apple-mobile-web-app-title", "Akshya Investments");
+    upsertMeta("application-name", "Akshya Investments");
     upsertLink("icon", "/assets/favicon-invest.ico", { sizes: "any" });
     upsertLink("shortcut icon", "/assets/favicon-invest.png", { type: "image/png" });
     upsertLink("apple-touch-icon", "/assets/apple-touch-icon-invest.png", { sizes: "180x180" });

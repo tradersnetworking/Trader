@@ -48,7 +48,7 @@ export async function runRoiPayoutReminderJob() {
     await sendMail({
       to: sub.investor.email,
       purpose: "roi_reminder",
-      subject: "Upcoming profit payout — AKASHYA INVESTMENTS",
+      subject: "Upcoming profit payout — AKSHYA INVESTMENTS",
       html: `<p>Hi ${sub.investor.name},</p><p>${body}</p><p>Amount will be credited to your earnings wallet when due.</p>`,
     }).catch(() => {});
     sent++;

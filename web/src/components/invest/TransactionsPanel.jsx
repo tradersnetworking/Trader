@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { investApi } from "../../lib/api.js";
+import { investApi, investFetchBlob } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge } from "../ui.jsx";
 import CalendarPeriodFilter from "./CalendarPeriodFilter.jsx";
@@ -31,12 +31,38 @@ export default function TransactionsPanel() {
 
   const applyCustom = () => load();
   const label = data?.periodLabel || "All time";
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  const downloadStatement = async (format) => {
+    try {
+      const path = format === "pdf" ? "/wallet/statement.pdf" : "/wallet/statement.csv";
+      const blob = await investFetchBlob(path);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `wallet-statement-${stamp}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setLoadErr(e.message || "Could not download statement");
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Deposits, withdrawals, and ROI payouts with payment reference, mode, and where funds were credited.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Deposits, withdrawals, and ROI payouts with payment reference, mode, and where funds were credited.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-gold text-xs" onClick={() => downloadStatement("pdf")}>
+            Statement PDF
+          </button>
+          <button type="button" className="btn-outline text-xs" onClick={() => downloadStatement("csv")}>
+            Statement CSV
+          </button>
+        </div>
+      </div>
 
       <CalendarPeriodFilter
         variant="investor"

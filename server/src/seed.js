@@ -115,7 +115,7 @@ async function syncInvestmentPlans() {
 const DEFAULT_INVEST_SETTINGS = [
   { key: "support_email", value: "support@akshayaexim.com" },
   { key: "mail_from", value: "Akshaya Exim <support@akshayaexim.com>" },
-  { key: "site_name", value: "AKASHYA INVESTMENTS" },
+  { key: "site_name", value: "AKSHYA INVESTMENTS" },
   { key: "maintenance_mode", value: "false" },
   { key: "maintenance_message", value: "Platform under maintenance. Please check back soon." },
   { key: "referral_commission_pct", value: "2" },
@@ -130,13 +130,13 @@ const DEFAULT_INVEST_SETTINGS = [
   { key: "early_exit_penalty_pct", value: "10" },
   { key: "early_exit_forfeit_roi", value: "true" },
   { key: "homepage_hero_title", value: "Smart Investment • Secure Future • Grow Your Wealth" },
-  { key: "homepage_hero_subtitle", value: "Invest with AKASHYA INVESTMENTS and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secure." },
-  { key: "homepage_about_title", value: "About AKASHYA INVESTMENTS" },
-  { key: "homepage_about_body", value: "AKASHYA INVESTMENTS offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
+  { key: "homepage_hero_subtitle", value: "Invest with AKSHYA INVESTMENTS and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secure." },
+  { key: "homepage_about_title", value: "About AKSHYA INVESTMENTS" },
+  { key: "homepage_about_body", value: "AKSHYA INVESTMENTS offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
   { key: "homepage_show_calculator", value: "true" },
   { key: "homepage_show_partners", value: "true" },
   { key: "homepage_show_trust_stats", value: "true" },
-  { key: "about_company_name", value: "AKASHYA INVESTMENTS" },
+  { key: "about_company_name", value: "AKSHYA INVESTMENTS" },
   { key: "about_company_tagline", value: "Export • Import • Investment" },
   { key: "about_company_credentials", value: "Registered export house • KYC-verified investors • Secure payment gateways" },
 ];
@@ -160,7 +160,7 @@ async function seedInvestExtras() {
   if (partnerCount === 0) {
     await investDb.sitePartner.createMany({
       data: [
-        { name: "AKASHYA INVESTMENTS", sortOrder: 1, website: "https://akshayaexim.com" },
+        { name: "AKSHYA INVESTMENTS", sortOrder: 1, website: "https://akshayaexim.com" },
         { name: "Export Finance Partners", sortOrder: 2 },
         { name: "Trade Desk India", sortOrder: 3 },
       ],
@@ -242,7 +242,7 @@ async function migrateInvestBranding() {
     }
   }
   await investDb.sitePartner.updateMany({
-    where: { name: { in: ["Akshaya Exim Traders", "AKASHYA Exim Traders", "AKASHYA INVESTMENTS"] } },
+    where: { name: { in: ["Akshaya Exim Traders", "AKASHYA Exim Traders", "AKASHYA INVESTMENTS", "AKSHYA INVESTMENTS"] } },
     data: { name: BRAND_INVEST },
   });
 }

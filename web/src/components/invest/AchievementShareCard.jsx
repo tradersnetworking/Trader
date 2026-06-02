@@ -38,7 +38,7 @@ export default function AchievementShareCard({ achievement, totalInvested, onClo
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#fff";
     ctx.font = "bold 14px system-ui";
-    ctx.fillText("AKASHYA INVESTMENTS", 20, 36);
+    ctx.fillText("AKSHYA INVESTMENTS", 20, 36);
     ctx.font = "48px system-ui";
     ctx.fillText(achievement.icon || "🏆", 20, 90);
     ctx.font = "bold 22px system-ui";
@@ -49,7 +49,7 @@ export default function AchievementShareCard({ achievement, totalInvested, onClo
     if (totalInvested > 0) ctx.fillText(`Portfolio: ${inr(totalInvested)}`, 20, 182);
     ctx.font = "12px system-ui";
     ctx.fillStyle = "rgba(255,255,255,0.75)";
-    const desc = achievement.description || "Achievement unlocked on AKASHYA INVESTMENTS";
+    const desc = achievement.description || "Achievement unlocked on AKSHYA INVESTMENTS";
     ctx.fillText(desc.slice(0, 42), 20, 210);
     if (qrUrl) {
       const img = new Image();

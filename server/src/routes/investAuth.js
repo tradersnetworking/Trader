@@ -179,7 +179,7 @@ router.post(
     await sendMail({
       to: investor.email,
       purpose: "registration",
-      subject: "Welcome to AKASHYA INVESTMENTS",
+      subject: "Welcome to AKSHYA INVESTMENTS",
       text: `Hi ${displayName}, sign in and complete KYC to start investing at invest.akshayaexim.com`,
     });
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });

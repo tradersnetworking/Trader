@@ -5,7 +5,7 @@ import { investDb } from "../db.js";
 
 export function generateTotpSecret(email) {
   const secret = generateSecret();
-  const uri = generateURI({ issuer: "AKASHYA INVESTMENTS", label: email, secret });
+  const uri = generateURI({ issuer: "AKSHYA INVESTMENTS", label: email, secret });
   return { secret, uri };
 }
 

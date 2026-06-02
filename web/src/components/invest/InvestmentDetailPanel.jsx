@@ -178,7 +178,11 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
                   <p className="text-sm font-medium">{a.title}</p>
                   <p className="text-xs text-muted-foreground">{a.agreementUid} · <Badge status={a.status} /></p>
                 </div>
-                <button type="button" className="btn-outline text-xs" onClick={() => setPdfAgreement(a)}>
+                <button
+                  type="button"
+                  className="btn-outline text-xs"
+                  onClick={() => setPdfAgreement({ id: a.id, agreementUid: a.agreementUid || a.id.slice(-8) })}
+                >
                   View agreement
                 </button>
               </div>

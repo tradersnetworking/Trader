@@ -6,9 +6,9 @@ import { Alert, Field } from "../ui.jsx";
 export default function NotInvestedInvestorsPanel() {
   const [investors, setInvestors] = useState([]);
   const [selected, setSelected] = useState(new Set());
-  const [subject, setSubject] = useState("Start your investment journey with AKASHYA INVESTMENTS");
+  const [subject, setSubject] = useState("Start your investment journey with AKSHYA INVESTMENTS");
   const [body, setBody] = useState(
-    "Dear {name},\n\nYou registered on AKASHYA INVESTMENTS but haven't subscribed to an investment plan yet.\n\nLog in to explore Bronze, Silver, Gold and other plans with transparent monthly returns.\n\n— AKASHYA INVESTMENTS Team"
+    "Dear {name},\n\nYou registered on AKSHYA INVESTMENTS but haven't subscribed to an investment plan yet.\n\nLog in to explore Bronze, Silver, Gold and other plans with transparent monthly returns.\n\n— AKSHYA INVESTMENTS Team"
   );
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");

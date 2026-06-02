@@ -149,7 +149,7 @@ export function buildPlanCardShareSvg(plan) {
       <text x="426" y="276" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="10" font-weight="600" fill="#64748b">ANNUAL ROI</text>
       ${rowSvg}
     </g>
-    <text x="640" y="120" font-family="Inter,Arial,sans-serif" font-size="40" font-weight="800" fill="url(#gold)">AKASHYA INVESTMENTS</text>
+    <text x="640" y="120" font-family="Inter,Arial,sans-serif" font-size="40" font-weight="800" fill="url(#gold)">AKSHYA INVESTMENTS</text>
     <text x="640" y="175" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="600" fill="#E2E8F0">Investment plan · Live preview</text>
     <text x="640" y="230" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94A3B8">Published monthly ROI · Flexible lock-in</text>
     <text x="640" y="265" font-family="Inter,Arial,sans-serif" font-size="18" fill="#94A3B8">KYC-verified accounts · Wallet &amp; ledger</text>

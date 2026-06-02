@@ -410,7 +410,7 @@ export default function InvestDashboardShell({
             <ErrorBoundary>{children}</ErrorBoundary>
           </div>
           <footer className="hidden border-t border-border px-4 py-3 text-center text-[10px] text-muted-foreground md:block">
-            © {new Date().getFullYear()} AKASHYA INVESTMENTS · <a href={investPath("/privacy")} className="hover:text-primary">Privacy</a> · <a href={investPath("/cookie-policy")} className="hover:text-primary">Cookies</a> · <a href={investPath("/dashboard?tab=support")} className="hover:text-primary">Support</a>
+            © {new Date().getFullYear()} AKSHYA INVESTMENTS · <a href={investPath("/privacy")} className="hover:text-primary">Privacy</a> · <a href={investPath("/cookie-policy")} className="hover:text-primary">Cookies</a> · <a href={investPath("/dashboard?tab=support")} className="hover:text-primary">Support</a>
           </footer>
         </main>
       </div>

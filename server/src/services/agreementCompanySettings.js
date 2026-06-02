@@ -19,7 +19,7 @@ export const AGREEMENT_COMPANY_KEYS = [
 ];
 
 const DEFAULTS = {
-  agreement_company_legal_name: "AKASHYA INVESTMENTS",
+  agreement_company_legal_name: "AKSHYA INVESTMENTS",
   agreement_company_type: "COMPANY / FIRM / LLP",
   agreement_company_registration_no: "",
   agreement_company_pan: "",

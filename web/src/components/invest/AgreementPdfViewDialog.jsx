@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal } from "../ui.jsx";
-import { fetchAgreementPdfBlob } from "../../lib/agreements-api.js";
+import { fetchAgreementPdfBlob, openAgreementPdfInNewTab } from "../../lib/agreements-api.js";
 
 export default function AgreementPdfViewDialog({
   agreementId,
@@ -24,10 +24,6 @@ export default function AgreementPdfViewDialog({
     });
     fetchAgreementPdfBlob(agreementId, { admin })
       .then((blob) => {
-        if (!blob?.size) throw new Error("Agreement PDF is empty. Try again or contact support.");
-        if (blob.type && !blob.type.includes("pdf") && !blob.type.includes("octet-stream")) {
-          throw new Error("Could not load agreement PDF. Please sign in again and retry.");
-        }
         setUrl(URL.createObjectURL(blob));
       })
       .catch((e) => setErr(e.message || "Could not load PDF"))
@@ -45,17 +41,6 @@ export default function AgreementPdfViewDialog({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when dialog opens
   }, [open, agreementId, admin]);
-
-  const openInNewTab = async () => {
-    try {
-      const blob = await fetchAgreementPdfBlob(agreementId, { admin });
-      const tabUrl = URL.createObjectURL(blob);
-      window.open(tabUrl, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(tabUrl), 60_000);
-    } catch (e) {
-      setErr(e.message);
-    }
-  };
 
   const download = async () => {
     if (!allowDownload && !admin) return;
@@ -77,28 +62,36 @@ export default function AgreementPdfViewDialog({
       {err && (
         <div className="space-y-2">
           <p className="text-sm text-red-500">{err}</p>
-          <button type="button" className="btn-outline text-sm" onClick={loadPdf}>
-            Retry
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-outline text-sm" onClick={loadPdf}>
+              Retry
+            </button>
+            <button
+              type="button"
+              className="btn-gold text-sm"
+              onClick={() => openAgreementPdfInNewTab(agreementId, { admin }).catch((e) => setErr(e.message))}
+            >
+              Open in new tab
+            </button>
+          </div>
         </div>
       )}
-      {url && !loading && (
+      {url && !loading && !err && (
         <div className="min-h-[50vh] rounded-lg border border-border bg-muted/20">
           <iframe title="Agreement PDF" src={url} className="h-[70vh] w-full rounded-lg" />
-          <object data={url} type="application/pdf" className="hidden h-0 w-0" aria-hidden>
-            PDF preview unavailable in this browser.
-          </object>
         </div>
       )}
       {!allowDownload && !admin && url && (
         <p className="mt-2 text-xs text-muted-foreground">View-only mode — download is disabled for investors.</p>
       )}
       <div className="mt-3 flex flex-wrap gap-2 print:hidden">
-        {url && (
-          <button type="button" className="btn-outline text-sm" onClick={openInNewTab}>
-            Open in new tab
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-outline text-sm"
+          onClick={() => openAgreementPdfInNewTab(agreementId, { admin }).catch((e) => setErr(e.message))}
+        >
+          Open in new tab
+        </button>
         {(allowDownload || admin) && (
           <button type="button" className="btn-gold text-sm" onClick={download}>
             Download PDF

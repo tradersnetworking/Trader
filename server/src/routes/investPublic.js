@@ -116,7 +116,7 @@ router.get(
   asyncH(async (_req, res) => {
     const apkUrl = (await getSetting("android_apk_url")) || "/assets/apk/akshaya-invest.apk";
     res.json({
-      appName: "AKASHYA INVESTMENTS",
+      appName: "AKSHYA INVESTMENTS",
       androidApkUrl: apkUrl,
       version: (await getSetting("android_app_version")) || "1.0.0",
       pwaEnabled: true,

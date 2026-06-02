@@ -1,6 +1,6 @@
 import { investDb } from "../db.js";
 import { config } from "../config.js";
-import { BRAND_INVEST, INVEST_HOME_DESCRIPTION } from "../data/brand.js";
+import { BRAND_INVEST, INVEST_HOME_DESCRIPTION, normalizeInvestBrandingText } from "../data/brand.js";
 
 const DEFAULTS = {
   support_email: "support@akshayaexim.in",
@@ -40,10 +40,22 @@ export async function getSetting(key) {
   return DEFAULTS[key] ?? "";
 }
 
+const BRAND_TEXT_KEYS = new Set([
+  "site_name",
+  "homepage_hero_subtitle",
+  "homepage_about_title",
+  "homepage_about_body",
+  "about_company_name",
+  "mail_from",
+]);
+
 export async function getAllSettings(includeSecrets = false) {
   const rows = await investDb.investSetting.findMany();
   const map = { ...DEFAULTS };
   for (const r of rows) map[r.key] = r.value;
+  for (const key of BRAND_TEXT_KEYS) {
+    if (map[key]) map[key] = normalizeInvestBrandingText(map[key]);
+  }
   if (!includeSecrets) {
     map.smtp_pass = map.smtp_pass ? "••••••••" : "";
     map.telegram_bot_token = map.telegram_bot_token ? "••••••••" : "";

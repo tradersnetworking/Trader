@@ -4,7 +4,7 @@ import { investPath } from "../../lib/site.js";
 export function InvestRiskDisclosure() {
   return (
     <LegalPage title="Risk Disclosure">
-      <p>Investments in AKASHYA INVESTMENTS plans carry market, liquidity, and operational risks. Past performance does not guarantee future returns.</p>
+      <p>Investments in AKSHYA INVESTMENTS plans carry market, liquidity, and operational risks. Past performance does not guarantee future returns.</p>
       <ul className="mt-4 list-disc space-y-2 pl-5">
         <li>Capital is subject to lock-in periods as per your chosen plan.</li>
         <li>ROI projections are indicative and may vary based on business performance.</li>
@@ -20,7 +20,7 @@ export function InvestTermsOfService() {
     <LegalPage title="Terms of Service">
       <p>By using invest.akshayaexim.com you agree to these terms governing your investor account, deposits, withdrawals, and plan subscriptions.</p>
       <p className="mt-3">You must provide accurate KYC information, maintain account security (including 2FA when enabled), and comply with applicable Indian laws.</p>
-      <p className="mt-3">AKASHYA INVESTMENTS may suspend accounts for fraud, AML concerns, or violation of platform policies.</p>
+      <p className="mt-3">AKSHYA INVESTMENTS may suspend accounts for fraud, AML concerns, or violation of platform policies.</p>
     </LegalPage>
   );
 }

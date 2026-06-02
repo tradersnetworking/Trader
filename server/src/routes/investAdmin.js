@@ -305,7 +305,7 @@ router.post(
       await sendMail({
         to: inv.email,
         purpose: "password_reset",
-        subject: "Reset your AKASHYA INVESTMENTS password",
+        subject: "Reset your AKSHYA INVESTMENTS password",
         text: `An administrator requested a password reset. Link (valid 1 hour): ${link}`,
       });
       await logAudit({
@@ -1366,11 +1366,16 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (req, res) => {
-    const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id, { isAdmin: true });
-    const ag = await getAgreementById(req.params.id);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
-    res.send(buffer);
+    try {
+      const buffer = await getAgreementPdfBuffer(req.params.id, req.user.id, { isAdmin: true });
+      const ag = await getAgreementById(req.params.id);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || "Could not generate agreement PDF" });
+    }
   })
 );
 

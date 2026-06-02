@@ -18,7 +18,7 @@ export async function startLoginOtp(investor) {
   await sendMail({
     to: investor.email,
     purpose: "otp",
-    subject: "Your login code — AKASHYA INVESTMENTS",
+    subject: "Your login code — AKSHYA INVESTMENTS",
     html: `<p>Hi ${investor.name || "Investor"},</p><p>Your login verification code is <b>${otp}</b>. Valid for 10 minutes.</p><p>If you did not try to sign in, ignore this email.</p>`,
   });
   return {

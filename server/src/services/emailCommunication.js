@@ -44,18 +44,18 @@ function identitiesFor(portal) {
     ];
   }
   return [
-    { id: "noreply", label: "No Reply (Default)", name: "AKASHYA INVESTMENTS", address: "noreply@akshayaexim.in" },
-    { id: "support", label: "Support", name: "AKASHYA INVESTMENTS Support", address: "support@akshayaexim.in" },
-    { id: "finance", label: "Finance & Payouts", name: "AKASHYA INVESTMENTS Finance", address: "finance@akshayaexim.in" },
-    { id: "compliance", label: "Compliance / KYC", name: "AKASHYA INVESTMENTS Compliance", address: "compliance@akshayaexim.in" },
-    { id: "invest", label: "Investor Relations", name: "AKASHYA INVESTMENTS", address: "invest@akshayaexim.in" },
+    { id: "noreply", label: "No Reply (Default)", name: "AKSHYA INVESTMENTS", address: "noreply@akshayaexim.in" },
+    { id: "support", label: "Support", name: "AKSHYA INVESTMENTS Support", address: "support@akshayaexim.in" },
+    { id: "finance", label: "Finance & Payouts", name: "AKSHYA INVESTMENTS Finance", address: "finance@akshayaexim.in" },
+    { id: "compliance", label: "Compliance / KYC", name: "AKSHYA INVESTMENTS Compliance", address: "compliance@akshayaexim.in" },
+    { id: "invest", label: "Investor Relations", name: "AKSHYA INVESTMENTS", address: "invest@akshayaexim.in" },
   ];
 }
 
 const INVEST_AUTO_SUBJECTS = {
-  registration: "Welcome to AKASHYA INVESTMENTS",
-  password_reset: "Reset your AKASHYA INVESTMENTS password",
-  otp: "Your AKASHYA INVESTMENTS verification code",
+  registration: "Welcome to AKSHYA INVESTMENTS",
+  password_reset: "Reset your AKSHYA INVESTMENTS password",
+  otp: "Your AKSHYA INVESTMENTS verification code",
   deposit_submitted: "Deposit request received",
   deposit_approved: "Deposit approved",
   deposit_rejected: "Deposit update",
@@ -69,13 +69,13 @@ const INVEST_AUTO_SUBJECTS = {
   roi_reminder: "Upcoming ROI payout reminder",
   ticket_reply: "Support ticket update",
   ticket_acknowledgment: "We received your support request",
-  broadcast: "Message from AKASHYA INVESTMENTS",
-  generic: "Notification from AKASHYA INVESTMENTS",
+  broadcast: "Message from AKSHYA INVESTMENTS",
+  generic: "Notification from AKSHYA INVESTMENTS",
 };
 
 function defaultConfig(portal) {
   const purposes = portal === "main" ? MAIN_EMAIL_PURPOSES : DEFAULT_EMAIL_PURPOSES;
-  const siteLabel = portal === "main" ? "Akshaya EXIM TRADERS" : "AKASHYA INVESTMENTS";
+  const siteLabel = portal === "main" ? "Akshaya EXIM TRADERS" : "AKSHYA INVESTMENTS";
   return {
     identities: identitiesFor(portal),
     assignments: Object.fromEntries(purposes.map((p) => [p, "noreply"])),

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getToken, investApi } from "../../lib/api.js";
+import { investFetchBlob } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
@@ -32,18 +32,32 @@ export default function MoneyHubPanel({
 
   const suggestedDeposit = pendingInvest ? pendingDepositAmount(pendingInvest, wallet?.available) : 0;
 
-  const downloadStatement = async () => {
-    const res = await fetch("/api/invest/wallet/statement.csv", {
-      headers: { Authorization: `Bearer ${getToken("invest")}` },
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "wallet-statement.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  const downloadStatementCsv = async () => {
+    try {
+      const blob = await investFetchBlob("/wallet/statement.csv");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `wallet-statement-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const downloadStatementPdf = async () => {
+    try {
+      const blob = await investFetchBlob("/wallet/statement.pdf");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `wallet-statement-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -88,7 +102,12 @@ export default function MoneyHubPanel({
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-gold text-sm" onClick={() => setSub("deposit")}>Add Funds</button>
             <button type="button" className="btn-outline text-sm" onClick={() => setSub("withdraw")}>Withdraw</button>
-            <button type="button" className="btn-outline text-sm" onClick={downloadStatement}>Download Statement (CSV)</button>
+            <button type="button" className="btn-gold text-sm" onClick={downloadStatementPdf}>
+              Download Statement (PDF)
+            </button>
+            <button type="button" className="btn-outline text-sm" onClick={downloadStatementCsv}>
+              Download CSV
+            </button>
           </div>
         </>
       )}

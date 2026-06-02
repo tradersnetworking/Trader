@@ -23,8 +23,8 @@ function layout(title, bodyHtml) {
   return `<!DOCTYPE html><html><body style="font-family:Inter,Segoe UI,sans-serif;background:#f4f6fb;padding:24px;color:#0a1f44">
 <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
 <div style="background:linear-gradient(135deg,#002366,#0056b3);padding:20px 24px;color:#fff;text-align:center">
-<img src="${logoUrl}" alt="AKASHYA INVESTMENTS" width="72" height="72" style="display:block;margin:0 auto 12px;object-fit:contain" />
-<h1 style="margin:0;font-size:18px">AKASHYA INVESTMENTS</h1>
+<img src="${logoUrl}" alt="AKSHYA INVESTMENTS" width="72" height="72" style="display:block;margin:0 auto 12px;object-fit:contain" />
+<h1 style="margin:0;font-size:18px">AKSHYA INVESTMENTS</h1>
 <p style="margin:4px 0 0;font-size:12px;opacity:.85">${title}</p>
 </div>
 <div style="padding:24px;font-size:14px;line-height:1.6">${bodyHtml}</div>

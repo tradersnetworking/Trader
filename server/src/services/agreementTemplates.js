@@ -1,8 +1,10 @@
 import { PRIVATE_INVESTMENT_AGREEMENT } from "./investmentAgreementTemplate.js";
 
-/** Kuber-style structured agreement templates — adapted for AKASHYA INVESTMENTS (INR). */
+import { BRAND_INVEST } from "../data/brand.js";
 
-const COMPANY = "AKASHYA INVESTMENTS";
+/** Kuber-style structured agreement templates — adapted for AKSHYA INVESTMENTS (INR). */
+
+const COMPANY = BRAND_INVEST;
 
 const NO_GUARANTEED_RETURNS = `${COMPANY} does not provide guaranteed returns, fixed income assurances, or assured profit schemes. All returns depend upon actual business performance, market conditions, and associated risks. Past performance is not indicative of future results.`;
 
@@ -66,7 +68,7 @@ export const DEFAULT_TEMPLATES = [
   PRIVATE_INVESTMENT_AGREEMENT,
   {
     type: "profit_sharing",
-    title: "AKASHYA INVESTMENTS PROFIT SHARING AGREEMENT",
+    title: `${COMPANY} PROFIT SHARING AGREEMENT`,
     sections: [
       {
         heading: "PARTIES & PROFIT SHARING DETAILS",
@@ -78,7 +80,7 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     type: "risk_disclosure",
-    title: "AKASHYA INVESTMENTS COMPREHENSIVE RISK DISCLOSURE",
+    title: `${COMPANY} COMPREHENSIVE RISK DISCLOSURE`,
     sections: [
       { heading: "INVESTOR ACKNOWLEDGEMENT", body: `Acknowledged by:\n\n${INVESTOR_DETAILS}\n\nDate: {{AGREEMENT_DATE}}` },
       { heading: "COMPREHENSIVE RISK DISCLOSURES", body: RISK_DISCLOSURES },
@@ -88,7 +90,7 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     type: "aml_kyc",
-    title: "AKASHYA INVESTMENTS AML/KYC COMPLIANCE DECLARATION",
+    title: `${COMPANY} AML/KYC COMPLIANCE DECLARATION`,
     sections: [
       { heading: "DECLARANT DETAILS", body: `Submitted by:\n\n${INVESTOR_DETAILS}\n\nVerification Status: {{KYC_STATUS}}` },
       { heading: "SOURCE OF FUNDS DECLARATION", body: `The Declarant confirms all funds are from lawful sources and is the beneficial owner.` },
@@ -98,7 +100,7 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     type: "privacy_policy",
-    title: "AKASHYA INVESTMENTS PRIVACY POLICY ACCEPTANCE",
+    title: `${COMPANY} PRIVACY POLICY ACCEPTANCE`,
     sections: [
       { heading: "USER ACKNOWLEDGEMENT", body: `${INVESTOR_DETAILS}\n\nDate: {{AGREEMENT_DATE}}` },
       { heading: "DATA PRIVACY & SECURITY", body: DATA_PRIVACY },
@@ -107,7 +109,7 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     type: "terms_conditions",
-    title: "AKASHYA INVESTMENTS TERMS & CONDITIONS ACCEPTANCE",
+    title: `${COMPANY} TERMS & CONDITIONS ACCEPTANCE`,
     sections: [
       { heading: "USER ACKNOWLEDGEMENT", body: `${INVESTOR_DETAILS}\n\nDate: {{AGREEMENT_DATE}}` },
       { heading: "PLATFORM USAGE", body: `By using {{PORTAL_URL}} you agree to provide accurate information and comply with applicable laws.` },
@@ -117,7 +119,7 @@ export const DEFAULT_TEMPLATES = [
   },
   {
     type: "withdrawal_policy",
-    title: "AKASHYA INVESTMENTS WITHDRAWAL POLICY ACCEPTANCE",
+    title: `${COMPANY} WITHDRAWAL POLICY ACCEPTANCE`,
     sections: [
       { heading: "USER ACKNOWLEDGEMENT", body: `${INVESTOR_DETAILS}\n\nDate: {{AGREEMENT_DATE}}` },
       {
@@ -209,7 +211,7 @@ export const AGREEMENT_PLACEHOLDERS = [
   { key: "INVESTOR_MICR", label: "Investor MICR", group: "Banking", example: "—" },
   { key: "INVESTOR_SWIFT", label: "Investor SWIFT", group: "Banking", example: "—" },
   { key: "UPI_ID", label: "Investor UPI ID", group: "Banking", example: "raj@upi" },
-  { key: "COMPANY_LEGAL_NAME", label: "Company legal name", group: "Company", example: "AKASHYA INVESTMENTS" },
+  { key: "COMPANY_LEGAL_NAME", label: "Company legal name", group: "Company", example: COMPANY },
   { key: "COMPANY_TYPE", label: "Company / Firm / LLP", group: "Company", example: "COMPANY" },
   { key: "COMPANY_REGISTRATION_NO", label: "Registration number", group: "Company", example: "U12345…" },
   { key: "COMPANY_PAN", label: "Company PAN", group: "Company", example: "AABCA1234A" },
@@ -221,7 +223,7 @@ export const AGREEMENT_PLACEHOLDERS = [
   { key: "COMPANY_REP_FATHER_NAME", label: "Representative father's name", group: "Company", example: "—" },
   { key: "COMPANY_BANK_NAME", label: "Company bank name", group: "Company Banking", example: "HDFC Bank" },
   { key: "COMPANY_BANK_BRANCH", label: "Company bank branch", group: "Company Banking", example: "Mumbai Main" },
-  { key: "COMPANY_BANK_ACCOUNT_NAME", label: "Company account name", group: "Company Banking", example: "AKASHYA INVESTMENTS" },
+  { key: "COMPANY_BANK_ACCOUNT_NAME", label: "Company account name", group: "Company Banking", example: "AKSHYA INVESTMENTS" },
   { key: "COMPANY_BANK_ACCOUNT", label: "Company account number", group: "Company Banking", example: "9876543210" },
   { key: "COMPANY_BANK_IFSC", label: "Company IFSC", group: "Company Banking", example: "HDFC0000001" },
   { key: "COMPANY_BANK_MICR", label: "Company MICR", group: "Company Banking", example: "—" },
@@ -236,7 +238,7 @@ export const AGREEMENT_PLACEHOLDERS = [
   { key: "IP_ADDRESS", label: "Sign IP address", group: "Metadata", example: "192.168.1.1" },
   { key: "DEVICE_INFO", label: "Sign device", group: "Metadata", example: "Mobile" },
   { key: "PDF_HASH", label: "Verification hash", group: "Metadata", example: "sha256…" },
-  { key: "COMPANY_NAME", label: "Company name (short)", group: "Platform", example: "AKASHYA INVESTMENTS" },
+  { key: "COMPANY_NAME", label: "Company name (short)", group: "Platform", example: COMPANY },
   { key: "SUPPORT_EMAIL", label: "Support email", group: "Platform", example: "support@akshayaexim.in" },
   { key: "PORTAL_URL", label: "Invest portal URL", group: "Platform", example: "https://invest.akshayaexim.com" },
   { key: "CURRENCY", label: "Currency", group: "Platform", example: "INR" },

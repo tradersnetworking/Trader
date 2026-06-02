@@ -73,7 +73,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-  let data = { title: "AKASHYA INVESTMENTS", body: "You have a new notification", url: "/dashboard" };
+  let data = { title: "AKSHYA INVESTMENTS", body: "You have a new notification", url: "/dashboard" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

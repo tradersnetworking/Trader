@@ -33,6 +33,7 @@ const EMPTY_CREATE = {
 export default function InvestorOpsPanel() {
   const { invest } = useAuth();
   const isSuper = invest?.role === "SUPERADMIN";
+  const isAdminRole = invest?.role === "ADMIN" || invest?.role === "SUPERADMIN";
   const [tab, setTab] = useState("list");
   const [investors, setInvestors] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -665,7 +666,7 @@ export default function InvestorOpsPanel() {
             </form>
           )}
 
-          {isSuper && (detail.agreements?.length > 0) && (
+          {isAdminRole && (detail.agreements?.length > 0) && (
             <div className="card p-5">
               <h4 className="mb-3 font-bold">All agreements (including archived)</h4>
               <div className="overflow-x-auto">
