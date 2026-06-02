@@ -1,9 +1,15 @@
 import nodemailer from "nodemailer";
 import { config } from "../config.js";
 
-let envTransporter = null;
-if (config.smtp.host && config.smtp.user) {
-  envTransporter = nodemailer.createTransport({
+function smtpAuthReady({ host, user, pass }) {
+  return !!(String(host || "").trim() && String(user || "").trim() && String(pass || "").length > 0);
+}
+
+function createEnvTransporter() {
+  if (!smtpAuthReady({ host: config.smtp.host, user: config.smtp.user, pass: config.smtp.pass })) {
+    return null;
+  }
+  return nodemailer.createTransport({
     host: config.smtp.host,
     port: config.smtp.port,
     secure: config.smtp.secure,
@@ -11,13 +17,15 @@ if (config.smtp.host && config.smtp.user) {
   });
 }
 
+let envTransporter = createEnvTransporter();
+
 const transporterCache = new Map();
 
 async function getLegacyDbTransporter() {
   try {
     const { getAllSettings } = await import("../services/investSettings.js");
     const s = await getAllSettings(true);
-    if (!s.smtp_host || !s.smtp_user || !s.smtp_pass) return null;
+    if (!smtpAuthReady({ host: s.smtp_host, user: s.smtp_user, pass: s.smtp_pass })) return null;
     return nodemailer.createTransport({
       host: s.smtp_host,
       port: Number(s.smtp_port) || 587,
@@ -26,6 +34,19 @@ async function getLegacyDbTransporter() {
     });
   } catch {
     return null;
+  }
+}
+
+/** True when invest (or main) portal can send outbound mail. */
+export async function isOutboundMailConfigured(portal = "invest") {
+  if (envTransporter) return true;
+  if (await getLegacyDbTransporter()) return true;
+  try {
+    const { getMailboxConfig, isMailboxSmtpConfigured } = await import("../services/mailboxConfig.js");
+    const cfg = await getMailboxConfig(portal, true);
+    return cfg.mailboxes.some((m) => isMailboxSmtpConfigured(m));
+  } catch {
+    return false;
   }
 }
 
@@ -73,7 +94,9 @@ async function resolveMailFrom(portal = "invest") {
     const { getDefaultMailbox } = await import("../services/mailboxConfig.js");
     const box = await getDefaultMailbox(portal, false);
     if (box?.address) return `${box.name} <${box.address}>`;
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   try {
     const { getMailFrom } = await import("../services/investSettings.js");
     return await getMailFrom();
@@ -94,7 +117,9 @@ export async function sendMail({ to, subject, html, text, purpose, attachments, 
       const { getEmailCommunicationConfig } = await import("../services/emailCommunication.js");
       const cfg = await getEmailCommunicationConfig(portal);
       if (cfg.autoEmails[purpose]?.subject) subject = cfg.autoEmails[purpose].subject;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   const transporter = ctx.transporter || envTransporter || (await getLegacyDbTransporter());
@@ -110,8 +135,16 @@ export async function sendMail({ to, subject, html, text, purpose, attachments, 
       const { getSetting } = await import("../services/investSettings.js");
       const custom = await getSetting("default_communication_email");
       if (custom) from = custom.includes("<") ? custom : `Akshaya Exim <${custom}>`;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
-  return transporter.sendMail({ from, to, subject, html, text, attachments });
+  try {
+    const info = await transporter.sendMail({ from, to, subject, html, text, attachments });
+    return { ok: true, messageId: info?.messageId };
+  } catch (err) {
+    console.error(`[MAIL] Send failed (${purpose || "general"} → ${to}):`, err.message);
+    return { failed: true, error: err.message || "Mail send failed" };
+  }
 }

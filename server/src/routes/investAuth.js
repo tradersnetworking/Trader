@@ -4,7 +4,7 @@ import { investDb } from "../db.js";
 import { asyncH, authRequired } from "../middleware.js";
 import { hashPassword, comparePassword } from "../utils/auth.js";
 import { issueAuthToken, reissueAuthToken, revokeAuthSession } from "../services/authSession.js";
-import { sendMail } from "../utils/mailer.js";
+import { sendMail, isOutboundMailConfigured } from "../utils/mailer.js";
 import { verifyGoogleIdToken } from "../utils/google.js";
 import { publicInvestor } from "../utils/investorUser.js";
 import { verifyInvestor2FA } from "../services/twoFactor.js";
@@ -221,15 +221,28 @@ router.post(
     }
 
     const loginOtpDisabled = process.env.LOGIN_OTP_REQUIRED === "false";
-    if (!loginOtpDisabled) {
-      const otp = await startLoginOtp(investor);
-      return res.json({
-        requiresLoginOtp: true,
-        loginOtpToken: otp.loginOtpToken,
-        email: investor.email,
-        message: otp.message,
-        devOtp: otp.devOtp,
-      });
+    const mailReady = await isOutboundMailConfigured("invest");
+    if (!loginOtpDisabled && mailReady) {
+      try {
+        const otp = await startLoginOtp(investor);
+        return res.json({
+          requiresLoginOtp: true,
+          loginOtpToken: otp.loginOtpToken,
+          email: investor.email,
+          message: otp.message,
+          devOtp: otp.devOtp,
+        });
+      } catch (e) {
+        console.error("[auth/login] OTP email failed:", e.message);
+        if (!["ADMIN", "SUPERADMIN"].includes(investor.role)) {
+          return res.status(503).json({
+            error: "Could not send login verification email. Try again later or contact support.",
+          });
+        }
+        /* Staff: allow sign-in when SMTP fails so admin dashboard stays reachable */
+      }
+    } else if (!loginOtpDisabled && !mailReady) {
+      console.warn("[auth/login] Skipping login OTP — outbound mail not configured");
     }
 
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });

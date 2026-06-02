@@ -15,12 +15,18 @@ export async function startLoginOtp(investor) {
     codeHash: await bcrypt.hash(otp, 10),
     expiresAt: Date.now() + OTP_TTL_MS,
   });
-  await sendMail({
+  const sent = await sendMail({
     to: investor.email,
     purpose: "otp",
     subject: "Your login code — AKSHYA INVESTMENTS",
     html: `<p>Hi ${investor.name || "Investor"},</p><p>Your login verification code is <b>${otp}</b>. Valid for 10 minutes.</p><p>If you did not try to sign in, ignore this email.</p>`,
   });
+  if (sent?.failed) {
+    throw new Error(sent.error || "Could not send verification email");
+  }
+  if (sent?.dev) {
+    console.log(`[MAIL:DEV] Login OTP for ${investor.email}: ${otp}`);
+  }
   return {
     loginOtpToken: token,
     message: "Verification code sent to your email.",
