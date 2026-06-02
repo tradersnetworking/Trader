@@ -7,6 +7,7 @@ import { navIconBg, navIconFg } from "../../lib/invest-nav.js";
 import { NavIcon } from "../invest/NavIcons.jsx";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "../invest/LanguageSelector.jsx";
+import { investUrl } from "../../lib/site.js";
 
 export default function MainDashboardShell({
   user,
@@ -181,8 +182,12 @@ export default function MainDashboardShell({
               <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
             </div>
           </div>
-          <Link to="/" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted" onClick={() => setUserOpen(false)}>
-            Marketplace Home
+          <Link
+            to={mode === "admin" ? "/admin" : "/dashboard"}
+            className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+            onClick={() => setUserOpen(false)}
+          >
+            Marketplace Dashboard
           </Link>
           {mode === "user" && ["ADMIN", "SUPERADMIN", "STAFF"].includes(user?.role) && (
             <Link to="/admin" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted" onClick={() => setUserOpen(false)}>
@@ -193,6 +198,15 @@ export default function MainDashboardShell({
             <Link to="/dashboard" className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted" onClick={() => setUserOpen(false)}>
               User Dashboard
             </Link>
+          )}
+          {["ADMIN", "SUPERADMIN"].includes(user?.role) && (
+            <a
+              href={investUrl("/admin")}
+              className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => setUserOpen(false)}
+            >
+              Investment Dashboard
+            </a>
           )}
           <button
             type="button"

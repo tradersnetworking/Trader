@@ -3,6 +3,7 @@ import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { Field, Alert } from "../ui.jsx";
 import PhoneInput from "../shared/PhoneInput.jsx";
+import StaffPortalLinks from "../shared/StaffPortalLinks.jsx";
 
 export default function MainProfilePanel() {
   const { main, refreshMain } = useAuth();
@@ -48,12 +49,15 @@ export default function MainProfilePanel() {
     }
   };
 
+  const isInvestStaff = ["ADMIN", "SUPERADMIN"].includes(main?.role);
+
   return (
     <div className="card max-w-xl p-6">
       <h3 className="mb-1 text-lg font-bold">Company & billing profile</h3>
       <p className="mb-4 text-sm text-muted-foreground">
         Used on quotes, invoices, and trade documents. Login email and password are managed under Account Security.
       </p>
+      {isInvestStaff && <StaffPortalLinks portal="main" className="mb-4" />}
       <form onSubmit={save} className="space-y-3">
         {msg && <Alert type="success">{msg}</Alert>}
         {err && <Alert type="error">{err}</Alert>}

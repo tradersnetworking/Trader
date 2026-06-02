@@ -254,14 +254,14 @@ export default function InvestDashboardShell({
               Admin Portal
             </Link>
           )}
-          {role !== "investor" && (
-            <Link
-              to={mainUrl("/")}
+          {["ADMIN", "SUPERADMIN"].includes(user?.role) && (
+            <a
+              href={mainUrl("/admin")}
               className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
               onClick={() => setUserOpen(false)}
             >
-              Marketplace Home
-            </Link>
+              Marketplace Dashboard
+            </a>
           )}
           <button
             type="button"

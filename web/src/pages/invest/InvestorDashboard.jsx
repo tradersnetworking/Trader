@@ -33,6 +33,7 @@ import {
   PushNotificationsToggle,
 } from "./lazyInvestorPanels.js";
 import { investPath } from "../../lib/site.js";
+import StaffPortalLinks from "../../components/shared/StaffPortalLinks.jsx";
 import PendingInvestBanner from "../../components/invest/PendingInvestBanner.jsx";
 import {
   savePendingInvest,
@@ -427,10 +428,12 @@ function Profile() {
   const { invest, refreshInvest } = useAuth();
   const [form, setForm] = useState({ name: invest?.name || "", phone: invest?.phone || "", upiId: invest?.upiId || "", bankName: invest?.bankName || "", accountNumber: invest?.accountNumber || "", ifsc: invest?.ifsc || "" });
   const [msg, setMsg] = useState("");
+  const isStaff = ["ADMIN", "SUPERADMIN"].includes(invest?.role);
   const submit = async (e) => { e.preventDefault(); await investApi("/profile", { method: "PUT", body: form }); setMsg("Saved."); refreshInvest(); };
   return (
     <div className="max-w-xl card p-6">
       <h3 className="mb-3 font-bold text-navy">Profile & Payout Details</h3>
+      {isStaff && <StaffPortalLinks portal="invest" className="mb-4" />}
       <form onSubmit={submit} className="space-y-3">
         {msg && <Alert type="success">{msg}</Alert>}
         <div className="grid grid-cols-2 gap-3">

@@ -4,6 +4,7 @@ import { investApi, mainApi, setToken } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { Field, Alert, PasswordInput } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
+import StaffPortalLinks from "./StaffPortalLinks.jsx";
 
 /**
  * Change login email & password from dashboard (invest or main portal).
@@ -73,6 +74,8 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
   };
 
 
+  const isStaff = ["ADMIN", "SUPERADMIN"].includes(user?.role);
+
   return (
     <div className="card max-w-xl p-6 space-y-6">
       <div>
@@ -81,6 +84,8 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
           Update your login email and password. Current login: <strong>{user?.email || "—"}</strong>
         </p>
       </div>
+
+      {isStaff && <StaffPortalLinks portal={portal} />}
 
       <form onSubmit={changeEmail} className="space-y-3 border-b border-border pb-6">
         <h4 className="text-sm font-semibold">Change login email</h4>
