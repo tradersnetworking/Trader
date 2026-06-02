@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { api, getToken, setToken, isAuthError, logoutScope } from "./api.js";
 import { getHostKind, useSiteMode } from "./site.js";
 
@@ -76,34 +76,40 @@ export function AuthProvider({ children }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [loadMe, mode, kind]);
 
-  const value = {
-    main: main.user,
-    invest: invest.user,
-    mainLoading: main.loading,
-    investLoading: invest.loading,
-    loginMain: (token, user) => {
-      authEpoch.main += 1;
-      setToken("main", token);
-      setMain({ user, loading: false });
-    },
-    loginInvest: (token, user) => {
-      authEpoch.invest += 1;
-      setToken("invest", token);
-      setInvest({ user, loading: false });
-    },
-    logoutMain: async () => {
-      authEpoch.main += 1;
-      await logoutScope("main");
-      setMain({ user: null, loading: false });
-    },
-    logoutInvest: async () => {
-      authEpoch.invest += 1;
-      await logoutScope("invest");
-      setInvest({ user: null, loading: false });
-    },
-    refreshMain: () => loadMe("main", setMain, { soft: true }),
-    refreshInvest: () => loadMe("invest", setInvest, { soft: true }),
-  };
+  const refreshMain = useCallback(() => loadMe("main", setMain, { soft: true }), [loadMe]);
+  const refreshInvest = useCallback(() => loadMe("invest", setInvest, { soft: true }), [loadMe]);
+
+  const value = useMemo(
+    () => ({
+      main: main.user,
+      invest: invest.user,
+      mainLoading: main.loading,
+      investLoading: invest.loading,
+      loginMain: (token, user) => {
+        authEpoch.main += 1;
+        setToken("main", token);
+        setMain({ user, loading: false });
+      },
+      loginInvest: (token, user) => {
+        authEpoch.invest += 1;
+        setToken("invest", token);
+        setInvest({ user, loading: false });
+      },
+      logoutMain: async () => {
+        authEpoch.main += 1;
+        await logoutScope("main");
+        setMain({ user: null, loading: false });
+      },
+      logoutInvest: async () => {
+        authEpoch.invest += 1;
+        await logoutScope("invest");
+        setInvest({ user: null, loading: false });
+      },
+      refreshMain,
+      refreshInvest,
+    }),
+    [main.user, main.loading, invest.user, invest.loading, refreshMain, refreshInvest]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

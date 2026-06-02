@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge } from "../ui.jsx";
-import { useAuth } from "../../lib/store.jsx";
 import { buildReferralLink } from "../../lib/share.js";
 import { copyTextToClipboard } from "../../lib/clipboard.js";
 import { APP_PAGE_STACK, APP_STAT_GRID } from "../../lib/ui-system.js";
@@ -13,34 +12,40 @@ import { useInvestRefresh } from "../../lib/investRefresh.js";
 
 export default function ReferralPanel() {
   const { t } = useI18n();
-  const { invest, refreshInvest } = useAuth();
   const [data, setData] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState("");
+  const hasLoadedRef = useRef(false);
 
-  const load = useCallback(() => {
-    setLoading(true);
-    investApi("/referral/stats")
-      .then((d) => {
-        setData(d);
-        refreshInvest();
-      })
-      .catch(() => {});
-    fetch("/api/invest/public/referral/leaderboard")
-      .then((r) => r.json())
-      .then((d) => setLeaderboard(d.leaderboard || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [refreshInvest]);
+  const load = useCallback(async ({ silent = false } = {}) => {
+    const showSkeleton = !silent && !hasLoadedRef.current;
+    if (showSkeleton) setLoading(true);
+    try {
+      const [stats, lbRes] = await Promise.all([
+        investApi("/referral/stats"),
+        fetch("/api/invest/public/referral/leaderboard")
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({})),
+      ]);
+      setData(stats);
+      setLeaderboard(lbRes.leaderboard || []);
+      hasLoadedRef.current = true;
+    } catch {
+      /* keep previous data on refresh errors */
+    } finally {
+      if (showSkeleton) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
-  useInvestRefresh(load);
 
-  const code = data?.referralCode || invest?.referralCode || "";
+  useInvestRefresh(useCallback(() => load({ silent: true }), [load]));
+
+  const code = data?.referralCode || "";
   const link = code ? buildReferralLink(code) : "";
 
   const copyLink = async () => {
@@ -68,7 +73,7 @@ export default function ReferralPanel() {
               Invite friends to AKSHYA INVESTMENTS. Earn commission when they invest. Share your link on WhatsApp, Telegram & social media.
             </p>
           </div>
-          <ShareProfitButton type="referral" amount="" label="Share program" />
+          <ShareProfitButton type="referral" amount="" label="Share program" referralCode={code} />
         </div>
       </div>
 

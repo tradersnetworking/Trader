@@ -42,8 +42,10 @@ export default function ShareProfitButton({
   label = "Share",
   size = "sm",
   className = "",
+  referralCode: referralCodeProp,
 }) {
   const { invest } = useAuth();
+  const referralCode = referralCodeProp || invest?.referralCode;
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -59,8 +61,8 @@ export default function ShareProfitButton({
   const resolvedPlanId = planId || resolvedPlan?.id;
   const resolvedPlanName = planName || resolvedPlan?.name;
 
-  const referralLink = invest?.referralCode ? buildReferralLink(invest.referralCode) : "";
-  const planLink = resolvedPlanId ? buildPlanShareLink(resolvedPlanId, invest?.referralCode) : referralLink;
+  const referralLink = referralCode ? buildReferralLink(referralCode) : "";
+  const planLink = resolvedPlanId ? buildPlanShareLink(resolvedPlanId, referralCode) : referralLink;
   const shareUrl = isLinkShare ? planLink || referralLink : "";
 
   const text = buildShareText({
@@ -69,7 +71,7 @@ export default function ShareProfitButton({
     planName: resolvedPlanName,
     plan: resolvedPlan,
     userName: invest?.name,
-    referralCode: invest?.referralCode,
+    referralCode,
     planId: resolvedPlanId,
   });
 

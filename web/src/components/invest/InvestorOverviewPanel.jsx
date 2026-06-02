@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { useInvestRefresh } from "../../lib/investRefresh.js";
@@ -37,14 +37,28 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const hasLoadedRef = useRef(false);
 
-  const load = (p = period, from = customFrom, to = customTo) => {
-    setLoading(true);
+  const load = useCallback((p = period, from = customFrom, to = customTo, { silent = false } = {}) => {
+    const showSkeleton = !silent && !hasLoadedRef.current;
+    if (showSkeleton) setLoading(true);
     const qs = buildStatsQuery(p, from, to);
-    investApi(`/dashboard${qs}`).then(setData).catch(() => {}).finally(() => setLoading(false));
-  };
-  useEffect(() => { load(); }, []);
-  useInvestRefresh(useCallback(() => load(), [period, customFrom, customTo]));
+    investApi(`/dashboard${qs}`)
+      .then((d) => {
+        setData(d);
+        hasLoadedRef.current = true;
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (showSkeleton) setLoading(false);
+      });
+  }, [period, customFrom, customTo]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useInvestRefresh(useCallback(() => load(period, customFrom, customTo, { silent: true }), [load, period, customFrom, customTo]));
 
   const handlePeriod = (p) => {
     setPeriod(p);
@@ -211,7 +225,7 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
                 )}
               </div>
               <div className="flex flex-wrap gap-2">
-                <ShareProfitButton type="referral" label="Share link" />
+                <ShareProfitButton type="referral" label="Share link" referralCode={profile?.referralCode || data?.referralCode} />
                 <button type="button" className="btn-gold text-xs" onClick={() => onNavigate("referral")}>
                   Open referral →
                 </button>
