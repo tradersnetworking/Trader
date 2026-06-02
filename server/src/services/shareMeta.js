@@ -35,6 +35,9 @@ const INVEST_HOME = {
 };
 
 function effectiveHostKind(req, pathOnly) {
+  const hostHeader = req.get("x-forwarded-host") || req.headers.host || req.hostname || "";
+  const h = String(hostHeader).toLowerCase().replace(/^www\./, "").split(":")[0];
+  if (h.startsWith("invest.")) return "invest";
   const kind = resolveHostKindSync(req);
   if (kind === "local" && (pathOnly === "/invest" || pathOnly.startsWith("/invest/"))) return "invest";
   return kind;
@@ -66,17 +69,32 @@ function planOgDescription(plan) {
 let investHomeCache = null;
 let investHomeCacheAt = 0;
 
+function isMainMarketplaceCopy(text) {
+  const s = String(text || "");
+  return /marketplace|Global Export|B2B Marketplace|export and import agricultural|request quotes and track orders/i.test(s);
+}
+
 function normalizeInvestHomeCopy(title, description) {
   let t = title || INVEST_HOME.title;
   let d = description || INVEST_HOME.description;
-  if (/^Akshaya/i.test(t) || t.includes("Investment Plans & Monthly")) t = INVEST_HOME.title;
-  if (
-    !/INR/i.test(d) &&
-    (/^Explore Akshaya/i.test(d) || /^Invest in Akshaya/i.test(d) || /export and import|EXIM TRADERS|marketplace/i.test(d))
-  ) {
+  if (isMainMarketplaceCopy(t) || /^Akshaya EXIM TRADERS/i.test(t) || t.includes("Investment Plans & Monthly")) {
+    t = INVEST_HOME.title;
+  }
+  if (isMainMarketplaceCopy(d) || (!/INR/i.test(d) && (/^Explore Akshaya/i.test(d) || /^Invest in Akshaya/i.test(d)))) {
     d = INVEST_HOME.description;
   }
   return { title: t, description: d };
+}
+
+function referralShareMeta(code, homeMeta, origin, fullUrl) {
+  const ref = String(code || "").trim().toUpperCase();
+  return {
+    title: `Join ${BRAND_INVEST} — Referral Invite`,
+    description: `Invitation to ${BRAND_INVEST}${ref ? ` (referral ${ref})` : ""}. Compare investment plans with published monthly ROI, flexible lock-in, KYC onboarding and secure wallet payouts.`,
+    image: absoluteUrl(origin, INVEST_PLANS),
+    url: fullUrl.split("#")[0],
+    siteName: homeMeta.siteName || BRAND_INVEST,
+  };
 }
 
 async function getInvestHomeMeta() {
@@ -148,13 +166,8 @@ export async function resolveShareMeta(req) {
     const refQuery = req.query?.ref;
     if (refMatch || refQuery) {
       const homeMeta = await getInvestHomeMeta();
-      return {
-        title: homeMeta.title,
-        description: homeMeta.description,
-        image: absoluteUrl(origin, INVEST_PLANS),
-        url: fullUrl.split("#")[0],
-        siteName: homeMeta.siteName,
-      };
+      const code = refMatch?.[1] || refQuery;
+      return referralShareMeta(code, homeMeta, origin, fullUrl);
     }
 
     const homeMeta = await getInvestHomeMeta();
@@ -240,6 +253,8 @@ export function injectMetaIntoHtml(html, meta) {
     out = out.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttr(meta.title)}</title>`);
   }
 
+  const updated = meta.updatedTime || new Date().toISOString();
+
   const tags = [
     ["name", "description", meta.description],
     ["property", "og:title", meta.title],
@@ -248,6 +263,7 @@ export function injectMetaIntoHtml(html, meta) {
     ["property", "og:site_name", meta.siteName],
     ["property", "og:url", meta.url],
     ["property", "og:image", meta.image],
+    ["property", "og:updated_time", updated],
     ["name", "twitter:card", "summary_large_image"],
     ["name", "twitter:title", meta.title],
     ["name", "twitter:description", meta.description],

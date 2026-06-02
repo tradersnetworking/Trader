@@ -155,6 +155,7 @@ if (fs.existsSync(webDist)) {
     }
 
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Vary", "Host");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     const indexPath = path.join(webDist, "index.html");
     try {

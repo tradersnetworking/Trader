@@ -207,7 +207,7 @@ export function InvestLayout({ children }) {
       />
       <main className="app-content">{children}</main>
       <PwaInstallBanner />
-      {invest && <SupportWidget />}
+      <SupportWidget />
       <InvestFooter />
       <CookieConsent />
     </div>

@@ -72,6 +72,16 @@ router.get(
 );
 
 router.get(
+  "/support-links",
+  asyncH(async (_req, res) => {
+    res.json({
+      whatsapp: (await getSetting("support_whatsapp")) || "",
+      telegram: (await getSetting("support_telegram")) || "",
+    });
+  })
+);
+
+router.get(
   "/homepage",
   asyncH(async (_req, res) => {
     const keys = [

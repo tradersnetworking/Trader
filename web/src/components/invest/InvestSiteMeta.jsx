@@ -22,10 +22,12 @@ export default function InvestSiteMeta() {
     investApi("/public/homepage")
       .then((d) => {
         const h = d.homepage || {};
+        const title = h.homepage_hero_title || "";
         const sub = h.homepage_hero_subtitle || "";
         const staleMain =
-          !/INR/i.test(sub) &&
-          (/^Explore Akshaya/i.test(sub) || /export and import|EXIM TRADERS|marketplace/i.test(sub));
+          /marketplace|Global Export|B2B Marketplace/i.test(title) ||
+          /marketplace|Global Export|export and import agricultural/i.test(sub) ||
+          (!/INR/i.test(sub) && (/^Explore Akshaya/i.test(sub) || /EXIM TRADERS/i.test(sub)));
         setHomepageCms(
           staleMain
             ? {

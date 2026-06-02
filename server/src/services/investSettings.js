@@ -3,6 +3,8 @@ import { config } from "../config.js";
 
 const DEFAULTS = {
   support_email: "support@akshayaexim.in",
+  support_whatsapp: "",
+  support_telegram: "",
   mail_from: "AKSHAYA Exim Invest <noreply@akshayaexim.in>",
   site_name: "AKSHAYA Exim Invest",
   invest_portal_url: config.investPortalUrl,

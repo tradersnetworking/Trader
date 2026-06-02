@@ -109,12 +109,34 @@ export function buildPlanOgDescription(plan) {
 }
 
 /** Invest home OG/title/description (CMS hero or defaults). */
+function isMainMarketplaceCopy(text) {
+  const s = String(text || "");
+  return /marketplace|Global Export|B2B Marketplace|export and import agricultural|request quotes and track orders/i.test(s);
+}
+
 export function resolveInvestHomeMeta(homepageCms) {
+  let title = homepageCms?.homepage_hero_title || INVEST_HOME_DEFAULT.title;
+  let description = homepageCms?.homepage_hero_subtitle || INVEST_HOME_DEFAULT.description;
+  if (isMainMarketplaceCopy(title) || /^Akshaya EXIM TRADERS/i.test(title)) title = INVEST_HOME_DEFAULT.title;
+  if (isMainMarketplaceCopy(description) || (!/INR/i.test(description) && /^Explore Akshaya/i.test(description))) {
+    description = INVEST_HOME_DEFAULT.description;
+  }
   return {
-    title: homepageCms?.homepage_hero_title || INVEST_HOME_DEFAULT.title,
-    description: homepageCms?.homepage_hero_subtitle || INVEST_HOME_DEFAULT.description,
+    title,
+    description,
     image: resolveInvestShareImage("/", null, false),
     siteName: BRAND_INVEST,
+  };
+}
+
+export function resolveReferralShareMeta(refCode, homepageCms) {
+  const home = resolveInvestHomeMeta(homepageCms);
+  const ref = String(refCode || "").trim().toUpperCase();
+  return {
+    ...home,
+    title: `Join ${BRAND_INVEST} — Referral Invite`,
+    description: `Invitation to ${BRAND_INVEST}${ref ? ` (referral ${ref})` : ""}. Compare investment plans with published monthly ROI, flexible lock-in, KYC onboarding and secure wallet payouts.`,
+    image: resolveInvestShareImage("/", null, false),
   };
 }
 
@@ -172,10 +194,11 @@ export function resolveInvestPageMeta({ pathname, plan, refCode, homepageCms, ha
 
   const refMatch = pathname.match(/^\/ref\/([^/]+)/i);
   if (refMatch || refCode) {
-    const home = resolveInvestHomeMeta(homepageCms);
+    const code = refMatch?.[1] || refCode;
+    const meta = resolveReferralShareMeta(code, homepageCms);
     return {
-      ...home,
-      image: resolveInvestShareImage(isInvestHomePath(pathname, hasPlanQuery) ? pathname : "/", null, false),
+      ...meta,
+      url: typeof window !== "undefined" ? window.location.href.split("#")[0] : meta.url,
     };
   }
 
