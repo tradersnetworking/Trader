@@ -36,10 +36,11 @@ export async function openStaffPortal({ fromPortal, toPortal, next = "/admin" })
     method: "POST",
     body: { target: targetScope },
   });
+  if (!code) throw new Error("Could not start portal switch. Try again.");
   const handoffBase =
     toPortal === "invest" ? investUrl("/staff-handoff") : mainUrl("/staff-handoff");
-  const url = new URL(handoffBase, window.location.href);
-  url.searchParams.set("code", code);
-  url.searchParams.set("next", next.startsWith("/") ? next : `/${next}`);
-  window.location.href = url.toString();
+  const nextPath = next.startsWith("/") ? next : `/${next}`;
+  const sep = handoffBase.includes("?") ? "&" : "?";
+  const target = `${handoffBase}${sep}code=${encodeURIComponent(code)}&next=${encodeURIComponent(nextPath)}`;
+  window.location.assign(target);
 }

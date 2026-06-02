@@ -1,28 +1,27 @@
-import { nanoid } from "nanoid";
+import jwt from "jsonwebtoken";
+import { config } from "../config.js";
 
-const TTL_MS = 60_000;
-/** @type {Map<string, { targetScope: string, token: string, user: object, expires: number }>} */
-const pending = new Map();
+const HANDOFF_TYPE = "staff_portal_handoff";
+const TTL = "3m";
 
-function prune() {
-  const now = Date.now();
-  for (const [k, v] of pending) {
-    if (v.expires <= now) pending.delete(k);
-  }
-}
-
+/** Signed one-time portal switch payload (stateless — works across restarts and duplicate requests). */
 export function createStaffHandoff(targetScope, token, user) {
-  prune();
-  const code = nanoid(32);
-  pending.set(code, { targetScope, token, user, expires: Date.now() + TTL_MS });
-  return code;
+  return jwt.sign(
+    { type: HANDOFF_TYPE, targetScope, token, user },
+    config.jwtSecret,
+    { expiresIn: TTL }
+  );
 }
 
 export function consumeStaffHandoff(code, expectedScope) {
-  prune();
-  const row = pending.get(code);
-  pending.delete(code);
-  if (!row || row.expires <= Date.now()) return null;
-  if (row.targetScope !== expectedScope) return null;
-  return { token: row.token, user: row.user };
+  if (!code || typeof code !== "string") return null;
+  try {
+    const payload = jwt.verify(code, config.jwtSecret);
+    if (payload?.type !== HANDOFF_TYPE) return null;
+    if (payload.targetScope !== expectedScope) return null;
+    if (!payload.token || !payload.user) return null;
+    return { token: payload.token, user: payload.user };
+  } catch {
+    return null;
+  }
 }

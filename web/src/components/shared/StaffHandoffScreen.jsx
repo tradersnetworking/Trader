@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
@@ -10,12 +10,17 @@ export default function StaffHandoffScreen({ scope }) {
   const navigate = useNavigate();
   const { loginMain, loginInvest } = useAuth();
   const [err, setErr] = useState("");
+  const startedRef = useRef(false);
+
+  const code = params.get("code") || "";
+  const next = params.get("next") || "/admin";
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     let cancelled = false;
     (async () => {
-      const code = params.get("code");
-      const next = params.get("next") || "/admin";
       if (!code) {
         setErr("Missing sign-in link. Please log in again.");
         return;
@@ -31,13 +36,16 @@ export default function StaffHandoffScreen({ scope }) {
         const path = next.startsWith("/") ? next : `/${next}`;
         navigate(path, { replace: true });
       } catch (e) {
-        if (!cancelled) setErr(e.message || "Sign-in link expired. Log in on the other portal and try again.");
+        if (!cancelled) {
+          setErr(e.message || "Sign-in link expired. Log in on the other portal and try again.");
+        }
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [scope, params, loginMain, loginInvest, navigate]);
+  }, [scope, code, next, loginMain, loginInvest, navigate]);
 
   const loginPath = scope === "invest" ? investPath("/staff-login") : "/staff-login";
 

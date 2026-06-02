@@ -115,6 +115,8 @@ export function investUrl(subpath = "") {
 export function mainOrigin() {
   if (typeof window === "undefined") return "https://akshayaexim.com";
   if (isMainHost() || isLocalDev()) return window.location.origin;
+  const cfg = getPortalConfig();
+  if (cfg?.paymentOrigin) return String(cfg.paymentOrigin).replace(/\/$/, "");
   const host = window.location.hostname.replace(/^invest\./i, "");
   const proto = window.location.protocol;
   return `${proto}//${host}`;
