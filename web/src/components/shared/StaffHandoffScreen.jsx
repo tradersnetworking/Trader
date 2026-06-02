@@ -1,51 +1,55 @@
-import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../../lib/api.js";
+import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
+import { useSearchParams } from "react-router-dom";
+import { api, setToken } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { investPath } from "../../lib/site.js";
 
 /** Completes cross-origin staff SSO (invest ↔ marketplace). */
 export default function StaffHandoffScreen({ scope }) {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
   const { loginMain, loginInvest } = useAuth();
   const [err, setErr] = useState("");
-  const startedRef = useRef(false);
 
   const code = params.get("code") || "";
   const next = params.get("next") || "/admin";
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    if (!code) {
+      setErr("Missing sign-in link. Please log in again.");
+      return;
+    }
 
-    let cancelled = false;
+    let active = true;
     (async () => {
-      if (!code) {
-        setErr("Missing sign-in link. Please log in again.");
-        return;
-      }
       try {
         const res = await api(scope, "/auth/staff-handoff/complete", {
           method: "POST",
           body: { code },
         });
-        if (cancelled) return;
-        if (scope === "main") loginMain(res.token, res.user);
-        else loginInvest(res.token, res.user);
+        if (!active) return;
+
+        setToken(scope, res.token);
+        flushSync(() => {
+          if (scope === "main") loginMain(res.token, res.user);
+          else loginInvest(res.token, res.user);
+        });
+
         const path = next.startsWith("/") ? next : `/${next}`;
-        navigate(path, { replace: true });
+        window.location.replace(path);
       } catch (e) {
-        if (!cancelled) {
+        if (active) {
           setErr(e.message || "Sign-in link expired. Log in on the other portal and try again.");
         }
       }
     })();
 
     return () => {
-      cancelled = true;
+      active = false;
     };
-  }, [scope, code, next, loginMain, loginInvest, navigate]);
+    // login handlers intentionally omitted — they change after flushSync and must not re-run this effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, code, next]);
 
   const loginPath = scope === "invest" ? investPath("/staff-login") : "/staff-login";
 
