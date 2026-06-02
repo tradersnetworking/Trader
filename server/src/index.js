@@ -88,6 +88,7 @@ const webDist = path.join(__dirname, "..", "..", "web", "dist");
 if (fs.existsSync(webDist)) {
   app.use(
     express.static(webDist, {
+      index: false,
       maxAge: config.env === "production" ? "7d" : 0,
       setHeaders(res, filePath) {
         if (/[/\\]index\.html$/i.test(filePath)) {
