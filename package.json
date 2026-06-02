@@ -19,6 +19,7 @@
     "smoke": "node scripts/smoke-main.mjs && node scripts/smoke-invest.mjs",
     "verify:local": "node scripts/local-verify.mjs",
     "audit": "node scripts/portal-audit.mjs",
+    "audit:prod": "node scripts/production-audit.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
