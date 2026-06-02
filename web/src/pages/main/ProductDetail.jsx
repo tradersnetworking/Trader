@@ -3,12 +3,14 @@ import { useParams, Link } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import MainCheckoutModal from "../../components/main/MainCheckoutModal.jsx";
 import ProductImage from "../../components/ProductImage.jsx";
 
 export default function ProductDetail() {
   const { slug } = useParams();
   const [p, setP] = useState(null);
   const [quote, setQuote] = useState(null);
+  const [checkout, setCheckout] = useState(null);
   const [err, setErr] = useState("");
 
   useEffect(() => { mainApi(`/products/${slug}`).then((d) => setP(d.product)).catch((e) => setErr(e.message)); }, [slug]);
@@ -30,13 +32,18 @@ export default function ProductDetail() {
           <div className="mt-4 text-3xl font-extrabold text-navy">{inr(p.basePrice)}<span className="text-base font-normal text-slate-400">/{p.unit}</span></div>
           <p className="text-sm text-slate-500">Minimum order: {p.minOrderQty} {p.unit} • Trade: {p.tradeType}</p>
           <p className="mt-4 text-slate-600">{p.description}</p>
-          <div className="mt-6 flex gap-3">
-            <button onClick={() => setQuote({ direction: "BUY" })} className="btn-gold">Request Quote</button>
-            <button onClick={() => setQuote({ direction: "SELL" })} className="btn-outline">Offer to Supply</button>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button type="button" onClick={() => setCheckout("full")} className="btn-gold">Buy now — pay online</button>
+            {p.listingType === "IMPORT" && (
+              <button type="button" onClick={() => setCheckout("advance")} className="btn-outline border-emerald-600 text-emerald-700">Pay advance online</button>
+            )}
+            <button type="button" onClick={() => setQuote({ direction: "BUY" })} className="btn-outline">Request quote</button>
+            <button type="button" onClick={() => setQuote({ direction: "SELL" })} className="btn-outline">Offer to supply</button>
           </div>
         </div>
       </div>
       {quote && <QuoteModal open onClose={() => setQuote(null)} product={p} direction={quote.direction} />}
+      {checkout && <MainCheckoutModal open onClose={() => setCheckout(null)} product={p} mode={checkout} />}
     </div>
   );
 }

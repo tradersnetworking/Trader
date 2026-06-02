@@ -296,6 +296,18 @@ export async function getWalletHistory(investorId, query = {}) {
   const approvedDeposits = deposits.filter((d) => d.status === "APPROVED");
   const successPayouts = payouts.filter((p) => p.status === "SUCCESS");
 
+  const payoutTypeLabel = (p) => {
+    if (p.payoutKind === "ROI_RETURN") return "ROI PAYOUT";
+    if (p.payoutKind === "MANUAL_CREDIT") return "CREDIT";
+    return "WITHDRAWAL";
+  };
+
+  const payoutAccountDetails = (p) => {
+    if (!p.destination) return null;
+    if (p.mode === "UPI") return `UPI: ${p.destination}`;
+    return `Bank account: ${p.destination}`;
+  };
+
   const requests = [
     ...deposits.map((d) => ({
       id: d.id,
@@ -304,18 +316,28 @@ export async function getWalletHistory(investorId, query = {}) {
       amount: d.amount,
       method: d.method,
       status: d.status,
-      reference: d.reference,
+      reference: d.reference || d.gatewayRef || null,
+      paymentRef: d.gatewayRef || d.reference || null,
+      gatewayRef: d.gatewayRef,
+      remarks: d.remarks,
+      accountDetails: "Wallet balance",
       proofImage: d.proofImage,
       createdAt: d.createdAt,
     })),
     ...payouts.map((p) => ({
       id: p.id,
-      kind: "withdrawal",
-      type: "WITHDRAWAL",
+      kind: p.payoutKind === "WITHDRAWAL" ? "withdrawal" : "payout",
+      type: payoutTypeLabel(p),
       amount: p.amount,
-      method: p.mode,
+      method: p.mode || p.gateway,
       status: p.status,
       destination: p.destination,
+      reference: p.reference || p.gatewayRef || null,
+      paymentRef: p.gatewayRef || p.reference || null,
+      gatewayRef: p.gatewayRef,
+      remarks: p.remarks,
+      payoutKind: p.payoutKind,
+      accountDetails: payoutAccountDetails(p),
       createdAt: p.createdAt,
     })),
   ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

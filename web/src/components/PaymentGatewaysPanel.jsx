@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Badge, Alert, Field, PasswordInput } from "./ui.jsx";
+import { VisibilityPairToggles } from "./invest/PaymentModeVisibilityToggles.jsx";
 
 
 
@@ -156,7 +157,19 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
   }, []);
 
-
+  const patchVisibility = async (modeId, patch) => {
+    if (!editable) return;
+    const key = String(modeId).toLowerCase();
+    const next = { ...visibility, [key]: { ...(visibility[key] || { deposit: true, withdraw: true }), ...patch } };
+    setVisibility(next);
+    try {
+      await onVisibilityChange?.({ [key]: next[key] });
+      setMsg("Visibility updated for investors.");
+    } catch (e2) {
+      setErr(e2.message);
+      loadGateways();
+    }
+  };
 
   const set = (k, v) => setSettings((s) => ({ ...s, [k]: v }));
 
@@ -191,18 +204,44 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
     <div className="space-y-6">
 
       <Alert type="info">
-
-        Gateways run in <b>mock mode</b> until API keys are configured here or in server environment variables.
-
-        IMPS, NEFT, RTGS and manual UPI always remain available.
-
+        Configure API keys below. Use the on/off switches to control which payment modes investors see for <b>deposits</b> and <b>withdrawals</b> (Super Admin only).
       </Alert>
 
       {msg && <Alert type="success">{msg}</Alert>}
 
       {err && collection.length > 0 && <Alert type="error">{err}</Alert>}
 
+      {editable && (
+        <section className="card space-y-2 p-4">
+          <h3 className="font-bold text-navy dark:text-white">Investor deposit categories</h3>
+          {["upi", "bank", "gateway"].map((id) => (
+            <VisibilityPairToggles
+              key={id}
+              modeId={id}
+              visibility={visibility}
+              onChange={patchVisibility}
+              depositLabel={`Deposits — ${id === "upi" ? "UPI" : id === "bank" ? "Bank transfer" : "Online gateway"}`}
+              withdrawLabel="Withdrawals (n/a)"
+            />
+          ))}
+        </section>
+      )}
 
+      {editable && (
+        <section className="card space-y-2 p-4">
+          <h3 className="font-bold text-navy dark:text-white">Investor withdrawal methods</h3>
+          {["UPI", "BANK"].map((id) => (
+            <VisibilityPairToggles
+              key={id}
+              modeId={id}
+              visibility={visibility}
+              onChange={patchVisibility}
+              depositLabel="Deposits (n/a)"
+              withdrawLabel={`Withdrawals — ${id === "UPI" ? "UPI" : "Bank account"}`}
+            />
+          ))}
+        </section>
+      )}
 
       <section>
 
@@ -212,7 +251,16 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
           {collection.filter((g) => !["hdfc", "axis", "icici", "yesbank"].includes(g.name)).map((g) => (
 
-            <GatewayCard key={g.name} name={g.name} configured={g.configured} type="collection" />
+            <GatewayCard
+              key={g.name}
+              name={g.name}
+              configured={g.configured}
+              type="collection"
+              modeId={g.name}
+              visibility={visibility}
+              editable={editable}
+              onVisibilityChange={patchVisibility}
+            />
 
           ))}
 
@@ -232,7 +280,16 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
           {collection.filter((g) => ["hdfc", "axis", "icici", "yesbank"].includes(g.name)).map((g) => (
 
-            <GatewayCard key={g.name} name={g.name} configured={g.configured} type="bank-api" />
+            <GatewayCard
+              key={g.name}
+              name={g.name}
+              configured={g.configured}
+              type="bank-api"
+              modeId={g.name}
+              visibility={visibility}
+              editable={editable}
+              onVisibilityChange={patchVisibility}
+            />
 
           ))}
 
@@ -250,7 +307,18 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
           {payouts.map((g) => (
 
-            <GatewayCard key={g.name} name={g.name} configured={g.configured} type="payout" />
+            <GatewayCard
+              key={g.name}
+              name={g.name}
+              configured={g.configured}
+              type="payout"
+              modeId={g.name}
+              visibility={visibility}
+              editable={editable}
+              onVisibilityChange={patchVisibility}
+              depositLabel="Show for deposits"
+              withdrawLabel="Show for withdrawals / payouts"
+            />
 
           ))}
 
@@ -335,28 +403,41 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
 
 
-function GatewayCard({ name, configured, type }) {
-
+function GatewayCard({
+  name,
+  configured,
+  type,
+  modeId,
+  visibility,
+  editable,
+  onVisibilityChange,
+  depositLabel = "Show to investors for deposits",
+  withdrawLabel = "Show to investors for withdrawals",
+}) {
   const label = GATEWAY_LABELS[name] || GATEWAY_LABELS[name.toLowerCase()] || name;
+  const id = String(modeId || name).toLowerCase();
 
   return (
-
-    <div className="card flex items-center justify-between p-4">
-
-      <div>
-
-        <div className="font-semibold text-navy dark:text-white">{label}</div>
-
-        <div className="text-xs capitalize text-slate-400">{type}</div>
-
+    <div className="card p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="font-semibold text-navy dark:text-white">{label}</div>
+          <div className="text-xs capitalize text-slate-400">{type}</div>
+        </div>
+        <Badge status={configured ? "ACTIVE" : "PENDING"} />
       </div>
-
-      <Badge status={configured ? "ACTIVE" : "PENDING"} />
-
+      {editable && onVisibilityChange && (
+        <VisibilityPairToggles
+          modeId={id}
+          visibility={visibility}
+          onChange={onVisibilityChange}
+          disabled={!editable}
+          depositLabel={depositLabel}
+          withdrawLabel={withdrawLabel}
+        />
+      )}
     </div>
-
   );
-
 }
 
 

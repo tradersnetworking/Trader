@@ -101,6 +101,8 @@ model Quote {
   status       String   @default("PENDING")
   adminResponse String?
   quotedPrice  Float?
+  advancePct   Float?   // buyer-requested advance % (import requirements)
+  advanceAmount Float?  // admin: amount due now
   userId       String?
   user         User?    @relation(fields: [userId], references: [id])
   createdAt    DateTime @default(now())
@@ -118,7 +120,10 @@ model Order {
   status       String   @default("PENDING") // PENDING, PAID, SHIPPED, COMPLETED, CANCELLED
   paymentGateway String?
   paymentRef   String?
-  paymentStatus String  @default("UNPAID")
+  paymentStatus String  @default("UNPAID") // UNPAID, PARTIAL, PAID
+  paidAmount    Float    @default(0)
+  quoteId       String?
+  paymentNote   String?
   invoices     Invoice[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

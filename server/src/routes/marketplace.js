@@ -237,6 +237,7 @@ router.post(
         contactEmail: b.contactEmail,
         contactPhone: b.contactPhone,
         company: b.company,
+        advancePct: b.advancePct != null && b.direction !== "SELL" ? Number(b.advancePct) : null,
         userId: req.user?.id || null,
       },
     });
@@ -272,10 +273,16 @@ router.put(
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (req, res) => {
-    const { status, adminResponse, quotedPrice } = req.body;
+    const { status, adminResponse, quotedPrice, advanceAmount, advancePct } = req.body;
     const quote = await mainDb.quote.update({
       where: { id: req.params.id },
-      data: { status, adminResponse, quotedPrice: quotedPrice ? Number(quotedPrice) : undefined },
+      data: {
+        status,
+        adminResponse,
+        quotedPrice: quotedPrice != null ? Number(quotedPrice) : undefined,
+        advanceAmount: advanceAmount != null ? Number(advanceAmount) : undefined,
+        advancePct: advancePct != null ? Number(advancePct) : undefined,
+      },
     });
     res.json({ quote });
   })
@@ -288,8 +295,11 @@ router.post(
   "/orders",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const { items, gateway } = req.body;
+    const { items, gateway, payAmount, quoteId, paymentNote } = req.body;
     const total = (items || []).reduce((s, it) => s + Number(it.price) * Number(it.qty), 0);
+    if (total <= 0) return res.status(400).json({ error: "Invalid order amount" });
+    const charge = payAmount != null ? Math.min(Number(payAmount), total) : total;
+    if (charge <= 0) return res.status(400).json({ error: "Payment amount must be positive" });
     const order = await mainDb.order.create({
       data: {
         orderNumber: "AEX-" + nanoid(8).toUpperCase(),
@@ -297,10 +307,12 @@ router.post(
         items: JSON.stringify(items || []),
         totalAmount: total,
         paymentGateway: gateway || null,
+        quoteId: quoteId || null,
+        paymentNote: paymentNote || null,
       },
     });
     const payment = await createOrder(gateway || "razorpay", {
-      amount: total,
+      amount: charge,
       currency: "INR",
       receipt: order.orderNumber,
       orderId: order.id,
@@ -325,9 +337,12 @@ router.post(
     const order = await mainDb.order.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!order) return res.status(404).json({ error: "Order not found" });
     if (order.paymentStatus === "PAID") return res.status(400).json({ error: "Already paid" });
+    const balance = Math.max(0, order.totalAmount - (order.paidAmount || 0));
+    if (balance <= 0) return res.status(400).json({ error: "Nothing due on this order" });
     const gateway = req.body.gateway || order.paymentGateway || "razorpay";
+    const payNow = req.body.payAmount != null ? Math.min(Number(req.body.payAmount), balance) : balance;
     const payment = await createOrder(gateway, {
-      amount: order.totalAmount,
+      amount: payNow,
       currency: order.currency || "INR",
       receipt: order.orderNumber,
       orderId: order.id,

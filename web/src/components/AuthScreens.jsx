@@ -66,7 +66,11 @@ export function LoginScreen({ scope, staff }) {
   const [form, setForm] = useState({ email: "", password: "", totpCode: "" });
   const [needs2FA, setNeeds2FA] = useState(false);
   const [passkey2FA, setPasskey2FA] = useState(false);
+  const [needsLoginOtp, setNeedsLoginOtp] = useState(false);
+  const [loginOtpToken, setLoginOtpToken] = useState("");
+  const [loginOtpCode, setLoginOtpCode] = useState("");
   const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -85,32 +89,64 @@ export function LoginScreen({ scope, staff }) {
     return ["ADMIN", "SUPERADMIN", "STAFF"].includes(user.role) ? "/admin" : "/dashboard";
   };
 
-  const commitLogin = (token, user) => {
+  const commitLogin = (token, user, { kycTab } = {}) => {
     flushSync(() => login(token, user));
+    if (scope === "invest" && kycTab) {
+      nav(investPath("/dashboard?tab=kyc"));
+      return;
+    }
     nav(dest(user));
+  };
+
+  const verifyLoginOtp = async (e) => {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const res = await api(scope, "/auth/login/verify-otp", {
+        method: "POST",
+        body: { loginOtpToken, email: form.email, code: loginOtpCode, staff: !!staff },
+      });
+      commitLogin(res.token, res.user);
+    } catch (e2) {
+      setErr(e2.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const submit = async (e) => {
     e.preventDefault();
-    setErr(""); setLoading(true);
+    setErr("");
+    setMsg("");
+    setLoading(true);
     try {
-      const { token, user, requires2FA, passkeyAvailable } = await api(scope, "/auth/login", { method: "POST", body: { ...form, staff: !!staff } });
-      if (requires2FA) {
+      const res = await api(scope, "/auth/login", { method: "POST", body: { ...form, staff: !!staff } });
+      if (res.requires2FA) {
         setNeeds2FA(true);
-        setPasskey2FA(!!passkeyAvailable);
-        setErr("");
+        setPasskey2FA(!!res.passkeyAvailable);
+        setNeedsLoginOtp(false);
+        setErr(res.message || "");
         setLoading(false);
         return;
       }
-      commitLogin(token, user);
+      if (res.requiresLoginOtp && scope === "invest") {
+        setNeedsLoginOtp(true);
+        setLoginOtpToken(res.loginOtpToken);
+        setErr("");
+        setMsg(res.message + (res.devOtp ? ` Dev code: ${res.devOtp}` : ""));
+        setLoading(false);
+        return;
+      }
+      commitLogin(res.token, res.user);
     } catch (e2) { setErr(e2.message); } finally { setLoading(false); }
   };
 
   const onGoogle = async (credential) => {
     setErr("");
     try {
-      const { token, user } = await api(scope, "/auth/google", { method: "POST", body: { credential } });
-      commitLogin(token, user);
+      const res = await api(scope, "/auth/google", { method: "POST", body: { credential } });
+      commitLogin(res.token, res.user, { kycTab: scope === "invest" && res.needsKycSetup });
     } catch (e2) { setErr(e2.message); }
   };
 
@@ -152,8 +188,23 @@ export function LoginScreen({ scope, staff }) {
           {tx("backToHome", "← Back to home")}
         </Link>
       )}
+      {needsLoginOtp ? (
+        <form onSubmit={verifyLoginOtp} className="space-y-4">
+          <Alert type="info">We sent a 6-digit code to your email. Google and passkey sign-in skip this step.</Alert>
+          {msg && <Alert type="success">{msg}</Alert>}
+          {err && <Alert type="error">{err}</Alert>}
+          <Field label="Verification code">
+            <input className="input text-center tracking-widest" required inputMode="numeric" maxLength={6} value={loginOtpCode} onChange={(e) => setLoginOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" />
+          </Field>
+          <button className={AUTH_PRIMARY_BTN} disabled={loading}>{loading ? "Verifying…" : "Verify & sign in"}</button>
+          <button type="button" className="w-full text-sm text-muted-foreground underline" onClick={() => { setNeedsLoginOtp(false); setLoginOtpCode(""); }}>
+            Back to password login
+          </button>
+        </form>
+      ) : (
       <form onSubmit={submit} className="space-y-4">
         {needs2FA && <Alert type="info">{tx("authenticatorHint", "Enter the 6-digit code from your authenticator app.")}</Alert>}
+        {msg && <Alert type="success">{msg}</Alert>}
         {err && <Alert type="error">{err}</Alert>}
         <Field label={tx("email", "Email")}><input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
         <Field label={tx("password", "Password")}><PasswordInput required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="current-password" /></Field>
@@ -163,7 +214,8 @@ export function LoginScreen({ scope, staff }) {
         <div className="flex justify-end"><Link to={p.forgot} className={`text-xs ${AUTH_LINK}`}>{tx("forgotPassword", "Forgot password?")}</Link></div>
         <button className={AUTH_PRIMARY_BTN} disabled={loading}>{loading ? tx("signingIn", "Signing in…") : needs2FA ? tx("verifyLogin", "Verify & Login") : tx("login", "Login")}</button>
       </form>
-      {needs2FA && passkey2FA && passkeyOk && (
+      )}
+      {needs2FA && passkey2FA && passkeyOk && !needsLoginOtp && (
         <>
           <div className={`my-3 flex items-center gap-3 text-xs ${AUTH_MUTED}`}><div className="h-px flex-1 bg-border" />{tx("or", "OR")}<div className="h-px flex-1 bg-border" /></div>
           <button
@@ -177,7 +229,7 @@ export function LoginScreen({ scope, staff }) {
           <p className="mt-2 text-center text-xs text-muted-foreground">{tx("passkey2faHint", "Or use your registered passkey instead of the authenticator code")}</p>
         </>
       )}
-      {passkeyOk && !needs2FA && (
+      {passkeyOk && !needs2FA && !needsLoginOtp && (
         <>
           <button
             type="button"
@@ -194,7 +246,7 @@ export function LoginScreen({ scope, staff }) {
           )}
         </>
       )}
-      {!staff && (
+      {!staff && !needsLoginOtp && (
         <>
           <div className={`my-4 flex items-center gap-3 text-xs ${AUTH_MUTED}`}><div className="h-px flex-1 bg-border" />{tx("or", "OR")}<div className="h-px flex-1 bg-border" /></div>
           <GoogleButton scope={scope} onCredential={onGoogle} />

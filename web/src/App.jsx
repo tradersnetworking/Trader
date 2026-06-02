@@ -32,20 +32,15 @@ import {
 
 
 
-import Home from "./pages/main/Home.jsx";
-
-import Products from "./pages/main/Products.jsx";
-
-import ProductDetail from "./pages/main/ProductDetail.jsx";
-
-import Sell from "./pages/main/Sell.jsx";
-
-import UserDashboard from "./pages/main/UserDashboard.jsx";
-
-import AdminDashboard from "./pages/main/AdminDashboard.jsx";
 import PaymentReturnPage from "./pages/main/PaymentReturnPage.jsx";
 
-import CategoriesPage from "./pages/main/CategoriesPage.jsx";
+const LazyMainHome = lazy(() => import("./pages/main/Home.jsx"));
+const LazyProducts = lazy(() => import("./pages/main/Products.jsx"));
+const LazyProductDetail = lazy(() => import("./pages/main/ProductDetail.jsx"));
+const LazySell = lazy(() => import("./pages/main/Sell.jsx"));
+const LazyUserDashboard = lazy(() => import("./pages/main/UserDashboard.jsx"));
+const LazyMainAdminDashboard = lazy(() => import("./pages/main/AdminDashboard.jsx"));
+const LazyCategoriesPage = lazy(() => import("./pages/main/CategoriesPage.jsx"));
 
 import { AboutUs, PrivacyPolicy, ReturnsRefund, TermsOfService, ContactUs, FaqPage } from "./pages/main/StaticPages.jsx";
 
@@ -181,15 +176,15 @@ function MainRoutes() {
 
     <Routes>
 
-      <Route path="/" element={M(<Home />)} />
+      <Route path="/" element={M(<LazyPage><LazyMainHome /></LazyPage>)} />
 
-      <Route path="/products" element={M(<Products />)} />
+      <Route path="/products" element={M(<LazyPage><LazyProducts /></LazyPage>)} />
 
-      <Route path="/products/:slug" element={M(<ProductDetail />)} />
+      <Route path="/products/:slug" element={M(<LazyPage><LazyProductDetail /></LazyPage>)} />
 
-      <Route path="/sell" element={M(<Sell />)} />
+      <Route path="/sell" element={M(<LazyPage><LazySell /></LazyPage>)} />
 
-      <Route path="/categories" element={M(<CategoriesPage />)} />
+      <Route path="/categories" element={M(<LazyPage><LazyCategoriesPage /></LazyPage>)} />
 
       <Route path="/about" element={M(<AboutUs />)} />
 
@@ -217,9 +212,9 @@ function MainRoutes() {
 
 
 
-      <Route path="/dashboard" element={<RequireAuth scope="main"><UserDashboard /></RequireAuth>} />
+      <Route path="/dashboard" element={<RequireAuth scope="main"><LazyPage><LazyUserDashboard /></LazyPage></RequireAuth>} />
 
-      <Route path="/admin" element={<RequireAuth scope="main" roles={["ADMIN", "SUPERADMIN", "STAFF"]}><AdminDashboard /></RequireAuth>} />
+      <Route path="/admin" element={<RequireAuth scope="main" roles={["ADMIN", "SUPERADMIN", "STAFF"]}><LazyPage><LazyMainAdminDashboard /></LazyPage></RequireAuth>} />
 
 
 

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
+import MainCheckoutModal from "../../components/main/MainCheckoutModal.jsx";
 import ProductImage from "../../components/ProductImage.jsx";
 
 export default function Products() {
@@ -61,20 +62,29 @@ export default function Products() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.length === 0 && <p className="text-slate-400">No products found.</p>}
           {products.map((p) => (
-            <div key={p.id} className="card flex flex-col overflow-hidden">
+            <div key={p.id} className="card flex flex-col overflow-hidden transition hover:shadow-lg">
               <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-muted">
                 <ProductImage product={p} className="h-full w-full" aspect={false} />
-                <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{p.listingType}</span>
+                <span className={`badge absolute left-2 top-2 ${p.listingType === "EXPORT" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                  {p.listingType === "EXPORT" ? "Export" : "Import req."}
+                </span>
+                {p.inStock !== false && <span className="absolute right-2 top-2 rounded bg-navy/80 px-1.5 py-0.5 text-[10px] font-bold text-white">In stock</span>}
               </Link>
               <div className="flex flex-1 flex-col p-4">
-                <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2">{p.name}</Link>
-                <p className="text-xs text-slate-400">{p.category?.name} • {p.origin}</p>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>
-                <div className="mt-2 text-lg font-bold text-navy">{inr(p.basePrice)}<span className="text-xs font-normal text-slate-400">/{p.unit}</span></div>
-                <p className="text-xs text-slate-400">Min order: {p.minOrderQty} {p.unit}</p>
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-gold flex-1">Request Quote</button>
-                  <button onClick={() => setQuote({ product: p, direction: "SELL" })} className="btn-outline">Supply</button>
+                <Link to={`/products/${p.slug}`} className="main-link font-semibold line-clamp-2 hover:text-gold">{p.name}</Link>
+                <p className="text-xs text-slate-400">{p.category?.name} • {p.origin || "Global"}</p>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-xl font-extrabold text-navy">{inr(p.basePrice)}</span>
+                  <span className="text-xs text-slate-400">/{p.unit}</span>
+                </div>
+                <p className="text-xs text-slate-400">MOQ {p.minOrderQty} {p.unit}</p>
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
+                  <button type="button" onClick={() => setCheckout({ product: p, mode: "full" })} className="btn-gold col-span-2 text-xs py-2">Buy now</button>
+                  {p.listingType === "IMPORT" && (
+                    <button type="button" onClick={() => setCheckout({ product: p, mode: "advance" })} className="btn-outline col-span-2 text-xs py-2 text-emerald-700">Pay advance</button>
+                  )}
+                  <button type="button" onClick={() => setQuote({ product: p, direction: "BUY" })} className="btn-outline text-xs py-2">Quote</button>
+                  <button type="button" onClick={() => setQuote({ product: p, direction: "SELL" })} className="btn-outline text-xs py-2">Supply</button>
                 </div>
               </div>
             </div>
@@ -83,6 +93,7 @@ export default function Products() {
       </div>
 
       {quote && <QuoteModal open onClose={() => setQuote(null)} product={quote.product} direction={quote.direction} />}
+      {checkout && <MainCheckoutModal open onClose={() => setCheckout(null)} product={checkout.product} mode={checkout.mode} />}
     </div>
   );
 }

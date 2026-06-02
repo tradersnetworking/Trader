@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { investApi } from "../../lib/api.js";
+import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
-import { Badge, Modal, Field, Alert, PasswordInput } from "../ui.jsx";
+import { ADMIN_MAX_MONTHLY_ROI_PCT } from "../../lib/adminRoiLimits.js";
+import { Badge, Field, Alert, PasswordInput } from "../ui.jsx";
+import KycFullViewModal from "./KycFullViewModal.jsx";
+import AgreementPdfViewDialog from "./AgreementPdfViewDialog.jsx";
 
 const MANAGE_TABS = [
   { id: "profile", label: "KYC & Bank" },
@@ -27,6 +31,8 @@ const EMPTY_CREATE = {
 };
 
 export default function InvestorOpsPanel() {
+  const { invest } = useAuth();
+  const isSuper = invest?.role === "SUPERADMIN";
   const [tab, setTab] = useState("list");
   const [investors, setInvestors] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -37,11 +43,21 @@ export default function InvestorOpsPanel() {
   const [err, setErr] = useState("");
   const [createForm, setCreateForm] = useState(EMPTY_CREATE);
   const [manageTab, setManageTab] = useState("profile");
+  const [viewKyc, setViewKyc] = useState(null);
+  const [pdfAgreement, setPdfAgreement] = useState(null);
 
   const [walletForm, setWalletForm] = useState({ amount: "", direction: "CREDIT", bucket: "available", note: "", sendNotice: true });
-  const [subForm, setSubForm] = useState({ planId: "", amount: "", customMonthlyRoiPct: "", roiOverrideNote: "", skipBalanceCheck: false });
-  const [roiForm, setRoiForm] = useState({ subscriptionId: "", monthlyRoiPct: "", roiOverrideNote: "" });
+  const [subForm, setSubForm] = useState({
+    planId: "",
+    amount: "",
+    lockInMonths: "",
+    customMonthlyRoiPct: "",
+    roiOverrideNote: "",
+    skipBalanceCheck: false,
+  });
+  const [roiForm, setRoiForm] = useState({ subscriptionId: "", monthlyRoiPct: "", lockInMonths: "", roiOverrideNote: "" });
   const [payoutForm, setPayoutForm] = useState({ amount: "", payoutKind: "ROI_RETURN", mode: "UPI", remarks: "" });
+  const [resetPwd, setResetPwd] = useState({ password: "", sendLink: false });
 
   const load = () => {
     investApi("/admin/investors").then((d) => setInvestors((d.investors || []).filter((i) => i.role === "INVESTOR"))).catch(() => {});
@@ -161,6 +177,7 @@ export default function InvestorOpsPanel() {
         body: {
           ...subForm,
           amount: Number(subForm.amount),
+          customLockInMonths: subForm.lockInMonths ? Number(subForm.lockInMonths) : undefined,
           customMonthlyRoiPct: subForm.customMonthlyRoiPct ? Number(subForm.customMonthlyRoiPct) : undefined,
         },
       });
@@ -178,10 +195,45 @@ export default function InvestorOpsPanel() {
     try {
       await investApi(`/admin/subscriptions/${roiForm.subscriptionId}/roi`, {
         method: "PATCH",
-        body: { monthlyRoiPct: Number(roiForm.monthlyRoiPct), roiOverrideNote: roiForm.roiOverrideNote },
+        body: {
+          monthlyRoiPct: Number(roiForm.monthlyRoiPct),
+          lockInMonths: roiForm.lockInMonths ? Number(roiForm.lockInMonths) : undefined,
+          roiOverrideNote: roiForm.roiOverrideNote,
+        },
       });
       flash("Custom ROI updated — investor notified.");
       await loadDetail(detail.id);
+    } catch (e2) {
+      flash("", e2.message);
+    }
+  };
+
+  const toggleActive = async (investor, next) => {
+    if (!isSuper) return;
+    flash();
+    try {
+      await investApi(`/admin/investors/${investor.id}`, { method: "PATCH", body: { isActive: next } });
+      flash(next ? `${investor.name} unblocked.` : `${investor.name} blocked.`);
+      load();
+      if (detail?.id === investor.id) await loadDetail(investor.id);
+    } catch (e2) {
+      flash("", e2.message);
+    }
+  };
+
+  const resetPassword = async (e) => {
+    e.preventDefault();
+    if (!isSuper || !detail) return;
+    flash();
+    try {
+      const r = await investApi(`/admin/investors/${detail.id}/reset-password`, {
+        method: "POST",
+        body: resetPwd.sendLink
+          ? { sendResetLink: true }
+          : { password: resetPwd.password },
+      });
+      flash(r.message || "Password reset.");
+      setResetPwd({ password: "", sendLink: false });
     } catch (e2) {
       flash("", e2.message);
     }
@@ -202,8 +254,12 @@ export default function InvestorOpsPanel() {
     }
   };
 
+  const selectedPlan = plans.find((p) => p.id === subForm.planId);
+
   return (
     <div className="page-stack">
+      <KycFullViewModal open={Boolean(viewKyc)} kyc={viewKyc} onClose={() => setViewKyc(null)} />
+
       <div>
         <h2 className="text-lg font-bold">Investor Management</h2>
         <p className="text-sm text-muted-foreground">
@@ -258,7 +314,8 @@ export default function InvestorOpsPanel() {
                   <th className="p-3">Email / Phone</th>
                   <th className="p-3">Wallet</th>
                   <th className="p-3">KYC</th>
-                  <th className="p-3"></th>
+                  {isSuper && <th className="p-3">Active</th>}
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -268,8 +325,36 @@ export default function InvestorOpsPanel() {
                     <td className="p-3 text-muted-foreground">{i.email}<br /><span className="text-xs">{i.phone || "—"}</span></td>
                     <td className="p-3">{inr(i.wallet?.available || 0)} avail · {inr(i.wallet?.invested || 0)} inv</td>
                     <td className="p-3"><Badge status={i.kyc?.status || "PENDING"} /></td>
+                    {isSuper && (
+                      <td className="p-3">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-border"
+                            checked={i.isActive !== false}
+                            onChange={(e) => toggleActive(i, e.target.checked)}
+                          />
+                          <span>{i.isActive !== false ? "On" : "Blocked"}</span>
+                        </label>
+                      </td>
+                    )}
                     <td className="p-3 text-right">
-                      <button type="button" className="text-xs font-semibold text-primary" onClick={() => loadDetail(i.id)}>Manage</button>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {i.kyc ? (
+                          <button
+                            type="button"
+                            className="btn-outline px-2 py-1 text-xs"
+                            onClick={() => setViewKyc({ ...i.kyc, investor: i })}
+                          >
+                            View KYC
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No KYC</span>
+                        )}
+                        <button type="button" className="btn-gold px-2 py-1 text-xs" onClick={() => loadDetail(i.id)}>
+                          Manage
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -310,8 +395,29 @@ export default function InvestorOpsPanel() {
         <div className="space-y-4">
           <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
-              <div className="font-bold">{detail.name}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold">{detail.name}</span>
+                {isSuper && (
+                  <label className="inline-flex items-center gap-2 rounded-lg border border-border px-2 py-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={detail.isActive !== false}
+                      onChange={(e) => toggleActive(detail, e.target.checked)}
+                    />
+                    Account {detail.isActive !== false ? "active" : "blocked"}
+                  </label>
+                )}
+              </div>
               <div className="text-sm text-muted-foreground">{detail.email} · {detail.phone || "No phone"}</div>
+              {detail.kyc && (
+                <button
+                  type="button"
+                  className="mt-2 text-xs font-semibold text-primary"
+                  onClick={() => setViewKyc({ ...detail.kyc, investor: detail })}
+                >
+                  View full KYC
+                </button>
+              )}
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
               <span>Avail: <b>{inr(detail.wallet?.available || 0)}</b></span>
@@ -319,6 +425,53 @@ export default function InvestorOpsPanel() {
               <span>Earnings: <b>{inr(detail.wallet?.earnings || 0)}</b></span>
             </div>
           </div>
+
+          {(detail.loginSessions?.length > 0) && (
+            <div className="card p-4">
+              <h4 className="text-sm font-bold">Login history (IP & location)</h4>
+              <p className="mt-1 text-xs text-muted-foreground">One active device per account. New login signs out other devices.</p>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-xs">
+                  <thead className="text-left uppercase text-muted-foreground">
+                    <tr>
+                      <th className="p-2">When</th>
+                      <th className="p-2">IP</th>
+                      <th className="p-2">Location</th>
+                      <th className="p-2">Device</th>
+                      <th className="p-2">Current</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.loginSessions.map((s) => (
+                      <tr key={s.id} className="border-t border-border">
+                        <td className="p-2">{dateStr(s.createdAt, true)}</td>
+                        <td className="p-2 font-mono">{s.ipAddress || "—"}</td>
+                        <td className="p-2">{[s.city, s.region, s.country].filter(Boolean).join(", ") || "—"}</td>
+                        <td className="p-2">{s.deviceLabel || "—"}</td>
+                        <td className="p-2">{s.isCurrent ? "Yes" : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {isSuper && (
+            <form onSubmit={resetPassword} className="card max-w-lg space-y-3 p-5 border border-amber-500/20">
+              <h4 className="text-sm font-bold">Reset password (Super Admin)</h4>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={resetPwd.sendLink} onChange={(e) => setResetPwd({ ...resetPwd, sendLink: e.target.checked })} />
+                Email password reset link instead
+              </label>
+              {!resetPwd.sendLink && (
+                <Field label="New password (min 8)">
+                  <PasswordInput minLength={8} value={resetPwd.password} onChange={(e) => setResetPwd({ ...resetPwd, password: e.target.value })} autoComplete="new-password" />
+                </Field>
+              )}
+              <button className="btn-outline text-sm" type="submit">Reset password</button>
+            </form>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {MANAGE_TABS.map(({ id, label }) => (
@@ -382,8 +535,48 @@ export default function InvestorOpsPanel() {
                   {plans.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.monthlyRoiPct}%/mo</option>)}
                 </select>
               </Field>
-              <Field label="Amount (₹)"><input className="input" type="number" required value={subForm.amount} onChange={(e) => setSubForm({ ...subForm, amount: e.target.value })} /></Field>
-              <Field label="Custom monthly ROI % (optional override)"><input className="input" type="number" step="0.1" placeholder="Leave blank to use plan default" value={subForm.customMonthlyRoiPct} onChange={(e) => setSubForm({ ...subForm, customMonthlyRoiPct: e.target.value })} /></Field>
+              <Field label="Amount (₹)">
+                <input
+                  className="input"
+                  type="number"
+                  required
+                  min={selectedPlan?.minInvestment}
+                  max={selectedPlan?.maxInvestment}
+                  value={subForm.amount}
+                  onChange={(e) => setSubForm({ ...subForm, amount: e.target.value })}
+                />
+                {selectedPlan && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Plan range: {inr(selectedPlan.minInvestment)} – {inr(selectedPlan.maxInvestment)}
+                  </p>
+                )}
+              </Field>
+              <Field label="Lock-in (months, optional)">
+                <input
+                  className="input"
+                  type="number"
+                  min="1"
+                  max="60"
+                  placeholder={selectedPlan ? String(Math.round(selectedPlan.lockInDays / 30)) : "Plan default"}
+                  value={subForm.lockInMonths}
+                  onChange={(e) => setSubForm({ ...subForm, lockInMonths: e.target.value })}
+                />
+              </Field>
+              <Field label={`Custom monthly ROI % (optional${!isSuper ? `, max ${ADMIN_MAX_MONTHLY_ROI_PCT}%` : ""})`}>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max={isSuper ? undefined : ADMIN_MAX_MONTHLY_ROI_PCT}
+                  placeholder="Leave blank to use plan default"
+                  value={subForm.customMonthlyRoiPct}
+                  onChange={(e) => setSubForm({ ...subForm, customMonthlyRoiPct: e.target.value })}
+                />
+                {!isSuper && (
+                  <p className="mt-1 text-xs text-muted-foreground">Admins cannot set monthly ROI above {ADMIN_MAX_MONTHLY_ROI_PCT}%. Super Admin has no limit.</p>
+                )}
+              </Field>
               <Field label="ROI override note"><input className="input" value={subForm.roiOverrideNote} onChange={(e) => setSubForm({ ...subForm, roiOverrideNote: e.target.value })} /></Field>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={subForm.skipBalanceCheck} onChange={(e) => setSubForm({ ...subForm, skipBalanceCheck: e.target.checked })} /> Skip balance check (credit wallet first if needed)</label>
               <button className="btn-gold">Assign plan & invest</button>
@@ -397,14 +590,47 @@ export default function InvestorOpsPanel() {
                 {(detail.subscriptions || []).filter((s) => s.status === "ACTIVE").map((s) => (
                   <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border-b py-2 text-sm last:border-0">
                     <span>{s.plan?.name} — {inr(s.amount)} @ {s.monthlyRoiPct}%/mo</span>
-                    <button type="button" className="text-xs text-primary" onClick={() => setRoiForm({ subscriptionId: s.id, monthlyRoiPct: String(s.monthlyRoiPct), roiOverrideNote: s.roiOverrideNote || "" })}>Adjust ROI</button>
+                    <button
+                      type="button"
+                      className="text-xs text-primary"
+                      onClick={() =>
+                        setRoiForm({
+                          subscriptionId: s.id,
+                          monthlyRoiPct: String(s.monthlyRoiPct),
+                          lockInMonths: String(Math.round((s.lockInDays || s.plan?.lockInDays || 360) / 30)),
+                          roiOverrideNote: s.roiOverrideNote || "",
+                        })
+                      }
+                    >
+                      Adjust terms
+                    </button>
                   </div>
                 ))}
                 {!detail.subscriptions?.some((s) => s.status === "ACTIVE") && <p className="text-sm text-muted-foreground">No active subscriptions.</p>}
               </div>
               {roiForm.subscriptionId && (
                 <form onSubmit={updateRoi} className="card max-w-lg space-y-3 p-5">
-                  <Field label="New monthly ROI %"><input className="input" type="number" step="0.1" required value={roiForm.monthlyRoiPct} onChange={(e) => setRoiForm({ ...roiForm, monthlyRoiPct: e.target.value })} /></Field>
+                  <Field label={`New monthly ROI %${!isSuper ? ` (max ${ADMIN_MAX_MONTHLY_ROI_PCT}%)` : ""}`}>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      required
+                      max={isSuper ? undefined : ADMIN_MAX_MONTHLY_ROI_PCT}
+                      value={roiForm.monthlyRoiPct}
+                      onChange={(e) => setRoiForm({ ...roiForm, monthlyRoiPct: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Lock-in (months)">
+                    <input
+                      className="input"
+                      type="number"
+                      min="1"
+                      max="60"
+                      value={roiForm.lockInMonths}
+                      onChange={(e) => setRoiForm({ ...roiForm, lockInMonths: e.target.value })}
+                    />
+                  </Field>
                   <Field label="Reason / note"><input className="input" value={roiForm.roiOverrideNote} onChange={(e) => setRoiForm({ ...roiForm, roiOverrideNote: e.target.value })} /></Field>
                   <button className="btn-gold">Save custom ROI</button>
                 </form>
@@ -438,8 +664,46 @@ export default function InvestorOpsPanel() {
               <button className="btn-gold">Send notice & schedule payout</button>
             </form>
           )}
+
+          {isSuper && (detail.agreements?.length > 0) && (
+            <div className="card p-5">
+              <h4 className="mb-3 font-bold">All agreements (including archived)</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead className="text-left text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="p-2">Ref / Title</th>
+                      <th className="p-2">Plan</th>
+                      <th className="p-2">Status</th>
+                      <th className="p-2">Subscription</th>
+                      <th className="p-2 text-right">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.agreements.map((a) => (
+                      <tr key={a.id} className="border-t border-border">
+                        <td className="p-2">
+                          <div className="font-mono text-xs">{a.agreementUid || a.id.slice(-8)}</div>
+                          <div className="text-xs text-muted-foreground">{a.title}</div>
+                        </td>
+                        <td className="p-2">{a.subscription?.plan?.name || "—"}</td>
+                        <td className="p-2"><Badge status={a.status} /></td>
+                        <td className="p-2 text-xs">{a.subscription?.status || "—"}</td>
+                        <td className="p-2 text-right">
+                          <button type="button" className="btn-outline px-2 py-1 text-xs" onClick={() => setPdfAgreement(a)}>
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
+      <AgreementPdfViewDialog admin open={Boolean(pdfAgreement)} agreementId={pdfAgreement?.id} agreementUid={pdfAgreement?.agreementUid} onClose={() => setPdfAgreement(null)} />
     </div>
   );
 }

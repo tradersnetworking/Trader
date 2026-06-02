@@ -3,6 +3,7 @@ import { investApi } from "../../lib/api.js";
 import { inr, dateStr, daysLeft } from "../../lib/format.js";
 import { Badge, Alert } from "../ui.jsx";
 import PlanShareIcons from "./PlanShareIcons.jsx";
+import AgreementPdfViewDialog from "./AgreementPdfViewDialog.jsx";
 import InvestmentCertificate from "./InvestmentCertificate.jsx";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
@@ -18,6 +19,7 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
   const [exitPreview, setExitPreview] = useState(null);
   const [exitBusy, setExitBusy] = useState(false);
   const [exitMsg, setExitMsg] = useState("");
+  const [pdfAgreement, setPdfAgreement] = useState(null);
 
   useEffect(() => {
     if (!subscriptionId) return;
@@ -90,7 +92,10 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
             <h2 className="text-xl font-bold text-foreground">{s.plan?.name || "Investment"}</h2>
             <Badge status={s.matured ? "MATURED" : s.status} />
           </div>
-          <p className="text-sm text-muted-foreground">{s.plan?.planType} • {Math.round(s.lockInDays / 30)} month lock-in</p>
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+            {s.monthlyRoiPct}% profit share per month · {Math.round(s.lockInDays / 30)}-month lock-in
+          </p>
+          <p className="text-sm text-muted-foreground">{s.plan?.planType} · {s.settlementCycle} settlement</p>
         </div>
         <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />
         <button type="button" className="btn-outline text-xs" disabled={certBusy} onClick={loadCertificate}>
@@ -114,6 +119,8 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
             ["Matures", `${dateStr(s.maturityDate)} (${daysLeft(s.maturityDate)} days)`],
             ["Settlement", s.settlementCycle],
             ["Compounding", s.compounding ? "Enabled (post lock-in)" : "At maturity only"],
+            ["Monthly profit share", `${s.monthlyRoiPct}%`],
+            ["Lock-in period", `${Math.round(s.lockInDays / 30)} months (${s.lockInDays} days)`],
             ["Annual ROI", `${(s.monthlyRoiPct * 12).toFixed(1)}%`],
             ["Status", s.matured ? "Matured" : s.status],
             ["Maturity Action", s.maturityAction || "Not chosen yet"],
@@ -160,6 +167,25 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
         </div>
       )}
 
+      {s.status === "ACTIVE" && s.agreements?.filter((a) => a.status !== "PURGED").length > 0 && (
+        <div className="card p-5">
+          <h3 className="mb-3 font-bold text-foreground">Investment agreement</h3>
+          {s.agreements
+            .filter((a) => a.status !== "PURGED")
+            .map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 last:border-0">
+                <div>
+                  <p className="text-sm font-medium">{a.title}</p>
+                  <p className="text-xs text-muted-foreground">{a.agreementUid} · <Badge status={a.status} /></p>
+                </div>
+                <button type="button" className="btn-outline text-xs" onClick={() => setPdfAgreement(a)}>
+                  View agreement
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
+
       {data.ledger?.length > 0 && (
         <div className="card p-5">
           <h3 className="mb-3 font-bold text-foreground">Related Ledger</h3>
@@ -174,6 +200,12 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
         </div>
       )}
       {cert && <InvestmentCertificate data={cert} onClose={() => setCert(null)} />}
+      <AgreementPdfViewDialog
+        open={Boolean(pdfAgreement)}
+        agreementId={pdfAgreement?.id}
+        agreementUid={pdfAgreement?.agreementUid}
+        onClose={() => setPdfAgreement(null)}
+      />
     </div>
   );
 }

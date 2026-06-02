@@ -58,6 +58,7 @@ export default function InvestorDashboard() {
   const setTab = (id, extra = {}) => {
     const params = { tab: id, ...extra };
     if (id !== "investments") delete params.subId;
+    if (id !== "money") delete params.moneyTab;
     setSp(params);
   };
   const clearResumePlan = () => setSp({ tab: "plans" }, { replace: true });
@@ -142,10 +143,10 @@ export default function InvestorDashboard() {
       }
     >
       <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore(); emitInvestRefresh(); }} />
-      {!investEligibility(invest, kyc).canInvest && tab !== "overview" && tab !== "kyc" && (
+      {!investEligibility(invest, kyc).canInvest && ["plans", "investments", "agreements"].includes(tab) && (
         <div className="mb-4">
           <Alert type="info">
-            {investEligibility(invest, kyc).message}{" "}
+            {investEligibility(invest, kyc).message} You can still add funds to your wallet.{" "}
             <button type="button" className="font-bold underline" onClick={() => setTab("kyc")}>
               Complete KYC →
             </button>
@@ -394,15 +395,20 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
               <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />
             </div>
           </div>
+          <div className="mb-2 rounded-lg bg-amber-500/10 px-2 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
+            {s.monthlyRoiPct}% profit share / month · {Math.round((s.lockInDays || s.plan?.lockInDays || 0) / 30)}-month lock-in
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
             <div><span className="text-slate-400">Invested</span><div className="font-bold text-navy">{inr(s.amount)}</div></div>
             <div><span className="text-slate-400">Monthly Return</span><div className="font-bold text-gold-600">{inr(s.monthlyReturn)}</div></div>
             <div><span className="text-slate-400">Started</span><div>{dateStr(s.startDate)}</div></div>
             <div><span className="text-slate-400">Matures</span><div>{dateStr(s.maturityDate)} ({daysLeft(s.maturityDate)}d)</div></div>
           </div>
-          <div className="mt-3 rounded bg-slate-50 p-2 text-sm dark:bg-white/5">
-            Projected maturity ({s.matured ? "compounded" : "simple"}): <b className="text-navy dark:text-white">{inr(s.projection.maturityValue)}</b>
-          </div>
+          {s.projection && (
+            <div className="mt-3 rounded bg-slate-50 p-2 text-sm dark:bg-white/5">
+              Projected maturity ({s.matured ? "compounded" : "simple"}): <b className="text-navy dark:text-white">{inr(s.projection.maturityValue)}</b>
+            </div>
+          )}
           <p className="mt-2 text-xs font-semibold text-primary">View details →</p>
         </div>
       ))}

@@ -26,6 +26,17 @@ export async function listInvestPlans({ activeOnly = false } = {}) {
       if (!byKey.has(key)) byKey.set(key, row);
     }
     list = [...byKey.values()];
+    if (list.length === 0) {
+      const fallback = await investDb.plan.findMany({
+        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      });
+      const fbMap = new Map();
+      for (const row of fallback) {
+        const key = planListKey(row);
+        if (!fbMap.has(key)) fbMap.set(key, row);
+      }
+      list = [...fbMap.values()];
+    }
   }
 
   return sortPlansByTier(list.map(normalizePlanRoi));

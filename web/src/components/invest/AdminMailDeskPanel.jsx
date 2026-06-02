@@ -3,12 +3,13 @@ import { investApi, investApiForm } from "../../lib/api.js";
 import { dateStr } from "../../lib/format.js";
 import { Alert, Badge, Field } from "../ui.jsx";
 
-/** Kuber-style mail desk: IMAP inbox, compose with attachments, reply. */
+/** Mail desk: IMAP inbox, compose/reply with attachments. */
 export default function AdminMailDeskPanel() {
   const [tab, setTab] = useState("inbox");
   const [messages, setMessages] = useState([]);
   const [active, setActive] = useState(null);
   const [reply, setReply] = useState("");
+  const [replyFiles, setReplyFiles] = useState([]);
   const [compose, setCompose] = useState({ to: "", subject: "", body: "" });
   const [files, setFiles] = useState([]);
   const [settings, setSettings] = useState({});
@@ -35,7 +36,7 @@ export default function AdminMailDeskPanel() {
     setMsg("");
     try {
       const r = await investApi("/admin/support-mail/sync", { method: "POST" });
-      setMsg(r.skipped ? "IMAP sync disabled — configure in Invest Settings." : `Synced ${r.synced || 0} message(s).`);
+      setMsg(r.skipped ? "IMAP sync disabled — configure support mailbox in Mail Settings." : `Synced ${r.synced || 0} message(s).`);
       load();
     } catch (e) {
       setErr(e.message);
@@ -46,10 +47,19 @@ export default function AdminMailDeskPanel() {
 
   const sendReply = async (id) => {
     if (!reply.trim()) return;
-    await investApi(`/admin/support-mail/${id}/reply`, { method: "POST", body: { body: reply.replace(/\n/g, "<br>") } });
-    setReply("");
-    setMsg("Reply sent.");
-    load();
+    setErr("");
+    const fd = new FormData();
+    fd.append("body", reply.replace(/\n/g, "<br>"));
+    replyFiles.forEach((f) => fd.append("attachments", f));
+    try {
+      await investApiForm(`/admin/support-mail/${id}/reply`, fd);
+      setReply("");
+      setReplyFiles([]);
+      setMsg(replyFiles.length ? `Reply sent with ${replyFiles.length} attachment(s).` : "Reply sent.");
+      load();
+    } catch (e2) {
+      setErr(e2.message);
+    }
   };
 
   const sendCompose = async (e) => {
@@ -73,14 +83,14 @@ export default function AdminMailDeskPanel() {
     }
   };
 
-  const fromLabel = settings.default_communication_email || settings.mail_from || settings.support_email || "Configure in Communication settings";
+  const fromLabel = settings.default_communication_email || settings.mail_from || settings.support_email || "Configure in Communication → Mail Settings";
 
   return (
     <div className="page-stack">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-bold">Mail Desk</h3>
-          <p className="text-sm text-muted-foreground">Compose, sync inbox, and reply to users — like Kuber support desk.</p>
+          <h3 className="font-bold">Support Mail Desk</h3>
+          <p className="text-sm text-muted-foreground">View synced support inbox emails and reply with attachments (same as compose).</p>
           <p className="mt-1 text-xs text-muted-foreground">Sending as: <strong>{fromLabel}</strong></p>
         </div>
         <div className="flex gap-2">
@@ -126,10 +136,14 @@ export default function AdminMailDeskPanel() {
               </button>
               {active === m.id && (
                 <div className="mt-3 border-t border-border pt-3">
-                  <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm">{m.body}</div>
+                  <div className="max-h-48 overflow-y-auto whitespace-pre-wrap text-sm">{m.body?.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")}</div>
                   {m.category !== "OUTBOUND" && (
                     <>
                       <textarea className="input mt-3 w-full" rows={4} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type reply…" />
+                      <div className="mt-2">
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">Attachments (optional, max 5)</p>
+                        <input type="file" className="input py-1.5" multiple accept="image/*,.pdf" onChange={(e) => setReplyFiles([...e.target.files])} />
+                      </div>
                       <button type="button" className="btn-gold mt-2 text-sm" onClick={() => sendReply(m.id)}>Send reply</button>
                     </>
                   )}

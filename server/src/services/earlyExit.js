@@ -1,5 +1,6 @@
 import { investDb } from "../db.js";
 import { getSetting } from "./investSettings.js";
+import { purgeAgreementsForSubscription } from "./agreements.js";
 
 async function appendLedger(investorId, { type, direction, amount, reference, note }) {
   let wallet = await investDb.wallet.findUnique({ where: { investorId } });
@@ -68,6 +69,7 @@ export async function processEarlyExit(subscriptionId, investorId) {
     where: { id: sub.id },
     data: { status: "CANCELLED", maturityAction: "EARLY_EXIT", maturityActionAt: new Date() },
   });
+  await purgeAgreementsForSubscription(sub.id, "Investment terminated (early exit by investor)");
 
   await investDb.wallet.update({
     where: { investorId },

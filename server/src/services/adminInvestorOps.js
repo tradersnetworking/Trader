@@ -1,6 +1,7 @@
 import { investDb } from "../db.js";
 import { hashPassword } from "../utils/auth.js";
-import { maturityDate, validateSettlementCycle } from "../utils/invest.js";
+import { maturityDate, validateSettlementCycle, lockInDaysFromMonths } from "../utils/invest.js";
+import { validateAdminMonthlyRoi, validateAdminLockInDays } from "../utils/adminRoiLimits.js";
 import { addLedger } from "../routes/investInvestor.js";
 import { notifyInvestor } from "./notifications.js";
 import { notifyInvestmentActivity } from "./investNotifications.js";
@@ -158,13 +159,32 @@ export async function updateInvestorFull(investorId, body, actor) {
 }
 
 export async function adminAssignSubscription(investorId, body, actor) {
-  const { planId, amount, settlementCycle, customMonthlyRoiPct, roiOverrideNote, skipBalanceCheck } = body;
+  const {
+    planId,
+    amount,
+    settlementCycle,
+    customMonthlyRoiPct,
+    customLockInDays,
+    customLockInMonths,
+    roiOverrideNote,
+    skipBalanceCheck,
+  } = body;
   const plan = await investDb.plan.findUnique({ where: { id: planId } });
   if (!plan || !plan.isActive) throw new Error("Plan not available");
 
   const amt = Number(amount);
-  if (!amt || amt < plan.minInvestment || amt > plan.maxInvestment) {
-    throw new Error(`Amount must be between ${plan.minInvestment} and ${plan.maxInvestment}`);
+  if (!amt || amt <= 0) throw new Error("Invalid investment amount");
+  if (actor?.role !== "SUPERADMIN") {
+    if (amt < plan.minInvestment || amt > plan.maxInvestment) {
+      throw new Error(`Amount must be between ${plan.minInvestment} and ${plan.maxInvestment}`);
+    }
+  }
+
+  let lockInDays = Number(plan.lockInDays);
+  if (customLockInDays != null) {
+    lockInDays = validateAdminLockInDays(Number(customLockInDays), actor);
+  } else if (customLockInMonths != null) {
+    lockInDays = validateAdminLockInDays(lockInDaysFromMonths(Number(customLockInMonths)), actor);
   }
 
   const wallet = await investDb.wallet.findUnique({ where: { investorId } });
@@ -178,10 +198,15 @@ export async function adminAssignSubscription(investorId, body, actor) {
     throw new Error("Insufficient available balance. Credit wallet first or enable skip balance check.");
   }
 
-  const monthlyRoi = customMonthlyRoiPct != null ? Number(customMonthlyRoiPct) : plan.monthlyRoiPct;
+  const monthlyRoi =
+    customMonthlyRoiPct != null
+      ? validateAdminMonthlyRoi(customMonthlyRoiPct, actor)
+      : Number(plan.monthlyRoiPct);
   const cycleCheck = validateSettlementCycle(plan, settlementCycle);
   if (!cycleCheck.ok) throw new Error(cycleCheck.error);
   const start = new Date();
+  const hasCustomTerms =
+    customMonthlyRoiPct != null || customLockInDays != null || customLockInMonths != null;
 
   const sub = await investDb.subscription.create({
     data: {
@@ -190,10 +215,12 @@ export async function adminAssignSubscription(investorId, body, actor) {
       amount: amt,
       settlementCycle: cycleCheck.cycle,
       monthlyRoiPct: monthlyRoi,
-      roiOverrideNote: customMonthlyRoiPct != null ? (roiOverrideNote || "Admin custom ROI") : null,
-      lockInDays: plan.lockInDays,
+      roiOverrideNote: hasCustomTerms
+        ? roiOverrideNote || `Admin custom terms by ${actor?.name || "admin"}`
+        : null,
+      lockInDays,
       startDate: start,
-      maturityDate: maturityDate(start, plan.lockInDays),
+      maturityDate: maturityDate(start, lockInDays),
       status: "ACTIVE",
     },
   });
@@ -229,15 +256,31 @@ export async function adminAssignSubscription(investorId, body, actor) {
   return sub;
 }
 
-export async function updateSubscriptionRoi(subscriptionId, { monthlyRoiPct, roiOverrideNote }, actor) {
+export async function updateSubscriptionRoi(
+  subscriptionId,
+  { monthlyRoiPct, roiOverrideNote, lockInDays, lockInMonths },
+  actor
+) {
   const sub = await investDb.subscription.findUnique({ where: { id: subscriptionId }, include: { plan: true, investor: true } });
   if (!sub) throw new Error("Subscription not found");
-  const pct = Number(monthlyRoiPct);
-  if (!Number.isFinite(pct) || pct < 0 || pct > 100) throw new Error("Invalid ROI percentage");
+  const pct = validateAdminMonthlyRoi(monthlyRoiPct, actor);
+
+  const data = {
+    monthlyRoiPct: pct,
+    roiOverrideNote: roiOverrideNote || `Admin adjusted from ${sub.plan?.monthlyRoiPct}%`,
+  };
+  if (lockInDays != null || lockInMonths != null) {
+    const days =
+      lockInDays != null
+        ? validateAdminLockInDays(Number(lockInDays), actor)
+        : validateAdminLockInDays(lockInDaysFromMonths(Number(lockInMonths)), actor);
+    data.lockInDays = days;
+    data.maturityDate = maturityDate(sub.startDate, days);
+  }
 
   const updated = await investDb.subscription.update({
     where: { id: subscriptionId },
-    data: { monthlyRoiPct: pct, roiOverrideNote: roiOverrideNote || `Admin adjusted from ${sub.plan?.monthlyRoiPct}%` },
+    data,
   });
 
   await notifyInvestor(sub.investorId, "ROI rate updated", `Your ${sub.plan?.name || "investment"} monthly return is now ${pct}%.`, { type: "INFO", link: "investments" });
@@ -427,11 +470,14 @@ export async function adminWalletOperation(body, actor) {
   });
 
   if (target === "available" || target === "earnings") {
-    await addLedger(investorId, {
+    const manualNote =
+    note?.trim() ||
+    `[Manual admin] ${dir === "CREDIT" ? "Credit" : "Debit"} ${target} — ${actor?.name || "Admin"}`;
+  await addLedger(investorId, {
       type: dir === "CREDIT" && target === "earnings" ? "RETURN" : "ADJUSTMENT",
       direction: dir,
       amount: amt,
-      note: note || `Admin ${dir.toLowerCase()} — ${target}`,
+      note: manualNote.startsWith("[Manual") ? manualNote : `[Manual admin] ${manualNote}`,
     });
   }
 

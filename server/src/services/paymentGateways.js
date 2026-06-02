@@ -2,6 +2,7 @@ import { investDb } from "../db.js";
 import { config } from "../config.js";
 import { MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { getSetting } from "./investSettings.js";
+import { accountShowsForDeposit } from "./paymentModeVisibility.js";
 
 const ONLINE_PROVIDERS = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank"];
 
@@ -34,12 +35,15 @@ export async function listPaymentGateways({ enabledOnly = false, type } = {}) {
 }
 
 export async function getDepositAccountsForInvestor() {
+  const { getInvestorPaymentOptions } = await import("./paymentModeVisibility.js");
+  const opts = await getInvestorPaymentOptions();
   const rows = await listPaymentGateways({ enabledOnly: true });
   const grouped = { upi: [], bank: [], online: [] };
   for (const g of rows) {
-    if (g.type === "upi") grouped.upi.push(g);
-    else if (g.type === "bank") grouped.bank.push(g);
-    else if (g.type === "online") grouped.online.push(g);
+    if (!accountShowsForDeposit(g)) continue;
+    if (g.type === "upi" && opts.depositCategories.upi) grouped.upi.push(g);
+    else if (g.type === "bank" && opts.depositCategories.bank) grouped.bank.push(g);
+    else if (g.type === "online" && opts.depositCategories.gateway) grouped.online.push(g);
   }
   return grouped;
 }
@@ -113,6 +117,13 @@ export async function updatePaymentGateway(id, data) {
   if (data.minAmount !== undefined) patch.minAmount = Number(data.minAmount);
   if (data.maxAmount !== undefined) patch.maxAmount = data.maxAmount != null ? Number(data.maxAmount) : null;
   if (data.sortOrder !== undefined) patch.sortOrder = Number(data.sortOrder);
+  if (data.showDeposit !== undefined || data.showWithdraw !== undefined) {
+    const row = await investDb.paymentGateway.findUnique({ where: { id } });
+    const ec = parseExtraConfig(row?.extraConfig);
+    if (data.showDeposit !== undefined) ec.showDeposit = Boolean(data.showDeposit);
+    if (data.showWithdraw !== undefined) ec.showWithdraw = Boolean(data.showWithdraw);
+    patch.extraConfig = JSON.stringify(ec);
+  }
   if (data.extraConfig !== undefined) patch.extraConfig = data.extraConfig ? JSON.stringify(data.extraConfig) : null;
   const row = await investDb.paymentGateway.update({ where: { id }, data: patch });
   return serializeGateway(row);

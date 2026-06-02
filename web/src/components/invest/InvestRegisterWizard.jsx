@@ -106,7 +106,7 @@ export default function InvestRegisterWizard() {
         },
       });
       login(token, user);
-      nav(investPath("/dashboard"));
+      nav(investPath("/dashboard?tab=kyc"));
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -125,7 +125,7 @@ export default function InvestRegisterWizard() {
         </Link>
         <h1 className="text-center text-2xl font-bold sm:text-3xl">{t("register.title")}</h1>
         <p className={`mb-4 mt-1 text-center text-sm ${AUTH_MUTED}`}>
-          Create your account with email only. Complete KYC and bank details from your dashboard before investing.
+          Create your account with email only. After signup you must complete KYC (PAN, Aadhaar, bank proof & signature) before investing or withdrawing. Deposits are allowed without KYC.
         </p>
 
         <div className="mb-5 h-1.5 overflow-hidden rounded-full bg-muted">

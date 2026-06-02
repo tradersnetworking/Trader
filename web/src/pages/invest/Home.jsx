@@ -29,16 +29,32 @@ export default function InvestHome() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState("");
   const [highlightPlanId, setHighlightPlanId] = useState("");
   const [sub, setSub] = useState(null);
   const [maintenance, setMaintenance] = useState(null);
   const [partners, setPartners] = useState([]);
   const [cms, setCms] = useState(null);
 
-  useEffect(() => {
+  const loadPlans = () => {
+    setPlansLoading(true);
+    setPlansError("");
     investApi("/public/plans")
-      .then((d) => setPlans(sortPlansByTier(d.plans || [])))
-      .catch(() => {});
+      .then((d) => {
+        const list = sortPlansByTier(d.plans || []);
+        setPlans(list);
+        if (!list.length) setPlansError("No active investment plans are available right now.");
+      })
+      .catch((e) => {
+        setPlans([]);
+        setPlansError(e?.message || "Could not load investment plans.");
+      })
+      .finally(() => setPlansLoading(false));
+  };
+
+  useEffect(() => {
+    loadPlans();
     investApi("/public/maintenance").then(setMaintenance).catch(() => {});
     investApi("/public/partners").then((d) => setPartners(d.partners || [])).catch(() => {});
     investApi("/public/homepage").then((d) => setCms(d.homepage || {})).catch(() => {});
@@ -132,7 +148,15 @@ export default function InvestHome() {
             </div>
           );
         })}
-        {plans.length === 0 && <p className="mt-8 text-center text-muted-foreground">{t("home.loadingPlans")}</p>}
+        {plansLoading && <p className="mt-8 text-center text-muted-foreground">{t("home.loadingPlans")}</p>}
+        {!plansLoading && plansError && (
+          <div className="mt-8 text-center">
+            <p className="text-muted-foreground">{plansError}</p>
+            <button type="button" className="btn-outline mt-3 text-sm" onClick={loadPlans}>
+              Retry
+            </button>
+          </div>
+        )}
         <div className="mx-auto mt-10 max-w-md">
           <MobileAppDownload compact />
         </div>

@@ -21,6 +21,7 @@ import {
   isWebAuthnSupported,
 } from "../services/webauthnService.js";
 import { setPending2FA, getPending2FA, consumePending2FA } from "../services/loginPending2fa.js";
+import { startLoginOtp, verifyLoginOtp } from "../services/loginOtp.js";
 
 const router = Router();
 const SCOPE = "invest";
@@ -55,7 +56,7 @@ router.post(
     if (!email) return res.status(400).json({ error: "Email required" });
     try {
       const investor = await verifyLoginAuthentication(email, assertion, "auth:login", req);
-      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
+      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
       res.json({ token, user: publicInvestor(investor) });
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey login failed" });
@@ -92,7 +93,7 @@ router.post(
         return res.status(403).json({ error: "Not a staff account" });
       }
       consumePending2FA(email);
-      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
+      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
       res.json({ token, user: publicInvestor(investor) });
     } catch (e) {
       res.status(401).json({ error: e.message || "Passkey 2FA failed" });
@@ -181,7 +182,7 @@ router.post(
       subject: "Welcome to AKASHYA INVESTMENTS",
       text: `Hi ${displayName}, sign in and complete KYC to start investing at invest.akshayaexim.com`,
     });
-    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
     res.json({ token, user: publicInvestor(investor) });
   })
 );
@@ -215,8 +216,38 @@ router.post(
       }
       const tfa = await verifyInvestor2FA(investor, totpCode);
       if (!tfa.ok) return res.status(401).json({ error: tfa.error || "Invalid 2FA code" });
+      const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
+      return res.json({ token, user: publicInvestor(investor) });
     }
-    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
+
+    const loginOtpDisabled = process.env.LOGIN_OTP_REQUIRED === "false";
+    if (!loginOtpDisabled) {
+      const otp = await startLoginOtp(investor);
+      return res.json({
+        requiresLoginOtp: true,
+        loginOtpToken: otp.loginOtpToken,
+        email: investor.email,
+        message: otp.message,
+        devOtp: otp.devOtp,
+      });
+    }
+
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
+    res.json({ token, user: publicInvestor(investor) });
+  })
+);
+
+router.post(
+  "/login/verify-otp",
+  asyncH(async (req, res) => {
+    const { loginOtpToken, email, code, staff } = req.body;
+    const result = await verifyLoginOtp(loginOtpToken, email, code);
+    if (!result.ok) return res.status(401).json({ error: result.error });
+    const investor = result.investor;
+    if (staff && !["ADMIN", "SUPERADMIN"].includes(investor.role)) {
+      return res.status(403).json({ error: "Not a staff account" });
+    }
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
     res.json({ token, user: publicInvestor(investor) });
   })
 );
@@ -241,8 +272,10 @@ router.post(
       });
       await investDb.wallet.create({ data: { investorId: investor.id } });
     }
-    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
-    res.json({ token, user: publicInvestor(investor) });
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: investor.id } });
+    const needsKycSetup = !kyc || ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+    const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
+    res.json({ token, user: publicInvestor(investor), needsKycSetup });
   })
 );
 
@@ -267,6 +300,9 @@ router.post(
     const { token, password } = req.body;
     const investor = await investDb.investor.findFirst({ where: { resetToken: token, resetExpires: { gt: new Date() } } });
     if (!investor) return res.status(400).json({ error: "Invalid or expired token" });
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
     await investDb.investor.update({ where: { id: investor.id }, data: { passwordHash: hashPassword(password), resetToken: null, resetExpires: null } });
     res.json({ ok: true });
   })

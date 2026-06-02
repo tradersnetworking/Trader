@@ -8,7 +8,13 @@ import DataPortabilityPanel from "../shared/DataPortabilityPanel.jsx";
 /* -------- Wallet Operations -------- */
 export function WalletOperationsPanel() {
   const [investors, setInvestors] = useState([]);
-  const [form, setForm] = useState({ investorId: "", amount: "", direction: "CREDIT", bucket: "available", note: "" });
+  const [form, setForm] = useState({
+    investorId: "",
+    amount: "",
+    direction: "CREDIT",
+    bucket: "available",
+    note: "Manual adjustment by admin",
+  });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -32,7 +38,9 @@ export function WalletOperationsPanel() {
   return (
     <div className="page-stack max-w-xl">
       <h2 className="text-lg font-bold">Wallet Operations</h2>
-      <p className="text-sm text-muted-foreground">Manually credit or debit an investor wallet (available, invested, or earnings).</p>
+      <p className="text-sm text-muted-foreground">
+        Manually credit or debit an investor wallet (available, invested, or earnings). Each change is recorded in the ledger as a manual admin adjustment.
+      </p>
       {msg && <Alert type="success">{msg}</Alert>}
       {err && <Alert type="error">{err}</Alert>}
       <form onSubmit={submit} className="card space-y-3 p-5">

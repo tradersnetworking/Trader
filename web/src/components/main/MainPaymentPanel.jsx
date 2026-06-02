@@ -107,7 +107,8 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
     setBusy(orderId);
     try {
       const d = await mainApi(`/orders/${orderId}/pay`, { method: "POST", body: { gateway: "razorpay" } });
-      if (d.payment) await handleGatewayCheckout(d.payment, { amount: d.order?.totalAmount, id: d.order?.id });
+      const due = Math.max(0, (d.order?.totalAmount || 0) - (d.order?.paidAmount || 0));
+      if (d.payment) await handleGatewayCheckout(d.payment, { amount: due, id: d.order?.id });
       await load();
     } catch (e) {
       alert(e.message);
@@ -124,7 +125,7 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
             <th className="p-3">Order #</th>
             <th className="p-3">Amount</th>
             <th className="p-3">Payment</th>
-            <th className="p-3">Status</th>
+            <th className="p-3">Order</th>
             <th className="p-3">Date</th>
             <th className="p-3"></th>
           </tr>
@@ -133,14 +134,22 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
           {orders.map((o) => (
             <tr key={o.id} className="border-t">
               <td className="p-3 font-mono">{o.orderNumber}</td>
-              <td className="p-3">{inr(o.totalAmount)}</td>
-              <td className="p-3">{o.paymentGateway || "—"}</td>
+              <td className="p-3">
+                {inr(o.totalAmount)}
+                {(o.paidAmount || 0) > 0 && o.paymentStatus !== "PAID" && (
+                  <div className="text-xs text-muted-foreground">Paid {inr(o.paidAmount)} · Due {inr(o.totalAmount - o.paidAmount)}</div>
+                )}
+              </td>
+              <td className="p-3">
+                <Badge status={o.paymentStatus || "UNPAID"} />
+                <div className="text-xs text-muted-foreground">{o.paymentGateway || "—"}</div>
+              </td>
               <td className="p-3"><Badge status={o.status} /></td>
               <td className="p-3 text-muted-foreground">{dateStr(o.createdAt)}</td>
               <td className="p-3 text-right whitespace-nowrap">
                 {o.paymentStatus !== "PAID" && (
                   <button type="button" className="mr-2 text-xs font-semibold text-emerald-600" disabled={busy === o.id} onClick={() => payOrder(o.id)}>
-                    {busy === o.id ? "…" : "Pay online"}
+                    {busy === o.id ? "…" : o.paymentStatus === "PARTIAL" ? "Pay balance" : "Pay online"}
                   </button>
                 )}
                 <button type="button" className="text-xs font-semibold text-primary" disabled={busy === o.id} onClick={() => genInvoice(o.id)}>

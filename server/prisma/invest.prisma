@@ -62,6 +62,25 @@ model Investor {
   tickets          SupportTicket[]
   notifications    Notification[]
   promoUsages      PromoUsage[]
+  loginSessions    LoginSession[]
+}
+
+model LoginSession {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  sessionId   String
+  ipAddress   String?
+  country     String?
+  region      String?
+  city        String?
+  userAgent   String?
+  deviceLabel String?
+  isCurrent   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([investorId, createdAt])
 }
 
 model ReferralEarning {
@@ -162,12 +181,22 @@ model Kyc {
   investor      Investor @relation(fields: [investorId], references: [id])
   fullName      String?
   fatherName    String?
+  guardianType  String?  // FATHER, MOTHER, HUSBAND
+  guardianName  String?
   dob           String?
   phone         String?
   phoneCountryCode String? @default("+91")
+  whatsappNumber String?
+  whatsappCountryCode String? @default("+91")
   country       String?  @default("India")
+  houseNo       String?
+  street        String?
+  landmark      String?
+  area          String?
+  district      String?
   city          String?
   state         String?
+  pincode       String?
   address       String?
   idType        String?  // PAN, AADHAAR, PASSPORT, DRIVERS_LICENSE
   idNumber      String?
@@ -188,7 +217,12 @@ model Kyc {
   photo         String?
   selfie        String?
   signature     String?
+  signatureData String?
+  signatureMethod String?
   cancelledCheque String?
+  bankProofType   String?  // CHEQUE, PASSBOOK, STATEMENT
+  passbookDocument String?
+  bankStatementDocument String?
   // status: NOT_SUBMITTED, PENDING, APPROVED, REJECTED
   status        String   @default("PENDING")
   remarks       String?

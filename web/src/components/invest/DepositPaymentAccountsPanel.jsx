@@ -9,6 +9,7 @@ import { BANK_API_PROVIDERS, providerLabel } from "../../lib/payment-providers.j
 import { Alert, Badge, Field, Modal } from "../ui.jsx";
 
 import PaymentGatewaysPanel from "../PaymentGatewaysPanel.jsx";
+import ToggleRow from "./PaymentModeVisibilityToggles.jsx";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
 import DefaultDepositGatewaySettings from "./DefaultDepositGatewaySettings.jsx";
 import PaymentRoutingBanner from "../shared/PaymentRoutingBanner.jsx";
@@ -164,13 +165,18 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
 
   const toggle = async (g) => {
-
     if (!editable) return;
-
     await investApi(`/admin/payment-gateways/${g.id}`, { method: "PATCH", body: { isEnabled: !g.isEnabled } });
-
     load();
+  };
 
+  const toggleAccountVisibility = async (g, field, value) => {
+    if (!editable) return;
+    await investApi(`/admin/payment-gateways/${g.id}`, {
+      method: "PATCH",
+      body: { [field]: value },
+    });
+    load();
   };
 
 
@@ -230,15 +236,13 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
             <PaymentRoutingBanner />
 
             <PaymentGatewaysPanel
-
               fetchGateways={() => investApi("/admin/gateways")}
-
               editable
-
               saveSettings={(body) => investApi("/admin/settings", { method: "PUT", body })}
-
               loadSettings={() => investApi("/admin/settings")}
-
+              onVisibilityChange={(modes) =>
+                investApi("/admin/payment-mode-visibility", { method: "PUT", body: { modes } })
+              }
             />
 
           </>
@@ -319,6 +323,21 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
                   <div>Min: {inr(g.minAmount)}{g.maxAmount ? ` · Max: ${inr(g.maxAmount)}` : ""}</div>
 
                 </div>
+
+                {editable && (
+                  <div className="mt-3 space-y-2 border-t border-border pt-3">
+                    <ToggleRow
+                      label="Show for investor deposits"
+                      checked={g.extraConfig?.showDeposit !== false}
+                      onChange={(on) => toggleAccountVisibility(g, "showDeposit", on)}
+                    />
+                    <ToggleRow
+                      label="Show for investor withdrawals"
+                      checked={g.extraConfig?.showWithdraw !== false}
+                      onChange={(on) => toggleAccountVisibility(g, "showWithdraw", on)}
+                    />
+                  </div>
+                )}
 
                 {editable && (
 

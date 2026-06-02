@@ -22,6 +22,7 @@ import { buildStatsQuery, periodMetricLabel } from "../../lib/finance-period.js"
 
 export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canManagePlans, onStatsLoaded, profilePicture }) {
   const [data, setData] = useState(null);
+  const [loginSessions, setLoginSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -36,7 +37,10 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
     }).catch(() => {}).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    investApi("/admin/login-sessions").then((d) => setLoginSessions(d.sessions || [])).catch(() => {});
+  }, []);
 
   const handlePeriod = (p) => {
     setPeriod(p);
@@ -184,6 +188,26 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="card p-5">
+            <h3 className="mb-3 font-bold text-navy dark:text-white">Recent logins (IP & geo)</h3>
+            <p className="mb-2 text-xs text-muted-foreground">One device per user — new login ends other sessions.</p>
+            <div className="max-h-48 space-y-2 overflow-y-auto">
+              {loginSessions.slice(0, 8).map((s) => (
+                <div key={s.id} className="rounded-lg bg-slate-50 px-3 py-2 text-xs dark:bg-white/5">
+                  <div className="font-medium text-navy dark:text-white">{s.investor?.name || "—"}</div>
+                  <div className="text-slate-500">
+                    {dateStr(s.createdAt, true)} · {s.ipAddress || "—"} · {[s.city, s.country].filter(Boolean).join(", ") || "—"} · {s.deviceLabel}
+                    {s.isCurrent ? " · active" : ""}
+                  </div>
+                </div>
+              ))}
+              {loginSessions.length === 0 && <p className="text-xs text-muted-foreground">No login records yet.</p>}
+            </div>
+            <button type="button" className="mt-2 text-xs font-semibold text-primary underline" onClick={() => onNavigate("investors")}>
+              Manage investors →
+            </button>
           </div>
 
           <div className="card p-5">

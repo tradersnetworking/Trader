@@ -66,7 +66,7 @@ async function syncInvestmentPlans() {
           annualRoiPct: p.annualRoiPct,
           settlementCycles: p.settlementCycles,
           color: p.color,
-          isActive: existing.isActive,
+          isActive: p.isActive,
         },
       });
     } else {
@@ -393,7 +393,9 @@ async function seedPlansOnly() {
   console.log("Seeding investment plans only (staff accounts untouched)…");
   await syncInvestmentPlans();
   await dedupeInvestPlans();
-  console.log("  Plans synced.");
+  const { seedRolePermissions } = await import("./services/rbac.js");
+  await seedRolePermissions();
+  console.log("  Plans synced. Admin permissions matrix refreshed.");
   await investDb.$disconnect();
   await mainDb.$disconnect();
 }

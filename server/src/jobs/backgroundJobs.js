@@ -3,6 +3,7 @@ import { runRoiEngineCycle } from "../services/roiEngine.js";
 import { runReconciliation } from "../services/treasury.js";
 import { syncSupportInbox } from "../services/supportMail.js";
 import { runReferralAutoPayoutJob } from "../services/referralPayoutJob.js";
+import { runRoiPayoutReminderJob } from "./roiPayoutReminders.js";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -46,4 +47,7 @@ export function startBackgroundJobs() {
 
   setInterval(() => safeRun("referral-payout", runReferralAutoPayoutJob), DAY);
   safeRun("referral-payout", runReferralAutoPayoutJob);
+
+  setInterval(() => safeRun("roi-payout-reminder", runRoiPayoutReminderJob), DAY);
+  safeRun("roi-payout-reminder", runRoiPayoutReminderJob);
 }

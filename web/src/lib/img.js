@@ -146,14 +146,23 @@ export function productImageUrl(product) {
 }
 
 /** Ordered fallbacks for product cards (slug image → category → default). */
+/** Stable CDN image from product/category name (no API key). */
+function internetFallbackUrl(product) {
+  const seed = slug(product?.name || product?.category?.name || "trade");
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/480/480`;
+}
+
 export function productImageCandidates(product) {
   const out = [];
   const push = (u) => {
     if (u && !out.includes(u)) out.push(u);
   };
   const imgs = Array.isArray(product?.images) ? product.images : [];
-  imgs.forEach(push);
+  imgs.forEach((u) => {
+    if (typeof u === "string" && (u.startsWith("http") || u.startsWith("/"))) push(u);
+  });
   if (product?.name) push(productPath(product.name));
+  push(internetFallbackUrl(product));
   if (product?.category?.image) push(product.category.image);
   if (product?.category?.name) push(categoryPath(product.category.name));
   if (product?.category?.parent?.name) push(categoryPath(product.category.parent.name));

@@ -219,7 +219,7 @@ export function UpcomingDashboardBoxes({ data, loading, formatAmount, formatDate
         title={withdraw ? `${withdraw.mode} → ${withdraw.destination || "your account"}` : "Withdraw funds anytime"}
         dateLabel={withdrawDate}
         loading={loading}
-        onClick={() => onNavigate?.("withdraw")}
+        onClick={() => onNavigate?.("money", { moneyTab: "withdraw" })}
       />
       <UpcomingEventBox
         icon="🔁"
@@ -229,7 +229,7 @@ export function UpcomingDashboardBoxes({ data, loading, formatAmount, formatDate
         title={monthly?.plans?.length ? monthly.plans.join(", ") : "Based on active plans"}
         dateLabel={monthlyDate}
         loading={loading}
-        onClick={() => onNavigate?.("wallet")}
+        onClick={() => onNavigate?.("money", { moneyTab: "overview" })}
       />
     </div>
   );

@@ -43,9 +43,13 @@ router.get(
 router.get("/bank-details", asyncH(async (_req, res) => res.json(await getPrimaryBankDetails())));
 router.get("/deposit-accounts", asyncH(async (_req, res) => res.json({ accounts: await getDepositAccountsForInvestor() })));
 router.get("/gateways", asyncH(async (_req, res) => {
-  const { getSetting } = await import("../services/investSettings.js");
+  const { filterCollectionGatewaysForInvestors, getInvestorPaymentOptions } = await import(
+    "../services/paymentModeVisibility.js"
+  );
+  const all = await listGateways();
   res.json({
-    gateways: await listGateways(),
+    gateways: await filterCollectionGatewaysForInvestors(all),
+    paymentOptions: await getInvestorPaymentOptions(),
     defaultDepositGateway: (await getSetting("default_deposit_gateway")) || "RAZORPAY",
   });
 }));

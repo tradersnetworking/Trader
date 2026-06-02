@@ -18,6 +18,7 @@ import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/on
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
 import { MIN_WALLET_DEPOSIT, resolveDefaultDepositAmount } from "../../lib/plan-types.js";
+import { withdrawEligibility } from "../../lib/investCompliance.js";
 
 const DEPOSIT_METHODS = [
   { value: "upi", label: "UPI", icon: "📱", tone: "upi" },
@@ -35,6 +36,29 @@ const BANK_TRANSFER_TYPES = [
   { value: "NEFT", label: "NEFT" },
   { value: "RTGS", label: "RTGS (high value)" },
 ];
+
+function filterDepositMethods(paymentOptions) {
+  const c = paymentOptions?.depositCategories;
+  if (!c) return DEPOSIT_METHODS;
+  return DEPOSIT_METHODS.filter((m) => {
+    if (m.value === "upi") return c.upi !== false;
+    if (m.value === "bank") return c.bank !== false;
+    if (m.value === "gateway") return c.gateway !== false;
+    return true;
+  });
+}
+
+function filterWithdrawMethods(paymentOptions) {
+  const w = paymentOptions?.withdrawMethods;
+  if (!w) return WITHDRAW_METHODS;
+  return WITHDRAW_METHODS.filter((m) => w[m.value] !== false);
+}
+
+function filterBankTransferTypes(paymentOptions) {
+  const t = paymentOptions?.bankTransferTypes;
+  if (!t) return BANK_TRANSFER_TYPES;
+  return BANK_TRANSFER_TYPES.filter((m) => t[m.value] !== false);
+}
 
 function buildUpiPayUri(vpa, payeeName, amount) {
   if (!vpa) return null;
@@ -109,6 +133,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   const [err, setErr] = useState("");
   const [deposits, setDeposits] = useState([]);
   const [gateways, setGateways] = useState([]);
+  const [paymentOptions, setPaymentOptions] = useState(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoBonus, setPromoBonus] = useState(null);
   const [promoErr, setPromoErr] = useState("");
@@ -138,6 +163,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
     investApi("/public/gateways").then((d) => {
       const list = d.gateways || [];
       setGateways(list);
+      setPaymentOptions(d.paymentOptions || null);
       const defaultGw = String(d.defaultDepositGateway || "RAZORPAY").toUpperCase();
       const match = list.find((g) => g.name.toUpperCase() === defaultGw);
       setGateway(match ? defaultGw : list[0]?.name?.toUpperCase() || "RAZORPAY");
@@ -338,7 +364,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
               tone="step"
               value={method}
               onChange={setMethod}
-              options={DEPOSIT_METHODS}
+              options={filterDepositMethods(paymentOptions)}
             />
 
             {method === "bank" && (
@@ -347,7 +373,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 label="Transfer type"
                 value={bankMethod}
                 onChange={setBankMethod}
-                options={BANK_TRANSFER_TYPES}
+                options={filterBankTransferTypes(paymentOptions)}
               />
             )}
 
@@ -568,6 +594,9 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
 
 export function WithdrawPanel({ wallet, onRefresh }) {
   const { invest } = useAuth();
+  const [kyc, setKyc] = useState(null);
+  const [paymentOptions, setPaymentOptions] = useState(null);
+  const withdrawMethods = filterWithdrawMethods(paymentOptions);
   const [mode, setMode] = useState("UPI");
   const [amount, setAmount] = useState(1000);
   const [password, setPassword] = useState("");
@@ -582,7 +611,19 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const [err, setErr] = useState("");
 
   const load = () => investApi("/payouts").then((d) => setPayouts(d.payouts)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    investApi("/public/gateways").then((d) => setPaymentOptions(d.paymentOptions || null)).catch(() => {});
+    investApi("/kyc").then((d) => setKyc(d.kyc)).catch(() => {});
+  }, []);
+
+  const withdrawGate = withdrawEligibility(invest, kyc);
+
+  useEffect(() => {
+    if (withdrawMethods.length && !withdrawMethods.some((m) => m.value === mode)) {
+      setMode(withdrawMethods[0].value);
+    }
+  }, [paymentOptions, mode, withdrawMethods.length]);
 
   useEffect(() => {
     setConfirmed(false);
@@ -636,6 +677,26 @@ export function WithdrawPanel({ wallet, onRefresh }) {
     }
   };
 
+  if (!withdrawGate.canWithdraw) {
+    return (
+      <div className={`${APP_PAGE_STACK} max-w-5xl`}>
+        <StepBanner
+          tone="amber"
+          title="Withdraw to your personal account"
+          description={`Available balance: ${inr(wallet?.available || 0)}`}
+        />
+        <Alert type="warning">
+          <p className="font-semibold">KYC required for withdrawals</p>
+          <p className="mt-1 text-sm">{withdrawGate.message}</p>
+          <Link to={investPath("/dashboard?tab=kyc")} className="mt-3 inline-block text-sm font-bold text-primary underline">
+            Complete KYC →
+          </Link>
+        </Alert>
+        <p className="text-sm text-muted-foreground">You can still deposit funds and browse plans while verification is pending.</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`${APP_PAGE_STACK} max-w-5xl`}>
       <StepBanner
@@ -657,7 +718,7 @@ export function WithdrawPanel({ wallet, onRefresh }) {
             tone="step"
             value={mode}
             onChange={setMode}
-            options={WITHDRAW_METHODS}
+            options={withdrawMethods}
           />
 
           <PayoutDestinationCard mode={mode} investor={invest} />

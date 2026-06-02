@@ -18,7 +18,13 @@ export const PERMISSIONS = [
   { key: "manage_rbac", label: "Manage permissions" },
 ];
 
-const SUPERADMIN_ONLY = new Set(["manage_staff", "manage_rbac"]);
+const SUPERADMIN_ONLY = new Set([
+  "manage_staff",
+  "manage_rbac",
+  "manage_plans",
+  "manage_gateways",
+  "manage_settings",
+]);
 
 const DEFAULT_MATRIX = {
   SUPERADMIN: PERMISSIONS.map((p) => p.key),
@@ -51,6 +57,11 @@ export async function getRoleMatrix() {
 }
 
 export async function setPermission(role, permission, granted) {
+  if (SUPERADMIN_ONLY.has(permission) && role === "ADMIN" && granted) {
+    const err = new Error("This permission is reserved for Super Admin only.");
+    err.status = 403;
+    throw err;
+  }
   return investDb.rolePermission.upsert({
     where: { role_permission: { role, permission } },
     create: { role, permission, granted },

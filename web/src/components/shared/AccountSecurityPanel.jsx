@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { investApi, mainApi, setToken } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { Field, Alert, PasswordInput } from "../ui.jsx";
+import { investPath } from "../../lib/site.js";
 
 /**
  * Change login email & password from dashboard (invest or main portal).
@@ -108,7 +110,13 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
 
       <form onSubmit={changePassword} className="space-y-3">
           <h4 className="text-sm font-semibold">Change password</h4>
-          <p className="text-xs text-muted-foreground">Google-only accounts: use Forgot Password first to set a login password.</p>
+          <p className="text-xs text-muted-foreground">
+            Enter your current password and a new one. Or{" "}
+            <Link to={portal === "invest" ? investPath("/forgot-password") : "/forgot-password"} className="font-semibold text-primary underline">
+              request a reset link by email
+            </Link>
+            . Google-only accounts must use the reset link first to set a password.
+          </p>
           {pwdMsg && <Alert type="success">{pwdMsg}</Alert>}
           {pwdErr && <Alert type="error">{pwdErr}</Alert>}
           <Field label="Current password">

@@ -1,11 +1,21 @@
 import { mainDb } from "../db.js";
 
-export async function autoApproveMainOrder(orderId, gatewayRef) {
+export async function autoApproveMainOrder(orderId, gatewayRef, amountPaid = null) {
   const order = await mainDb.order.findUnique({ where: { id: orderId } });
   if (!order || order.paymentStatus === "PAID") return { ok: false, error: "Invalid order" };
+  const due = Math.max(0, order.totalAmount - (order.paidAmount || 0));
+  const increment = amountPaid != null ? Number(amountPaid) : due;
+  const newPaid = Math.min(order.totalAmount, (order.paidAmount || 0) + increment);
+  const fullyPaid = newPaid >= order.totalAmount - 0.01;
+  const paymentStatus = fullyPaid ? "PAID" : "PARTIAL";
   await mainDb.order.update({
     where: { id: order.id },
-    data: { paymentStatus: "PAID", status: order.status === "PENDING" ? "PAID" : order.status, paymentRef: gatewayRef || order.paymentRef },
+    data: {
+      paidAmount: newPaid,
+      paymentStatus,
+      status: fullyPaid && order.status === "PENDING" ? "PAID" : order.status,
+      paymentRef: gatewayRef || order.paymentRef,
+    },
   });
   const invoices = await mainDb.invoice.findMany({ where: { orderId: order.id, status: { not: "PAID" } } });
   for (const inv of invoices) {

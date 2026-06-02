@@ -4,11 +4,13 @@ import { Modal, Field, Alert } from "./ui.jsx";
 
 // direction: BUY (request a quote to import/purchase) | SELL (offer to supply)
 export default function QuoteModal({ open, onClose, product, direction = "BUY" }) {
+  const isImportReq = product?.listingType === "IMPORT";
   const [form, setForm] = useState({
     productName: product?.name || "",
     quantity: product?.minOrderQty || 1,
     unit: product?.unit || "kg",
     targetPrice: "",
+    advancePct: isImportReq ? 30 : "",
     contactName: "", contactEmail: "", contactPhone: "", company: "", message: "",
   });
   const [done, setDone] = useState(false);
@@ -19,7 +21,15 @@ export default function QuoteModal({ open, onClose, product, direction = "BUY" }
     e.preventDefault();
     setErr(""); setLoading(true);
     try {
-      await mainApi("/quotes", { method: "POST", body: { ...form, direction, productId: product?.id || null } });
+      await mainApi("/quotes", {
+        method: "POST",
+        body: {
+          ...form,
+          direction,
+          productId: product?.id || null,
+          advancePct: direction === "BUY" && form.advancePct ? Number(form.advancePct) : undefined,
+        },
+      });
       setDone(true);
     } catch (e2) { setErr(e2.message); } finally { setLoading(false); }
   };
@@ -54,6 +64,13 @@ export default function QuoteModal({ open, onClose, product, direction = "BUY" }
             <Field label="Email"><input className="input" type="email" required value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} /></Field>
             <Field label="Phone"><input className="input" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} /></Field>
           </div>
+          {direction === "BUY" && isImportReq && (
+            <Field label="Advance payment willing to pay now (%)">
+              <select className="input" value={form.advancePct} onChange={(e) => setForm({ ...form, advancePct: e.target.value })}>
+                {[20, 30, 40, 50].map((p) => <option key={p} value={p}>{p}% advance — balance after order confirmation</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Message"><textarea className="input" rows={3} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} /></Field>
           <button className="btn-gold w-full" disabled={loading}>{loading ? "Submitting…" : "Submit"}</button>
         </form>

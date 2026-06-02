@@ -27,8 +27,12 @@ export async function createAuthSession(scope, userId) {
 }
 
 /** Issue JWT after login — invalidates any other device/browser session. */
-export async function issueAuthToken(scope, { id, role, email }) {
+export async function issueAuthToken(scope, { id, role, email }, meta = {}) {
   const sid = await createAuthSession(scope, id);
+  if (scope === "invest" && meta.req) {
+    const { recordInvestorLogin } = await import("./loginSession.js");
+    await recordInvestorLogin(id, sid, meta.req);
+  }
   return signToken({ id, role, email, sid }, scope);
 }
 

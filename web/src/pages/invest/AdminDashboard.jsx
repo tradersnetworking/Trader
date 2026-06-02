@@ -193,7 +193,11 @@ export default function InvestAdminDashboard() {
       case "support-mail":
         return gate("support_tickets", "Mail Desk", <TabPanel><SupportMailPanel /></TabPanel>);
       case "gateways":
-        return gate("manage_gateways", "Payment Gateways", <TabPanel><DepositPaymentAccountsPanel editable={hasPerm("manage_gateways")} /></TabPanel>);
+        return isSuper ? (
+          <TabPanel><DepositPaymentAccountsPanel editable={isSuper} /></TabPanel>
+        ) : (
+          <DashboardTabFallback title="Payment Gateways" message="Only Super Admin can manage payment gateways." onGoOverview={() => setTab("overview")} />
+        );
       case "support-links":
         return gate("manage_settings", "WhatsApp & Telegram", <TabPanel><SupportLinksPanel /></TabPanel>);
       case "communication":

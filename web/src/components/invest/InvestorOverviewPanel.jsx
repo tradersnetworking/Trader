@@ -132,7 +132,7 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
       </div>
 
       <div className={INVEST_STAT_GRID}>
-        <KpiStatCard tone="emerald" icon="👛" label="Available Balance" value={inr(s?.available || 0)} loading={loading} onClick={() => onNavigate("wallet")} />
+        <KpiStatCard tone="emerald" icon="👛" label="Available Balance" value={inr(s?.available || 0)} loading={loading} onClick={() => onNavigate("money", { moneyTab: "overview" })} />
         <KpiStatCard tone="blue" icon="📊" label="Invested" value={inr(s?.totalInvested || 0)} loading={loading} onClick={() => onNavigate("investments")} />
         <KpiStatCard tone="violet" icon="✨" label="Earnings" value={inr(s?.totalEarnings || 0)} loading={loading} />
         <KpiStatCard tone="amber" icon="🔁" label="Monthly Returns" value={inr(s?.monthlyIncome || 0)} loading={loading} subValue="Based on active plans" />
@@ -206,8 +206,8 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
               <div>
                 <h3 className="font-bold text-heading">Referral Program</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Invite friends and earn when they invest.</p>
-                {authInvest?.referralCode && (
-                  <p className="mt-2 font-mono text-xs text-amber-700 dark:text-amber-400">{invest.referralCode}</p>
+                {profile?.referralCode && (
+                  <p className="mt-2 font-mono text-xs text-amber-700 dark:text-amber-400">{profile.referralCode}</p>
                 )}
               </div>
               <div className="flex flex-wrap gap-2">

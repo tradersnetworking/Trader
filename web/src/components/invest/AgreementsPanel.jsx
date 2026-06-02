@@ -5,6 +5,7 @@ import { Badge, Modal, Alert, Field } from "../ui.jsx";
 import SignaturePad from "./SignaturePad.jsx";
 import AgreementPdfViewDialog from "./AgreementPdfViewDialog.jsx";
 import { fetchAgreementUserSettings, fetchAgreementAdminSettings, saveAgreementAdminSettings, fetchAgreementCompanySettings, saveAgreementCompanySettings, fetchAgreementPdfBlob } from "../../lib/agreements-api.js";
+import { useAuth } from "../../lib/store.jsx";
 
 const COMPANY_FIELDS = [
   { key: "agreement_company_legal_name", label: "Company / Firm / LLP legal name" },
@@ -23,7 +24,17 @@ const COMPANY_FIELDS = [
   { key: "agreement_company_swift", label: "Company bank SWIFT (optional)" },
 ];
 
+function planTermsLine(ag) {
+  const sub = ag.subscription;
+  if (!sub) return null;
+  const roi = sub.monthlyRoiPct ?? sub.plan?.monthlyRoiPct;
+  const months = Math.round((sub.lockInDays || sub.plan?.lockInDays || 0) / 30);
+  if (!roi && !months) return null;
+  return `${roi != null ? `${roi}% profit share / month` : ""}${roi != null && months ? " · " : ""}${months ? `${months}-month lock-in` : ""}`;
+}
+
 export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }) {
+  const { invest } = useAuth();
   const [agreements, setAgreements] = useState([]);
   const [types, setTypes] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -68,6 +79,18 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
       setMsg("Agreement generated. Please review and sign.");
       load();
     } catch (e) { alert(e.message); }
+  };
+
+  const signWithKyc = async (ag) => {
+    try {
+      await investApi(`/agreements/${ag.id}/sign`, { method: "POST", body: { useKycSignature: true } });
+      setSign(null);
+      setSignatureData(null);
+      setMsg("Agreement signed using your KYC signature.");
+      load();
+    } catch (e) {
+      alert(e.message);
+    }
   };
 
   const onSignSubmit = async () => {
@@ -129,18 +152,22 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
               <div className="min-w-0">
                 <b className="text-foreground">{a.title}</b>
                 <p className="text-xs text-muted-foreground">{a.agreementUid || a.id.slice(-8)}{a.subscription?.plan ? ` · ${a.subscription.plan.name}` : ""}</p>
+                {planTermsLine(a) && <p className="mt-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">{planTermsLine(a)}</p>}
               </div>
               <Badge status={a.status} />
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{dateStr(a.createdAt)}{a.signedAt && ` · Signed ${dateStr(a.signedAt)}`}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className="btn-outline text-xs" onClick={() => setView(a)}>Preview text</button>
-              <button type="button" className="btn-outline text-xs" onClick={() => setPdfView(a)}>View PDF</button>
+              <button type="button" className="btn-outline text-xs" onClick={() => setPdfView({ id: a.id, agreementUid: a.agreementUid })}>View PDF</button>
               {downloadEnabled && a.status === "SIGNED" && (
                 <button type="button" className="btn-outline text-xs" onClick={() => downloadPdf(a)}>Download PDF</button>
               )}
               {a.status === "PENDING_SIGNATURE" && (
-                <button type="button" className="btn-gold text-xs" onClick={() => { setSign(a); setSignatureData(null); }}>Sign</button>
+                <>
+                  <button type="button" className="btn-gold text-xs" onClick={() => signWithKyc(a)}>Sign with KYC signature</button>
+                  <button type="button" className="btn-outline text-xs" onClick={() => { setSign(a); setSignatureData(null); }}>Sign manually</button>
+                </>
               )}
             </div>
           </div>
@@ -162,7 +189,11 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
       />
 
       <Modal open={!!sign} onClose={() => { setSign(null); setSignatureData(null); }} title={`Sign: ${sign?.title || "Agreement"}`} wide>
-        <p className="mb-2 text-xs text-muted-foreground">Review the agreement, then draw your signature. A branded PDF is generated on sign (KYC & plan details auto-filled).</p>
+        <p className="mb-2 text-xs text-muted-foreground">
+          Review the agreement, then draw your signature or use{" "}
+          <button type="button" className="font-bold text-primary underline" onClick={() => sign && signWithKyc(sign)}>Sign with KYC signature</button>
+          {invest?.name ? ` (${invest.name})` : ""}. PDF includes monthly profit share and lock-in from your plan.
+        </p>
         <pre className="mb-4 max-h-40 overflow-y-auto rounded-lg bg-muted/40 p-3 text-xs whitespace-pre-wrap">{sign?.content?.slice(0, 2500)}{sign?.content?.length > 2500 ? "…" : ""}</pre>
         <SignaturePad onChange={setSignatureData} />
         <button type="button" className="btn-gold mt-3 w-full" onClick={onSignSubmit} disabled={!signatureData}>Confirm & generate PDF</button>

@@ -10,6 +10,8 @@ export const KYC_DOCUMENT_FIELDS = [
   { key: "selfie", label: "Selfie (holding ID beside face)", imageOnly: true },
   { key: "signature", label: "Signature" },
   { key: "cancelledCheque", label: "Cancelled Cheque" },
+  { key: "passbookDocument", label: "Bank passbook" },
+  { key: "bankStatementDocument", label: "Bank statement" },
 ];
 
 export const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;

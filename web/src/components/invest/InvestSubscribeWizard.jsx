@@ -144,8 +144,11 @@ export default function InvestSubscribeWizard({
         method: "POST",
         body: { planId: plan.id, amount: amt, settlementCycle: cycle },
       });
+      if (data.agreementError) {
+        setErr(`Investment created but agreement failed: ${data.agreementError}. Open Agreements tab or contact support.`);
+      }
       if (data.agreement) setPendingAgreement(data.agreement);
-      else onDone();
+      else if (!data.agreementError) onDone();
     } catch (e) {
       setErr(e.message);
     } finally {

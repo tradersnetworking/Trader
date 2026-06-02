@@ -71,7 +71,7 @@ export const ADMIN_NAV = [
 
   { id: "not-invested", label: "Not Yet Invested", icon: "investors", color: "amber" },
 
-  { id: "plans", label: "Investment Plans", icon: "plans", color: "gold" },
+  { id: "plans", label: "Investment Plans", icon: "plans", color: "gold", superOnly: true },
 
   { id: "treasury", label: "Treasury", icon: "wallet", color: "violet" },
 
@@ -89,23 +89,23 @@ export const ADMIN_NAV = [
 
   { id: "referrals-admin", label: "Referral Payouts", icon: "referral", color: "amber" },
 
-  { id: "promos", label: "Promo Codes", icon: "plans", color: "gold" },
+  { id: "promos", label: "Promo Codes", icon: "plans", color: "gold", superOnly: true },
 
-  { id: "partners", label: "Partners", icon: "investors", color: "emerald" },
+  { id: "partners", label: "Partners", icon: "investors", color: "emerald", superOnly: true },
 
   { section: "Site, Content & Mail" },
 
-  { id: "support-links", label: "WhatsApp, Telegram & Alerts", icon: "support", color: "emerald" },
+  { id: "support-links", label: "WhatsApp, Telegram & Alerts", icon: "support", color: "emerald", superOnly: true },
 
-  { id: "settings", label: "Site Settings", icon: "settings", color: "slate" },
+  { id: "settings", label: "Site Settings", icon: "settings", color: "slate", superOnly: true },
 
-  { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold" },
+  { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold", superOnly: true },
 
   { id: "communication", label: "Mail Settings", icon: "support", color: "cyan", superOnly: true },
 
   { section: "Platform Settings" },
 
-  { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan" },
+  { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan", superOnly: true },
 
   { id: "rbac", label: "Permissions", icon: "staff", color: "blue", superOnly: true },
 

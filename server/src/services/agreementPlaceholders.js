@@ -116,6 +116,7 @@ export async function buildSubscriptionPlaceholders(investorId, subscriptionId) 
     LOCK_IN_MONTHS: String(lockMonths),
     LOCK_IN_YEARS: lockYears,
     MONTHLY_ROI: `${sub.monthlyRoiPct}%`,
+    MONTHLY_PROFIT_SHARE: `${sub.monthlyRoiPct}% per month`,
     ROI_RATE: `${sub.monthlyRoiPct}`,
     ANNUAL_ROI: `${sub.plan?.annualRoiPct ?? sub.monthlyRoiPct * 12}%`,
     PROFIT_SHARE_PCT: String(profitSharePct),

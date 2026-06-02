@@ -12,6 +12,7 @@ import {
   AGREEMENT_PLACEHOLDERS,
 } from "./agreementTemplates.js";
 import { generateAgreementPDF } from "./agreementPdf.js";
+import { getInvestorKycSignatureBase64, getKycSignatureBase64 } from "./kycSignature.js";
 
 export const AGREEMENT_TYPES = [
   { type: "investment", title: "Investment Agreement" },
@@ -133,7 +134,7 @@ export async function generateSubscriptionAgreement(investorId, subscriptionId, 
   if (existing) return existing;
 
   const filledData = await buildFilledData(investorId, { subscriptionId, ...meta });
-  return createAgreementRecord({
+  const record = await createAgreementRecord({
     investorId,
     type: "investment",
     subscriptionId,
@@ -143,6 +144,21 @@ export async function generateSubscriptionAgreement(investorId, subscriptionId, 
     ipAddress: meta.ipAddress,
     userAgent: meta.userAgent,
   });
+  const kyc = await investDb.kyc.findUnique({ where: { investorId } });
+  if (kyc?.status === "APPROVED") {
+    const sig = await getKycSignatureBase64(kyc);
+    if (sig) {
+      try {
+        return await signAgreement(investorId, record.id, sig, {
+          ...meta,
+          method: kyc.signatureMethod || "kyc",
+        });
+      } catch {
+        return record;
+      }
+    }
+  }
+  return record;
 }
 
 export async function generateAgreement(investorId, type, meta = {}) {
@@ -170,12 +186,61 @@ export async function previewTemplateContent({ investorId, type, title, content,
   return { filledData, filledTitle: filled.title, filledContent: filled.markdown };
 }
 
-export async function listInvestorAgreements(investorId, { includePurged = false } = {}) {
-  return investDb.agreement.findMany({
-    where: { investorId, ...(includePurged ? {} : { status: { not: "PURGED" } }) },
+/** Investor dashboard: hide archived plans and agreements tied to ended investments */
+export async function listInvestorAgreements(investorId) {
+  const rows = await investDb.agreement.findMany({
+    where: {
+      investorId,
+      status: { notIn: ["PURGED", "REVOKED"] },
+    },
     orderBy: { createdAt: "desc" },
     include: { subscription: { include: { plan: true } } },
   });
+  return rows.filter((ag) => {
+    if (!ag.subscriptionId) return true;
+    const st = ag.subscription?.status;
+    return st === "ACTIVE" || st === "PENDING";
+  });
+}
+
+/** Super Admin / ops: all agreements for an investor including purged */
+export async function listAllAgreementsForInvestor(investorId) {
+  return investDb.agreement.findMany({
+    where: { investorId },
+    orderBy: { createdAt: "desc" },
+    include: { subscription: { include: { plan: true } } },
+  });
+}
+
+async function resolveSignatureForAgreement(ag) {
+  if (ag.signatureData?.startsWith("data:image")) return ag.signatureData;
+  const kyc = await investDb.kyc.findUnique({ where: { investorId: ag.investorId } });
+  return getKycSignatureBase64(kyc);
+}
+
+function agreementContentAsTemplate(ag) {
+  const base = (ag.content || "").split(/\n\n---\n\*\*Digitally Signed/)[0].trim();
+  return dbTemplateToContent({ type: ag.type, title: ag.title, content: base });
+}
+
+export async function autoSignPendingAgreementsForInvestor(investorId, meta = {}) {
+  const sig = await getInvestorKycSignatureBase64(investorId);
+  if (!sig) return 0;
+  const kyc = await investDb.kyc.findUnique({ where: { investorId } });
+  if (kyc?.status !== "APPROVED") return 0;
+  const pending = await investDb.agreement.findMany({
+    where: { investorId, status: "PENDING_SIGNATURE" },
+  });
+  let n = 0;
+  for (const ag of pending) {
+    try {
+      await signAgreement(investorId, ag.id, sig, { ...meta, method: kyc.signatureMethod || "kyc" });
+      n += 1;
+    } catch {
+      /* skip */
+    }
+  }
+  return n;
 }
 
 export async function signAgreement(investorId, agreementId, signatureData, meta = {}) {
@@ -225,19 +290,34 @@ export async function signAgreement(investorId, agreementId, signatureData, meta
 export async function getAgreementPdfBuffer(agreementId, requesterId, { isAdmin = false } = {}) {
   const ag = await investDb.agreement.findUnique({
     where: { id: agreementId },
-    include: { investor: true },
+    include: { investor: true, subscription: true },
   });
   if (!ag) throw new Error("Agreement not found");
   if (!isAdmin && ag.investorId !== requesterId) throw new Error("Forbidden");
+  if (!isAdmin && ag.status === "PURGED") {
+    throw new Error("This agreement is no longer available. The linked investment has ended.");
+  }
+  if (!isAdmin && ag.subscriptionId) {
+    const st = ag.subscription?.status;
+    if (st && !["ACTIVE", "PENDING"].includes(st)) {
+      throw new Error("This agreement is no longer available. The investment has ended.");
+    }
+  }
 
   const filledData = JSON.parse(ag.filledData || "{}");
-  const { content: template } = await resolveTemplate(ag.type);
+  let template;
+  try {
+    template = agreementContentAsTemplate(ag);
+  } catch {
+    template = (await resolveTemplate(ag.type)).content;
+  }
+  const signatureBase64 = await resolveSignatureForAgreement(ag);
   const { buffer } = await generateAgreementPDF({
     template: { ...template, title: fillTemplatePlaceholders(template.title, filledData) },
     filledData,
     agreementUid: ag.agreementUid,
-    userName: ag.investor?.name || filledData.FULL_NAME,
-    signatureBase64: ag.signatureData || undefined,
+    userName: ag.investor?.name || filledData.FULL_NAME || filledData.INVESTOR_NAME,
+    signatureBase64: signatureBase64 || undefined,
   });
   return buffer;
 }

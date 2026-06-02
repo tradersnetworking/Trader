@@ -222,8 +222,12 @@ router.get(
       investDb.kyc.findUnique({ where: { investorId: req.user.id } }),
       investDb.investor.findUnique({ where: { id: req.user.id } }),
     ]);
-    const { investEligibility } = await import("../utils/investCompliance.js");
-    res.json({ kyc, eligibility: investEligibility(investor, kyc) });
+    const { investEligibility, withdrawEligibility } = await import("../utils/investCompliance.js");
+    res.json({
+      kyc,
+      eligibility: investEligibility(investor, kyc),
+      withdrawEligibility: withdrawEligibility(investor, kyc),
+    });
   })
 );
 
@@ -240,12 +244,17 @@ router.post(
     { name: "addressProof" },
     { name: "signature" },
     { name: "cancelledCheque" },
+    { name: "passbookDocument" },
+    { name: "bankStatementDocument" },
     { name: "passportDocument" },
   ]),
   asyncH(async (req, res) => {
     const b = req.body;
     const files = req.files || {};
     const existing = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    const { validateMulterFile, KYC_DOC_LABELS } = await import("../utils/documentQuality.js");
+    const { validateSignatureBase64 } = await import("../utils/signatureQuality.js");
+    const { parseKycBody } = await import("../utils/kycFields.js");
 
     const panNumber = b.panNumber ? String(b.panNumber).trim().toUpperCase() : "";
     const aadhaarNumber = b.aadhaarNumber ? String(b.aadhaarNumber).replace(/\s/g, "") : "";
@@ -257,27 +266,23 @@ router.post(
       return res.status(400).json({ error: "Aadhaar must be a 12-digit number" });
     }
     if (!b.fullName?.trim()) return res.status(400).json({ error: "Full name is required" });
-    if (!b.address?.trim()) return res.status(400).json({ error: "Address is required" });
+    if (!b.houseNo?.trim() && !b.address?.trim()) {
+      return res.status(400).json({ error: "House number / flat and address details are required" });
+    }
+    if (!b.district?.trim() || !b.state?.trim() || !b.pincode?.trim()) {
+      return res.status(400).json({ error: "District, state and PIN code are required" });
+    }
+    if (!/^\d{6}$/.test(String(b.pincode || "").trim())) {
+      return res.status(400).json({ error: "PIN code must be 6 digits" });
+    }
+    if (!b.guardianName?.trim() && !b.fatherName?.trim()) {
+      return res.status(400).json({ error: "Father / Mother / Husband name is required" });
+    }
+    if (!b.dob) return res.status(400).json({ error: "Date of birth is required" });
 
     const data = {
-      fullName: b.fullName?.trim(),
-      fatherName: b.fatherName?.trim() || null,
-      dob: b.dob || null,
-      phone: b.phone || null,
-      country: b.country || "India",
-      city: b.city || null,
-      state: b.state || null,
-      address: b.address?.trim(),
-      idType: b.idType || "PAN",
+      ...parseKycBody(b, existing),
       idNumber: b.idNumber || panNumber || aadhaarNumber || null,
-      panNumber: panNumber || null,
-      aadhaarNumber: aadhaarNumber || null,
-      bankName: b.bankName || null,
-      bankAccount: b.bankAccount || null,
-      ifscCode: b.ifscCode || null,
-      branchName: b.branchName || null,
-      upiId: b.upiId || null,
-      taxId: b.taxId || null,
       status: "PENDING",
       remarks: null,
     };
@@ -292,11 +297,56 @@ router.post(
       addressProof: "addressProof",
       signature: "signature",
       cancelledCheque: "cancelledCheque",
+      passbookDocument: "passbookDocument",
+      bankStatementDocument: "bankStatementDocument",
       passportDocument: "passportDocument",
     };
     for (const [field, key] of Object.entries(fileMap)) {
       if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);
       else if (existing?.[key]) data[key] = existing[key];
+    }
+
+    const docChecks = [
+      ["photo", data.photo],
+      ["panDocument", data.panDocument],
+      ["aadhaarFront", data.aadhaarFront],
+      ["aadhaarBack", data.aadhaarBack],
+      ["aadhaarDocument", data.aadhaarDocument],
+      ["selfie", data.selfie],
+      ["addressProof", data.addressProof],
+      ["passportDocument", data.passportDocument],
+      ["cancelledCheque", data.cancelledCheque],
+      ["passbookDocument", data.passbookDocument],
+      ["bankStatementDocument", data.bankStatementDocument],
+      ["signature", data.signature],
+    ];
+    for (const [field, stored] of docChecks) {
+      const upload = files[field]?.[0];
+      if (upload) {
+        const check = await validateMulterFile(upload, KYC_DOC_LABELS[field] || field);
+        if (!check.ok) return res.status(400).json({ error: check.message, code: check.code });
+      }
+    }
+
+    const signatureData = b.signatureData?.trim() || existing?.signatureData || null;
+    const signatureMethod = b.signatureMethod || (files.signature?.[0] ? "upload" : signatureData ? "draw" : existing?.signatureMethod);
+    if (b.signatureData) {
+      const sigCheck = validateSignatureBase64(b.signatureData);
+      if (!sigCheck.ok) return res.status(400).json({ error: sigCheck.message, code: "SIGNATURE_UNCLEAR" });
+      data.signatureData = b.signatureData;
+      data.signatureMethod = "draw";
+    } else if (existing?.signatureData) {
+      data.signatureData = existing.signatureData;
+      data.signatureMethod = existing.signatureMethod || "draw";
+    }
+    if (signatureMethod) data.signatureMethod = signatureMethod;
+
+    const hasSignature = data.signatureData || data.signature;
+    if (!hasSignature) {
+      return res.status(400).json({
+        error: "A clear signature is required. Draw on the signature pad or upload a sharp signature image (JPG/PNG/PDF).",
+        code: "SIGNATURE_REQUIRED",
+      });
     }
 
     const hasPhoto = data.photo;
@@ -314,6 +364,23 @@ router.post(
     if (!String(b.bankName || "").trim()) return res.status(400).json({ error: "Bank name is required" });
     if (!String(b.bankAccount || "").trim()) return res.status(400).json({ error: "Bank account number is required" });
     if (!String(b.ifscCode || "").trim()) return res.status(400).json({ error: "IFSC code is required" });
+
+    const bankProofType = String(b.bankProofType || data.bankProofType || "CHEQUE").toUpperCase();
+    data.bankProofType = bankProofType;
+    const bankProofOk =
+      (bankProofType === "CHEQUE" && data.cancelledCheque) ||
+      (bankProofType === "PASSBOOK" && data.passbookDocument) ||
+      (bankProofType === "STATEMENT" && data.bankStatementDocument);
+    if (!bankProofOk) {
+      return res.status(400).json({
+        error:
+          bankProofType === "PASSBOOK"
+            ? "Upload a clear passbook copy (image or unlocked PDF)."
+            : bankProofType === "STATEMENT"
+              ? "Upload a clear bank statement (image or unlocked PDF — password-protected files are not accepted)."
+              : "Upload a clear cancelled cheque copy (image or PDF).",
+      });
+    }
 
     const kyc = await investDb.kyc.upsert({
       where: { investorId: req.user.id },
@@ -442,10 +509,19 @@ router.post(
   "/agreements/:id/sign",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const agreement = await signAgreement(req.user.id, req.params.id, req.body.signatureData, {
+    let signatureData = req.body.signatureData;
+    if (req.body.useKycSignature) {
+      const { getInvestorKycSignatureBase64 } = await import("../services/kycSignature.js");
+      signatureData = await getInvestorKycSignatureBase64(req.user.id);
+      if (!signatureData) {
+        return res.status(400).json({ error: "No KYC signature on file. Complete KYC with a clear signature first." });
+      }
+    }
+    if (!signatureData) return res.status(400).json({ error: "Signature is required" });
+    const agreement = await signAgreement(req.user.id, req.params.id, signatureData, {
       ipAddress: clientIp(req),
       userAgent: req.headers["user-agent"] || "",
-      method: req.body.method || "draw",
+      method: req.body.method || (req.body.useKycSignature ? "kyc" : "draw"),
     });
     res.json({ agreement, pdfHash: agreement.pdfHash });
   })
@@ -472,8 +548,19 @@ router.post(
     }
     const methodUpper = String(method || "UPI").toUpperCase();
     const isManual = MANUAL_DEPOSIT_METHODS.has(methodUpper);
+    const { getInvestorPaymentOptions } = await import("../services/paymentModeVisibility.js");
+    const payOpts = await getInvestorPaymentOptions();
 
     if (isManual) {
+      if (methodUpper === "UPI" && !payOpts.depositCategories.upi) {
+        return res.status(400).json({ error: "UPI deposits are not available at this time." });
+      }
+      if (["IMPS", "NEFT", "RTGS", "BANK"].includes(methodUpper) && !payOpts.depositCategories.bank) {
+        return res.status(400).json({ error: "Bank transfer deposits are not available at this time." });
+      }
+      if (payOpts.bankTransferTypes[methodUpper] === false) {
+        return res.status(400).json({ error: `${methodUpper} deposits are not available at this time.` });
+      }
       if (!req.file) {
         return res.status(400).json({ error: "Payment proof (screenshot or PDF) is required for UPI and bank transfers." });
       }
@@ -517,6 +604,8 @@ router.post(
     });
     let payment = null;
     if (ONLINE_DEPOSIT_GATEWAYS.has(methodUpper)) {
+      const { assertDepositGatewayAllowed } = await import("../services/paymentModeVisibility.js");
+      await assertDepositGatewayAllowed(methodUpper);
       payment = await createOrder(methodUpper.toLowerCase(), {
         amount: dep.amount,
         currency: dep.method === "PAYPAL" ? "INR" : "INR",
@@ -707,7 +796,19 @@ router.post(
   investorOnly,
   asyncH(async (req, res) => {
     const { amount, mode, password, totpCode } = req.body;
-    const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    const { getInvestorPaymentOptions } = await import("../services/paymentModeVisibility.js");
+    const payOpts = await getInvestorPaymentOptions();
+    const modeUpper = String(mode || "UPI").toUpperCase();
+    if (modeUpper === "UPI" && payOpts.withdrawMethods.UPI === false) {
+      return res.status(400).json({ error: "UPI withdrawals are not available at this time." });
+    }
+    if (modeUpper !== "UPI" && payOpts.withdrawMethods.BANK === false) {
+      return res.status(400).json({ error: "Bank withdrawals are not available at this time." });
+    }
+    const gate = await (await import("../utils/investCompliance.js")).assertCanWithdraw(req.user.id, investDb);
+    if (!gate.ok) return res.status(403).json({ error: gate.error, code: gate.code, missing: gate.missing });
+
+    const inv = gate.investor;
     const destination = mode === "UPI" ? inv.upiId : inv.accountNumber;
     if (!destination) return res.status(400).json({ error: `Please add your ${mode} payout details first.` });
     const result = await initiateWithdrawal(inv, { amount, mode, destination, password, totpCode });

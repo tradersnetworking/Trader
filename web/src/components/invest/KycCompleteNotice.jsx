@@ -11,9 +11,9 @@ export default function KycCompleteNotice({ investor, kyc, onCompleteKyc }) {
   return (
     <Alert type={pending ? "info" : "warning"}>
       <p className="font-semibold text-foreground">
-        {pending ? "KYC under review" : "Complete verification to invest"}
+        {pending ? "KYC under review" : "Complete verification to invest & withdraw"}
       </p>
-      <p className="mt-1 text-sm">{message}</p>
+      <p className="mt-1 text-sm">{message} Wallet deposits are still available.</p>
       {!pending && (
         <button
           type="button"

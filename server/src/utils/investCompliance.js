@@ -1,4 +1,4 @@
-/** Whether an investor may subscribe / invest (KYC approved + bank on file). */
+/** Whether an investor may subscribe / invest or withdraw (KYC approved + bank on file). */
 
 export function hasBankDetails(investor) {
   if (!investor) return false;
@@ -13,7 +13,7 @@ export function isKycApproved(kyc) {
   return kyc?.status === "APPROVED";
 }
 
-export function investEligibility(investor, kyc) {
+function buildEligibility(investor, kyc, { forWithdraw = false } = {}) {
   const missing = [];
   if (!isKycApproved(kyc)) {
     if (!kyc || kyc.status === "REJECTED") missing.push("kyc_submit");
@@ -22,21 +22,34 @@ export function investEligibility(investor, kyc) {
   }
   if (!hasBankDetails(investor)) missing.push("bank_details");
 
-  const canInvest = missing.length === 0;
+  const canTransact = missing.length === 0;
   let message = "";
-  if (!canInvest) {
+  if (!canTransact) {
     if (missing.includes("kyc_pending")) {
-      message = "Your KYC is under review. You can invest once it is approved.";
+      message = "Your KYC is under review. You can use this feature once it is approved.";
     } else if (missing.includes("bank_details") && missing.some((m) => m.startsWith("kyc"))) {
-      message = "Complete KYC verification and add your bank details before investing.";
+      message = "Complete KYC verification and add your bank details first.";
     } else if (missing.includes("bank_details")) {
-      message = "Add your bank name, account number and IFSC under KYC before investing.";
+      message = "Add your bank name, account number and IFSC under KYC first.";
     } else {
-      message = "Complete KYC verification before investing.";
+      message = "Complete and get KYC approved before investing or withdrawing. Deposits are allowed without KYC.";
+    }
+    if (!forWithdraw && missing.length && !message.includes("invest")) {
+      message = message.replace("investing or withdrawing", "investing");
     }
   }
 
-  return { canInvest, missing, message };
+  return { canTransact, missing, message };
+}
+
+export function investEligibility(investor, kyc) {
+  const { canTransact, missing, message } = buildEligibility(investor, kyc);
+  return { canInvest: canTransact, missing, message };
+}
+
+export function withdrawEligibility(investor, kyc) {
+  const { canTransact, missing, message } = buildEligibility(investor, kyc, { forWithdraw: true });
+  return { canWithdraw: canTransact, missing, message };
 }
 
 export async function assertCanInvest(investorId, investDb) {
@@ -47,6 +60,18 @@ export async function assertCanInvest(investorId, investDb) {
   const el = investEligibility(investor, kyc);
   if (!el.canInvest) {
     return { ok: false, error: el.message, code: "INVEST_NOT_ELIGIBLE", missing: el.missing };
+  }
+  return { ok: true, investor, kyc };
+}
+
+export async function assertCanWithdraw(investorId, investDb) {
+  const [investor, kyc] = await Promise.all([
+    investDb.investor.findUnique({ where: { id: investorId } }),
+    investDb.kyc.findUnique({ where: { investorId } }),
+  ]);
+  const el = withdrawEligibility(investor, kyc);
+  if (!el.canWithdraw) {
+    return { ok: false, error: el.message, code: "WITHDRAW_NOT_ELIGIBLE", missing: el.missing };
   }
   return { ok: true, investor, kyc };
 }

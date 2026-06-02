@@ -57,6 +57,9 @@ export default function ActivePlansPanel({ subscriptions = [], loading, onNaviga
                       <Badge status="ACTIVE" />
                     </div>
                     <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">{inr(s.amount)}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                      {s.monthlyRoiPct}% profit share / month · {Math.round((s.lockInDays || s.plan?.lockInDays || 0) / 30)}-month lock-in
+                    </p>
                   </div>
                   <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                     <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />

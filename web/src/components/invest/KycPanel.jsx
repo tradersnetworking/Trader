@@ -26,6 +26,9 @@ import {
   KYC_ACCEPT_IMAGE,
 
 } from "../../lib/kyc-document-fields.js";
+import KycSignatureField from "./KycSignatureField.jsx";
+import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
+import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
 
 
 
@@ -58,49 +61,7 @@ const ID_TYPES = [
 
 
 function initForm(kyc) {
-
-  return {
-
-    fullName: kyc?.fullName || "",
-
-    fatherName: kyc?.fatherName || "",
-
-    dob: kyc?.dob || "",
-
-    phone: kyc?.phone || "",
-
-    phoneCountryCode: kyc?.phoneCountryCode || "+91",
-
-    country: kyc?.country || "India",
-
-    city: kyc?.city || "",
-
-    state: kyc?.state || "",
-
-    address: kyc?.address || "",
-
-    idType: kyc?.idType || "PAN",
-
-    idNumber: kyc?.idNumber || "",
-
-    panNumber: kyc?.panNumber || "",
-
-    aadhaarNumber: kyc?.aadhaarNumber || "",
-
-    bankName: kyc?.bankName || "",
-
-    bankAccount: kyc?.bankAccount || "",
-
-    ifscCode: kyc?.ifscCode || "",
-
-    branchName: kyc?.branchName || "",
-
-    upiId: kyc?.upiId || "",
-
-    taxId: kyc?.taxId || "",
-
-  };
-
+  return initKycForm(kyc);
 }
 
 
@@ -114,6 +75,9 @@ export default function KycPanel({ kyc, onRefresh }) {
   const [form, setForm] = useState(() => initForm(kyc));
 
   const [files, setFiles] = useState({});
+  const [signatureMode, setSignatureMode] = useState(() => (kyc?.signatureData ? "draw" : kyc?.signature ? "upload" : "draw"));
+  const [signatureData, setSignatureData] = useState(kyc?.signatureData || null);
+  const [signatureFile, setSignatureFile] = useState(null);
 
   const [msg, setMsg] = useState("");
 
@@ -192,13 +156,17 @@ export default function KycPanel({ kyc, onRefresh }) {
   const validateStep = (s) => {
 
     if (s === 0) {
-
       if (!form.fullName.trim()) return "Full name is required";
-
-      if (!form.address.trim()) return "Address is required";
-
-      if (!form.phone.trim()) return "Phone number is required";
-
+      if (!form.guardianName.trim()) return `${guardianFieldLabel(form.guardianType)} is required`;
+      if (!form.dob) return "Date of birth is required";
+      if (!form.phone.trim()) return "Mobile number is required";
+      const wa = form.sameWhatsapp ? form.phone : form.whatsappNumber;
+      if (!String(wa || "").trim()) return "WhatsApp number is required";
+      if (!form.houseNo.trim()) return "House / flat number is required";
+      if (!form.area.trim() && !form.street.trim()) return "Street or area is required";
+      if (!form.district.trim()) return "District is required";
+      if (!form.state.trim()) return "State is required";
+      if (!/^\d{6}$/.test(String(form.pincode || "").trim())) return "Valid 6-digit PIN code is required";
     }
 
     if (s === 1) {
@@ -217,6 +185,13 @@ export default function KycPanel({ kyc, onRefresh }) {
 
       if (!aadhaarOk) return "Upload Aadhaar front & back, or a single Aadhaar PDF/image";
 
+      const hasSig = signatureData || signatureFile || kyc?.signature || kyc?.signatureData;
+      if (!hasSig) return "Signature is required — draw on the pad or upload a clear signature image/PDF";
+      if (signatureData) {
+        const sigErr = validateSignatureBase64(signatureData);
+        if (sigErr) return sigErr;
+      }
+
       for (const [key, file] of Object.entries(files)) {
 
         const def = KYC_DOCUMENT_FIELDS.find((d) => d.key === key);
@@ -230,13 +205,22 @@ export default function KycPanel({ kyc, onRefresh }) {
     }
 
     if (s === 2) {
-
       if (!form.bankName.trim()) return "Bank name is required";
-
       if (!form.bankAccount.trim()) return "Account number is required";
-
       if (!form.ifscCode.trim()) return "IFSC code is required";
-
+      const bp =
+        form.bankProofType === "CHEQUE"
+          ? hasDoc("cancelledCheque")
+          : form.bankProofType === "PASSBOOK"
+            ? hasDoc("passbookDocument")
+            : hasDoc("bankStatementDocument");
+      if (!bp) {
+        return form.bankProofType === "STATEMENT"
+          ? "Upload bank statement (unlocked PDF or image — password-protected files not accepted)"
+          : form.bankProofType === "PASSBOOK"
+            ? "Upload bank passbook copy"
+            : "Upload cancelled cheque copy";
+      }
     }
 
     return null;
@@ -300,18 +284,26 @@ export default function KycPanel({ kyc, onRefresh }) {
     const fd = new FormData();
 
     const payload = {
-
       ...form,
-
       panNumber: normalizePan(form.panNumber),
-
       aadhaarNumber: normalizeAadhaar(form.aadhaarNumber),
-
       idNumber: form.idNumber || normalizePan(form.panNumber) || normalizeAadhaar(form.aadhaarNumber),
-
+      whatsappNumber: form.sameWhatsapp ? form.phone : form.whatsappNumber,
+      fatherName: form.guardianName,
     };
 
     Object.entries(payload).forEach(([k, v]) => fd.append(k, v || ""));
+
+    if (signatureData) {
+      fd.append("signatureData", signatureData);
+      fd.append("signatureMethod", "draw");
+    } else if (signatureFile) {
+      fd.append("signature", signatureFile);
+      fd.append("signatureMethod", "upload");
+    } else if (kyc?.signatureData) {
+      fd.append("signatureData", kyc.signatureData);
+      fd.append("signatureMethod", kyc.signatureMethod || "draw");
+    }
 
     Object.entries(files).forEach(([k, f]) => f && fd.append(k, f));
 
@@ -474,25 +466,27 @@ export default function KycPanel({ kyc, onRefresh }) {
 
 
           {step === 0 && (
-
             <div className="mt-4 space-y-3">
-
-              <Field label="Full Legal Name">
-
+              <Field label="Full legal name *">
                 <input className="input" required value={form.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="As per PAN / Aadhaar" />
-
               </Field>
-
-              <Field label="Father's Name">
-
-                <input className="input" value={form.fatherName} onChange={(e) => set("fatherName", e.target.value)} placeholder="As per official ID (for agreements)" />
-
-              </Field>
-
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-                <Field label="Phone Number">
-
+                <Field label="Relation *">
+                  <select className="input" value={form.guardianType} onChange={(e) => set("guardianType", e.target.value)}>
+                    {GUARDIAN_TYPES.map((g) => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label={`${guardianFieldLabel(form.guardianType)} *`}>
+                  <input className="input" required value={form.guardianName} onChange={(e) => set("guardianName", e.target.value)} placeholder="As per official ID" />
+                </Field>
+              </div>
+              <Field label="Date of birth *">
+                <input className="input" type="date" required value={form.dob} onChange={(e) => set("dob", e.target.value)} />
+              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Mobile number *">
                   <PhoneInput
                     countryCode={form.phoneCountryCode}
                     phone={form.phone}
@@ -500,35 +494,36 @@ export default function KycPanel({ kyc, onRefresh }) {
                     onPhoneChange={(v) => set("phone", v)}
                     required
                   />
-
                 </Field>
-
-                <Field label="Date of Birth">
-
-                  <input className="input" type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)} />
-
+                <Field label="WhatsApp number *">
+                  <label className="mb-2 flex items-center gap-2 text-xs">
+                    <input type="checkbox" checked={form.sameWhatsapp} onChange={(e) => set("sameWhatsapp", e.target.checked)} />
+                    Same as mobile
+                  </label>
+                  {!form.sameWhatsapp && (
+                    <PhoneInput
+                      countryCode={form.whatsappCountryCode}
+                      phone={form.whatsappNumber}
+                      onCountryCodeChange={(v) => set("whatsappCountryCode", v)}
+                      onPhoneChange={(v) => set("whatsappNumber", v)}
+                      required
+                    />
+                  )}
                 </Field>
-
               </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-
-                <Field label="Country"><input className="input" value={form.country} onChange={(e) => set("country", e.target.value)} /></Field>
-
-                <Field label="State"><input className="input" value={form.state} onChange={(e) => set("state", e.target.value)} /></Field>
-
+              <p className="text-xs font-semibold text-muted-foreground">Address (as per ID)</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="House / flat no. *"><input className="input" value={form.houseNo} onChange={(e) => set("houseNo", e.target.value)} /></Field>
+                <Field label="Street *"><input className="input" value={form.street} onChange={(e) => set("street", e.target.value)} /></Field>
+                <Field label="Landmark"><input className="input" value={form.landmark} onChange={(e) => set("landmark", e.target.value)} /></Field>
+                <Field label="Area / locality *"><input className="input" value={form.area} onChange={(e) => set("area", e.target.value)} /></Field>
+                <Field label="District *"><input className="input" value={form.district} onChange={(e) => set("district", e.target.value)} /></Field>
                 <Field label="City"><input className="input" value={form.city} onChange={(e) => set("city", e.target.value)} /></Field>
-
+                <Field label="State *"><input className="input" value={form.state} onChange={(e) => set("state", e.target.value)} /></Field>
+                <Field label="PIN code *"><input className="input" inputMode="numeric" maxLength={6} value={form.pincode} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} /></Field>
+                <Field label="Country"><input className="input" value={form.country} onChange={(e) => set("country", e.target.value)} /></Field>
               </div>
-
-              <Field label="Full Address">
-
-                <textarea className="input" rows={3} required value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="House no., street, pincode" />
-
-              </Field>
-
             </div>
-
           )}
 
 
@@ -771,22 +766,14 @@ export default function KycPanel({ kyc, onRefresh }) {
 
                 />
 
-                <UploadField
-
-                  label="Signature"
-
-                  hint="Sign on white paper and upload a clear photo or scan"
-
-                  name="signature"
-
-                  accept={KYC_ACCEPT_DOCS}
-
-                  files={files}
-
-                  setFiles={setFiles}
-
+                <KycSignatureField
+                  signatureMode={signatureMode}
+                  setSignatureMode={setSignatureMode}
+                  signatureData={signatureData}
+                  setSignatureData={setSignatureData}
+                  signatureFile={signatureFile}
+                  setSignatureFile={setSignatureFile}
                   existingUrl={kyc?.signature}
-
                 />
 
               </div>
@@ -841,26 +828,24 @@ export default function KycPanel({ kyc, onRefresh }) {
 
               </Field>
 
-              <UploadField
-
-                label="Cancelled Cheque"
-
-                hint="For bank account verification — image or PDF"
-
-                name="cancelledCheque"
-
-                accept={KYC_ACCEPT_DOCS}
-
-                files={files}
-
-                setFiles={setFiles}
-
-                existingUrl={kyc?.cancelledCheque}
-
-              />
-
+              <Field label="Bank proof type *">
+                <select className="input" value={form.bankProofType} onChange={(e) => set("bankProofType", e.target.value)}>
+                  {BANK_PROOF_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">Upload clear image or PDF. Password-protected bank statements are not accepted.</p>
+              </Field>
+              {form.bankProofType === "CHEQUE" && (
+                <UploadField label="Cancelled cheque *" hint="Clear scan — image or PDF" name="cancelledCheque" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.cancelledCheque} />
+              )}
+              {form.bankProofType === "PASSBOOK" && (
+                <UploadField label="Bank passbook *" hint="First page showing name & account — image or PDF" name="passbookDocument" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.passbookDocument} />
+              )}
+              {form.bankProofType === "STATEMENT" && (
+                <UploadField label="Bank statement *" hint="Recent statement — unlocked PDF or image only" name="bankStatementDocument" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.bankStatementDocument} />
+              )}
             </div>
-
           )}
 
 
@@ -874,23 +859,18 @@ export default function KycPanel({ kyc, onRefresh }) {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
                 {[
-
                   ["Full Name", form.fullName],
-
-                  ["Phone", form.phone],
-
-                  ["Address", form.address],
-
+                  [guardianFieldLabel(form.guardianType), form.guardianName],
+                  ["Date of birth", form.dob],
+                  ["Mobile", form.phone],
+                  ["WhatsApp", form.whatsappNumber],
+                  ["Address", [form.houseNo, form.street, form.landmark, form.area, form.district, form.state, form.pincode].filter(Boolean).join(", ") || form.address],
                   ["PAN", normalizePan(form.panNumber)],
-
                   ["Aadhaar", normalizeAadhaar(form.aadhaarNumber)],
-
                   ["Bank", form.bankName],
-
                   ["Account", form.bankAccount],
-
                   ["IFSC", form.ifscCode],
-
+                  ["Bank proof", form.bankProofType],
                 ].map(([l, v]) => (
 
                   <div key={l}>

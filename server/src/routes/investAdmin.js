@@ -1,7 +1,10 @@
 import { Router } from "express";
+import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
 import { hashPassword } from "../utils/auth.js";
+import { revokeAuthSession } from "../services/authSession.js";
+import { sendMail } from "../utils/mailer.js";
 import {
   annualRoiPct,
   PLAN_TYPES,
@@ -271,7 +274,67 @@ router.get(
     });
     if (!inv) return res.status(404).json({ error: "Not found" });
     const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = inv;
-    res.json({ investor: user });
+    const { listAllAgreementsForInvestor } = await import("../services/agreements.js");
+    const { listInvestorLoginSessions } = await import("../services/loginSession.js");
+    const agreements = await listAllAgreementsForInvestor(req.params.id);
+    const loginSessions = await listInvestorLoginSessions(req.params.id);
+    res.json({ investor: { ...user, agreements, loginSessions } });
+  })
+);
+
+router.post(
+  "/investors/:id/reset-password",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    if (req.user.role !== "SUPERADMIN") {
+      return res.status(403).json({ error: "Only Super Admin can reset user passwords" });
+    }
+    const inv = await investDb.investor.findUnique({ where: { id: req.params.id } });
+    if (!inv) return res.status(404).json({ error: "Not found" });
+    if (inv.role !== "INVESTOR") return res.status(403).json({ error: "Can only reset investor passwords" });
+
+    const { password, sendResetLink } = req.body;
+    if (sendResetLink) {
+      const token = nanoid(40);
+      await investDb.investor.update({
+        where: { id: inv.id },
+        data: { resetToken: token, resetExpires: new Date(Date.now() + 1000 * 60 * 60) },
+      });
+      const link = `${process.env.CLIENT_ORIGIN || ""}/invest/reset-password?token=${token}`;
+      await sendMail({
+        to: inv.email,
+        purpose: "password_reset",
+        subject: "Reset your AKASHYA INVESTMENTS password",
+        text: `An administrator requested a password reset. Link (valid 1 hour): ${link}`,
+      });
+      await logAudit({
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        actorName: req.user.name,
+        action: "INVESTOR_PASSWORD_RESET_LINK",
+        entity: "Investor",
+        entityId: inv.id,
+      });
+      return res.json({ ok: true, message: "Password reset link emailed to investor." });
+    }
+
+    const newPassword = String(password || "").trim();
+    if (newPassword.length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+    await investDb.investor.update({
+      where: { id: inv.id },
+      data: { passwordHash: hashPassword(newPassword), resetToken: null, resetExpires: null },
+    });
+    await revokeAuthSession(SCOPE, inv.id);
+    await logAudit({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      actorName: req.user.name,
+      action: "INVESTOR_PASSWORD_RESET",
+      entity: "Investor",
+      entityId: inv.id,
+    });
+    res.json({ ok: true, message: "Password updated. User must sign in again on one device." });
   })
 );
 
@@ -292,7 +355,15 @@ router.patch(
       return res.json({ investor: user });
     }
     const data = {};
-    if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
+    if (req.body.isActive !== undefined) {
+      if (req.user.role !== "SUPERADMIN") {
+        return res.status(403).json({ error: "Only Super Admin can block or unblock users" });
+      }
+      if (inv.role !== "INVESTOR") {
+        return res.status(403).json({ error: "Can only block or unblock investor accounts" });
+      }
+      data.isActive = Boolean(req.body.isActive);
+    }
     if (req.body.name !== undefined) data.name = String(req.body.name).trim();
     if (req.body.phone !== undefined) data.phone = req.body.phone || null;
     const updated = await investDb.investor.update({ where: { id: inv.id }, data });
@@ -615,6 +686,11 @@ router.post(
     const { status, remarks } = req.body;
     const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!existing) return res.status(404).json({ error: "Not found" });
+    if (status === "APPROVED") {
+      const { assertKycHasSignature } = await import("../services/kycSignature.js");
+      const sigOk = assertKycHasSignature(existing);
+      if (!sigOk.ok) return res.status(400).json({ error: sigOk.message });
+    }
     const kyc = await investDb.kyc.update({
       where: { id: req.params.id },
       data: {
@@ -623,6 +699,13 @@ router.post(
         verifiedAt: status === "APPROVED" ? new Date() : null,
       },
     });
+    if (status === "APPROVED" && existing.investorId) {
+      const { autoSignPendingAgreementsForInvestor } = await import("../services/agreements.js");
+      await autoSignPendingAgreementsForInvestor(existing.investorId, {
+        ipAddress: "kyc-approval",
+        userAgent: "admin-kyc",
+      }).catch(() => {});
+    }
     if (existing.investor) notifyKycDecision(existing.investor, kyc);
     res.json({ kyc });
   })
@@ -785,7 +868,27 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    res.json({ collection: await listGateways(), payouts: await payoutGatewayStatus() });
+    const collection = await listGateways();
+    const payouts = await payoutGatewayStatus();
+    const { buildAdminVisibilityView } = await import("../services/paymentModeVisibility.js");
+    const visibility = await buildAdminVisibilityView(collection, payouts);
+    res.json({ collection, payouts, visibility });
+  })
+);
+
+router.put(
+  "/payment-mode-visibility",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_gateways"),
+  asyncH(async (req, res) => {
+    const { modes } = req.body;
+    if (!modes || typeof modes !== "object") {
+      return res.status(400).json({ error: "modes object required" });
+    }
+    const { savePaymentModeVisibility } = await import("../services/paymentModeVisibility.js");
+    const map = await savePaymentModeVisibility(modes);
+    res.json({ ok: true, modes: map });
   })
 );
 
@@ -815,7 +918,11 @@ router.patch(
   adminOnly,
   requirePermission("manage_gateways"),
   asyncH(async (req, res) => {
-    const g = await updatePaymentGateway(req.params.id, req.body);
+    const g = await updatePaymentGateway(req.params.id, {
+      ...req.body,
+      showDeposit: req.body.showDeposit,
+      showWithdraw: req.body.showWithdraw,
+    });
     res.json({ gateway: g });
   })
 );
@@ -1726,6 +1833,21 @@ router.put(
   })
 );
 
+router.get(
+  "/login-sessions",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (_req, res) => {
+    const sessions = await investDb.loginSession.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      include: { investor: { select: { id: true, name: true, email: true, isActive: true } } },
+    });
+    res.json({ sessions });
+  })
+);
+
 /* ---------------- Support mail desk ---------------- */
 router.get(
   "/support-mail",
@@ -1754,9 +1876,17 @@ router.post(
   authRequired(SCOPE),
   adminOnly,
   requirePermission("support_tickets"),
+  (req, res, next) => {
+    import("../utils/upload.js").then(({ upload }) => upload.array("attachments", 5)(req, res, next));
+  },
   asyncH(async (req, res) => {
     const { replySupportMail } = await import("../services/supportMail.js");
-    res.json(await replySupportMail(req.params.id, req.body));
+    const attachments = (req.files || []).map((f) => ({
+      filename: f.originalname,
+      path: f.path,
+    }));
+    const { body, subject } = req.body;
+    res.json(await replySupportMail(req.params.id, { body, subject, attachments }));
   })
 );
 
