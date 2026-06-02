@@ -292,23 +292,30 @@ export default function InvestDashboardShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="invest-header sticky top-0 z-30 shrink-0 overflow-x-clip border-b backdrop-blur-md">
-          {/* Mobile — brand on its own row so actions never squeeze it off-screen */}
-          <div className="border-b border-border/50 px-3 py-2 md:hidden">
+          <div className="flex min-w-0 items-center gap-1 px-2 py-1.5 sm:gap-2 sm:px-4 sm:py-2.5">
+            <button
+              type="button"
+              className="icon-btn icon-btn-sm shrink-0 md:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              subtitle={pageTitle || (role === "admin" ? "Invest · Admin" : "Invest · Dashboard")}
+              line1="AKSHAYA Exim"
+              line2="Invest"
               compact
-              className="min-w-0 max-w-full"
+              fullLogo={false}
+              titleBesideLogo
+              className="min-w-0 shrink-0 md:hidden"
             />
-            {pageSubtitle && (
-              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{pageSubtitle}</p>
-            )}
-          </div>
-
-          <div className="flex min-w-0 items-center gap-1 px-2 py-2 sm:gap-2 sm:px-4 sm:py-3">
             <div className="hidden min-w-0 flex-1 overflow-hidden md:block">
               <h1 className="page-title truncate">{pageTitle}</h1>
               {pageSubtitle && <p className="page-subtitle truncate">{pageSubtitle}</p>}
+            </div>
+            <div className="min-w-0 flex-1 truncate md:hidden">
+              <h1 className="truncate text-sm font-bold leading-tight text-foreground">{pageTitle}</h1>
             </div>
 
             <div className="ml-auto flex max-w-full shrink-0 items-center gap-0.5 sm:gap-1.5">

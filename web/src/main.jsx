@@ -4,6 +4,7 @@ import "./index.css";
 import { BrowserRouter } from "react-router-dom";
 import { applySiteRootClass, getAppSiteMode } from "./lib/site.js";
 import { loadPortalConfig } from "./lib/portalConfig.js";
+import { configurePortalPwa } from "./lib/pwa.js";
 import App from "./App.jsx";
 import { AuthProvider } from "./lib/store.jsx";
 import { ThemeProvider } from "./lib/theme.jsx";
@@ -12,13 +13,11 @@ import ScreenshotProtection from "./components/invest/ScreenshotProtection.jsx";
 
 async function bootstrap() {
   await loadPortalConfig();
-  const initialMode = getAppSiteMode(typeof window !== "undefined" ? window.location.pathname : "/");
-  if (typeof document !== "undefined") applySiteRootClass(initialMode);
-
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    });
+  const initialPath = typeof window !== "undefined" ? window.location.pathname : "/";
+  const initialMode = getAppSiteMode(initialPath);
+  if (typeof document !== "undefined") {
+    applySiteRootClass(initialMode);
+    configurePortalPwa(initialMode);
   }
 
   ReactDOM.createRoot(document.getElementById("root")).render(

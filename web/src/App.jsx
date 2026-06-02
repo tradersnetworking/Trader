@@ -159,6 +159,12 @@ function SiteClassSync() {
 
     applySiteRootClass(mode);
 
+    import("./lib/pwa.js").then(({ configurePortalPwa, registerInvestServiceWorker, unregisterServiceWorker }) => {
+      configurePortalPwa(mode);
+      if (mode === "invest") registerInvestServiceWorker();
+      else unregisterServiceWorker();
+    });
+
   }, [mode]);
 
   return null;
