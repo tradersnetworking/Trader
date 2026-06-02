@@ -1,49 +1,60 @@
-import { investFetchBlob } from "./api.js";
+import { investApi, investFetchBlob } from "./api.js";
 
-function isPdfBlob(blob) {
-  if (!blob?.size) return false;
-  if (blob.type?.includes("pdf")) return true;
-  return true;
+async function assertPdfBlob(blob) {
+  if (!blob?.size) throw new Error("Empty agreement PDF returned");
+  const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+  const sig = String.fromCharCode(...head);
+  if (!sig.startsWith("%PDF")) {
+    throw new Error("Could not load agreement PDF. Please sign in again and retry.");
+  }
+  if (!blob.type?.includes("pdf")) {
+    return new Blob([await blob.arrayBuffer()], { type: "application/pdf" });
+  }
+  return blob;
+}
+
+export async function fetchAgreementPdfViewUrl(agreementId, { admin = false } = {}) {
+  const base = admin ? `/admin/agreements/${agreementId}` : `/agreements/${agreementId}`;
+  const { url } = await investApi(`${base}/view-url`);
+  if (!url) throw new Error("Could not open agreement viewer");
+  return url;
 }
 
 export async function fetchAgreementPdfBlob(agreementId, { download = false, admin = false } = {}) {
   const base = admin ? `/admin/agreements/${agreementId}` : `/agreements/${agreementId}`;
   const path = download ? `${base}/download` : `${base}/view`;
   const blob = await investFetchBlob(path);
-  if (!isPdfBlob(blob)) {
-    throw new Error("Could not load agreement PDF. Please sign in again and retry.");
-  }
-  return blob;
+  return assertPdfBlob(blob);
 }
 
 export async function openAgreementPdfInNewTab(agreementId, { admin = false } = {}) {
-  const blob = await fetchAgreementPdfBlob(agreementId, { admin });
-  const tabUrl = URL.createObjectURL(blob);
-  window.open(tabUrl, "_blank", "noopener,noreferrer");
-  setTimeout(() => URL.revokeObjectURL(tabUrl), 120_000);
+  try {
+    const viewUrl = await fetchAgreementPdfViewUrl(agreementId, { admin });
+    window.open(viewUrl, "_blank", "noopener,noreferrer");
+  } catch {
+    const blob = await fetchAgreementPdfBlob(agreementId, { admin });
+    const tabUrl = URL.createObjectURL(blob);
+    window.open(tabUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(tabUrl), 120_000);
+  }
 }
 
 export async function fetchAgreementUserSettings() {
-  const { investApi } = await import("./api.js");
   return investApi("/agreements/settings/public");
 }
 
 export async function fetchAgreementAdminSettings() {
-  const { investApi } = await import("./api.js");
   return investApi("/admin/agreement-settings");
 }
 
 export async function saveAgreementAdminSettings(body) {
-  const { investApi } = await import("./api.js");
   return investApi("/admin/agreement-settings", { method: "PUT", body });
 }
 
 export async function fetchAgreementCompanySettings() {
-  const { investApi } = await import("./api.js");
   return investApi("/admin/agreement-company-settings");
 }
 
 export async function saveAgreementCompanySettings(body) {
-  const { investApi } = await import("./api.js");
   return investApi("/admin/agreement-company-settings", { method: "PUT", body });
 }

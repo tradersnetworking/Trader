@@ -1362,6 +1362,19 @@ router.post(
 );
 
 router.get(
+  "/agreements/:id/view-url",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const { signAgreementViewToken } = await import("../services/agreementViewToken.js");
+    const token = signAgreementViewToken(req.params.id, req.user.id, { isAdmin: true });
+    res.json({
+      url: `/api/invest/agreement-documents/${req.params.id}?token=${encodeURIComponent(token)}`,
+    });
+  })
+);
+
+router.get(
   "/agreements/:id/view",
   authRequired(SCOPE),
   adminOnly,

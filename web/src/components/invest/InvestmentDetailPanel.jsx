@@ -206,9 +206,10 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
       {cert && <InvestmentCertificate data={cert} onClose={() => setCert(null)} />}
       <AgreementPdfViewDialog
         open={Boolean(pdfAgreement)}
+        onClose={() => setPdfAgreement(null)}
+        documentKey={pdfAgreement?.id}
         agreementId={pdfAgreement?.id}
         agreementUid={pdfAgreement?.agreementUid}
-        onClose={() => setPdfAgreement(null)}
       />
     </div>
   );

@@ -15,6 +15,7 @@ import {
   AGREEMENT_TYPES,
 } from "../services/agreements.js";
 import { getAgreementSettings } from "../services/agreementSettings.js";
+import { signAgreementViewToken, verifyAgreementViewToken } from "../services/agreementViewToken.js";
 
 function clientIp(req) {
   const fwd = req.headers["x-forwarded-for"];
@@ -448,11 +449,53 @@ router.get(
 );
 
 /* -------- agreements -------- */
+/** Tokenized PDF stream for iframe preview (no Authorization header required). */
+router.get(
+  "/agreement-documents/:id",
+  asyncH(async (req, res) => {
+    const rawToken = String(req.query.token || "");
+    if (!rawToken) return res.status(401).json({ error: "Missing view token" });
+    let payload;
+    try {
+      payload = verifyAgreementViewToken(rawToken);
+    } catch {
+      return res.status(401).json({ error: "Invalid or expired view link. Close and open the PDF again." });
+    }
+    if (payload.agreementId !== req.params.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    try {
+      const buffer = await getAgreementPdfBuffer(req.params.id, payload.userId, { isAdmin: payload.isAdmin });
+      const ag = await investDb.agreement.findUnique({
+        where: { id: req.params.id },
+        select: { agreementUid: true },
+      });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Cache-Control", "private, no-store");
+      res.setHeader("Content-Disposition", `inline; filename="${ag?.agreementUid || "agreement"}.pdf"`);
+      return res.send(buffer);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || "Could not generate agreement PDF" });
+    }
+  })
+);
+
 router.get(
   "/agreements",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
     res.json({ agreements: await listInvestorAgreements(req.user.id), types: AGREEMENT_TYPES });
+  })
+);
+
+router.get(
+  "/agreements/:id/view-url",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const token = signAgreementViewToken(req.params.id, req.user.id, { isAdmin: false });
+    res.json({
+      url: `/api/invest/agreement-documents/${req.params.id}?token=${encodeURIComponent(token)}`,
+    });
   })
 );
 

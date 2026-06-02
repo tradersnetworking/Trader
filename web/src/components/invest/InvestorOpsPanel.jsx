@@ -704,7 +704,14 @@ export default function InvestorOpsPanel() {
           )}
         </div>
       )}
-      <AgreementPdfViewDialog admin open={Boolean(pdfAgreement)} agreementId={pdfAgreement?.id} agreementUid={pdfAgreement?.agreementUid} onClose={() => setPdfAgreement(null)} />
+      <AgreementPdfViewDialog
+        admin
+        open={Boolean(pdfAgreement)}
+        onClose={() => setPdfAgreement(null)}
+        documentKey={pdfAgreement?.id}
+        agreementId={pdfAgreement?.id}
+        agreementUid={pdfAgreement?.agreementUid}
+      />
     </div>
   );
 }
