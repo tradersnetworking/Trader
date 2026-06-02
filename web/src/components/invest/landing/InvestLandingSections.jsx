@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { investPath } from "../../../lib/site.js";
-import { INVEST_HERO_SUBTITLE, normalizeInvestBrandingText } from "../../../lib/brand.js";
+import { INVEST_HERO_SUBTITLE, resolveInvestHeroSubtitle } from "../../../lib/brand.js";
+import { planRoiRange, formatRoiPct } from "../../../lib/plan-types.js";
 import { useI18n } from "../../../lib/i18n/context.jsx";
-import { Logo } from "../../ui.jsx";
+import BrandMark from "../../BrandMark.jsx";
 
 const FEATURE_KEYS = [
   { icon: "📊", titleKey: "feature42Plans", descKey: "feature42Desc", bg: "bg-amber-500/10", color: "text-amber-600 dark:text-amber-400" },
@@ -48,12 +49,21 @@ export function InvestLandingFeatures() {
   );
 }
 
-export function InvestLandingStats({ cms }) {
+export function InvestLandingStats({ cms, plans = [] }) {
   const { t } = useI18n();
   if (cms?.homepage_show_trust_stats === "false") return null;
+  const roi = planRoiRange(plans);
   const stats = [
-    { val: "10%–20%", label: t("landing.statMonthlyRoi"), color: "text-amber-600 dark:text-amber-400" },
-    { val: "120%–240%", label: t("landing.statAnnualRoi"), color: "text-emerald-600 dark:text-emerald-400" },
+    {
+      val: `${formatRoiPct(roi.monthlyMin)}%–${formatRoiPct(roi.monthlyMax)}%`,
+      label: t("landing.statMonthlyRoi"),
+      color: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      val: `${formatRoiPct(roi.annualMin)}%–${formatRoiPct(roi.annualMax)}%`,
+      label: t("landing.statAnnualRoi"),
+      color: "text-emerald-600 dark:text-emerald-400",
+    },
     { val: "42", label: t("landing.statPlans"), color: "text-blue-600 dark:text-blue-400" },
     { val: "100%", label: t("landing.statCapital"), color: "text-violet-600 dark:text-violet-400" },
   ];
@@ -185,9 +195,16 @@ export function InvestLandingHero({ cms, invest }) {
     <section className="hero-gradient relative overflow-hidden text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.12)_0,transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 py-12 text-center sm:py-16 md:py-20">
-        <Link to={investPath("")} className="mx-auto mb-6 inline-block">
-          <Logo variant="full" className="mx-auto h-20 w-auto max-w-[11rem] sm:h-24 sm:max-w-[13rem] md:h-28 md:max-w-[15rem]" />
-        </Link>
+        <div className="mx-auto mb-4 flex justify-center sm:mb-6">
+          <BrandMark
+            to={investPath("")}
+            investSiteTitle
+            brandSize="hero"
+            onDark
+            fullLogo={false}
+            titleBesideLogo
+          />
+        </div>
         <span className="badge border border-amber-500/40 bg-amber-500/10 text-amber-300">
           {t("home.heroBadge")}
         </span>
@@ -195,7 +212,7 @@ export function InvestLandingHero({ cms, invest }) {
           {cms?.homepage_hero_title || t("home.heroTitle")}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base md:text-lg">
-          {normalizeInvestBrandingText(cms?.homepage_hero_subtitle) || t("home.heroSubtitle") || INVEST_HERO_SUBTITLE}
+          {resolveInvestHeroSubtitle(cms?.homepage_hero_subtitle || t("home.heroSubtitle"))}
         </p>
         <div className="mt-8 flex flex-col items-stretch justify-center gap-3 px-2 sm:flex-row sm:items-center sm:gap-4">
           {invest ? (

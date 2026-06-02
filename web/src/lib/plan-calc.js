@@ -30,18 +30,53 @@ export function compoundedMaturity(amount, monthlyRoiPct, lockInDays) {
   return { months, totalReturn: maturityValue - Number(amount), maturityValue };
 }
 
+export const SETTLEMENT_CYCLE_OPTIONS = [
+  { id: "WEEKLY", label: "Weekly", days: 7 },
+  { id: "MONTHLY", label: "Monthly", days: 30 },
+  { id: "QUARTERLY", label: "Quarterly", days: 90 },
+  { id: "HALFYEARLY", label: "Halfyearly", days: 180 },
+  { id: "ANNUALLY", label: "Annually", days: 365 },
+];
+
+export function normalizeSettlementCycleId(cycle) {
+  const c = String(cycle || "MONTHLY").trim().toUpperCase().replace("HALF_YEARLY", "HALFYEARLY");
+  const ids = SETTLEMENT_CYCLE_OPTIONS.map((o) => o.id);
+  return ids.includes(c) ? c : "MONTHLY";
+}
+
+export function settlementCycleLabel(cycle) {
+  const id = normalizeSettlementCycleId(cycle);
+  return SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === id)?.label || id;
+}
+
+export function settlementCycleDays(cycle) {
+  const id = normalizeSettlementCycleId(cycle);
+  return SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === id)?.days || 30;
+}
+
 export function parseSettlementCycles(str) {
   return String(str || "MONTHLY")
     .split(",")
-    .map((s) => s.trim().toUpperCase())
+    .map((s) => normalizeSettlementCycleId(s))
     .filter(Boolean);
+}
+
+export function formatSettlementCyclesDisplay(str) {
+  return parseSettlementCycles(str)
+    .map((id) => {
+      const opt = SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === id);
+      return opt ? `${opt.label} (${opt.days} days)` : id;
+    })
+    .join(" · ");
 }
 
 export function settlementPayoutAmount(principal, monthlyRoiPct, cycle) {
   const monthly = monthlyReturn(principal, monthlyRoiPct);
-  const c = String(cycle || "MONTHLY").toUpperCase();
+  const c = normalizeSettlementCycleId(cycle);
   if (c === "WEEKLY") return Math.round((monthly / 4) * 100) / 100;
   if (c === "QUARTERLY") return Math.round(monthly * 3 * 100) / 100;
+  if (c === "HALFYEARLY") return Math.round(monthly * 6 * 100) / 100;
+  if (c === "ANNUALLY") return Math.round(monthly * 12 * 100) / 100;
   return monthly;
 }
 
@@ -51,27 +86,44 @@ export function maturityDate(startDate, lockInDays) {
   return d;
 }
 
+/** Use plan ROI from API/DB (same rules as server normalizePlanRoi). */
+export function normalizePlanRoi(plan) {
+  if (!plan) return plan;
+  const monthly = Number(plan.monthlyRoiPct ?? plan.profitSharePct ?? 0);
+  const storedAnnual = Number(plan.annualRoiPct);
+  const annual = storedAnnual > 0 ? storedAnnual : annualRoiPct(monthly);
+  return {
+    ...plan,
+    monthlyRoiPct: monthly,
+    profitSharePct: Number(plan.profitSharePct ?? monthly),
+    annualRoiPct: annual,
+    effectiveAnnualRoiPct: effectiveAnnualRoiPct(monthly),
+  };
+}
+
 export function planCalcPreview(amount, plan, settlementCycle = "MONTHLY") {
   const amt = Number(amount);
-  const monthly = Number(plan.monthlyRoiPct);
-  const cycle = String(settlementCycle || "MONTHLY").toUpperCase();
+  const p = normalizePlanRoi(plan);
+  const monthly = Number(p.monthlyRoiPct);
+  const cycle = normalizeSettlementCycleId(settlementCycle);
   const monthlyReturnAmt = monthlyReturn(amt, monthly);
-  const simple = simpleMaturity(amt, monthly, plan.lockInDays);
-  const compounded = compoundedMaturity(amt, monthly, plan.lockInDays);
-  const months = lockInMonths(plan.lockInDays);
+  const simple = simpleMaturity(amt, monthly, p.lockInDays);
+  const compounded = compoundedMaturity(amt, monthly, p.lockInDays);
+  const months = lockInMonths(p.lockInDays);
   const settlementPayout = settlementPayoutAmount(amt, monthly, cycle);
-  const mat = maturityDate(new Date(), plan.lockInDays);
+  const mat = maturityDate(new Date(), p.lockInDays);
+  const annual = Number(p.annualRoiPct);
   return {
     amount: amt,
     monthlyReturn: monthlyReturnAmt,
     monthlyRoiPct: monthly,
-    annualRoiPct: annualRoiPct(monthly),
+    annualRoiPct: annual,
     effectiveAnnualRoiPct: effectiveAnnualRoiPct(monthly),
-    lockInDays: plan.lockInDays,
+    lockInDays: p.lockInDays,
     lockInMonths: months,
     settlementCycle: cycle,
     settlementPayout,
-    settlementLabel: cycle === "WEEKLY" ? "Weekly" : cycle === "QUARTERLY" ? "Quarterly" : "Monthly",
+    settlementLabel: settlementCycleLabel(cycle),
     maturityDate: mat.toISOString(),
     simple,
     compounded,

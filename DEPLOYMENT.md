@@ -99,11 +99,13 @@ git pull
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-To re-seed marketplace catalog only (resets products/categories):
+To sync **investment plans only** on VPS (does **not** change super admin / admin passwords):
 
 ```bash
-docker compose -f deploy/docker-compose.yml exec api sh -c "cd /app/server && node src/seed.js"
+docker compose -f deploy/docker-compose.yml exec api sh -c "cd /app/server && npm run seed:plans"
 ```
+
+Full `node src/seed.js` also **preserves** existing staff passwords (create-if-missing only). Avoid re-seeding marketplace catalog on production unless intended — it resets products/categories.
 
 ## 7. PostgreSQL (optional, invest DB)
 
@@ -113,13 +115,16 @@ See [deploy/postgres-migration.md](postgres-migration.md).
 docker compose -f deploy/docker-compose.postgres.yml up -d --build
 ```
 
-## Seed logins (change in production)
+## Staff logins on VPS
 
-| Portal | Email | Password |
-|--------|-------|----------|
-| Both super admin | `superadmin@akshayaexim.com` | `Admin@12345` |
-| Invest demo | `investor@akshayaexim.com` | `Investor@123` |
-| Marketplace demo | `user@akshayaexim.com` | `User@123` |
+**Do not reset** production super admin / admin passwords when deploying. Use `npm run seed:plans` to update plans only.
+
+Seed creates default passwords only on a **brand-new** database. If `superadmin@akshayaexim.com` or `admin@akshayaexim.com` already exist, their passwords are **never** overwritten.
+
+| Portal | Email | Default (new DB only) |
+|--------|-------|------------------------|
+| Both super admin | `superadmin@akshayaexim.com` | See server `.env` / `CREDENTIALS.md` |
+| Both admin | `admin@akshayaexim.com` | See server `.env` / `CREDENTIALS.md` |
 
 ## Local development
 

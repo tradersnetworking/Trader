@@ -2,7 +2,17 @@ import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
 import { hashPassword } from "../utils/auth.js";
-import { annualRoiPct, PLAN_TYPES, PLAN_CAPITAL, lockInDaysFromMonths, normalizePlanRoi, sortPlansByTier } from "../utils/invest.js";
+import {
+  annualRoiPct,
+  PLAN_TYPES,
+  PLAN_CAPITAL,
+  lockInDaysFromMonths,
+  normalizePlanRoi,
+  monthlyRoiForLockInMonths,
+  normalizeSettlementCycleId,
+  SETTLEMENT_CYCLE_OPTIONS,
+} from "../utils/invest.js";
+import { listInvestPlans } from "../services/investPlans.js";
 import { disburse, payoutGatewayStatus } from "../payments/payouts.js";
 import { listGateways } from "../payments/gateways.js";
 import {
@@ -131,12 +141,12 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    const plans = await investDb.plan.findMany();
     res.json({
-      plans: sortPlansByTier(plans.map(normalizePlanRoi)),
+      plans: await listInvestPlans({ activeOnly: false }),
       planTypes: PLAN_TYPES_LIST,
       planCapital: PLAN_CAPITAL,
       lockInMonthsOptions: Array.from({ length: 60 }, (_, i) => i + 1),
+      settlementCycleOptions: SETTLEMENT_CYCLE_OPTIONS,
     });
   })
 );
@@ -153,7 +163,9 @@ router.post(
     const lockInMonths = Number(b.lockInMonths ?? b.lockInDays / 30 ?? 12);
     if (lockInMonths < 1 || lockInMonths > 60) return res.status(400).json({ error: "Lock-in must be 1–60 months" });
     const lockInDays = lockInDaysFromMonths(lockInMonths);
-    const monthlyRoiPct = Number(b.monthlyRoiPct ?? b.profitSharePct ?? cap.monthlyRoiPct);
+    const monthlyRoiPct = Number(
+      b.monthlyRoiPct ?? b.profitSharePct ?? monthlyRoiForLockInMonths(lockInMonths)
+    );
     const names = { STARTER: "Starter", BRONZE: "Bronze", SILVER: "Silver", GOLD: "Gold", PLATINUM: "Platinum", DIAMOND: "Diamond" };
     const plan = await investDb.plan.create({
       data: {
@@ -165,7 +177,7 @@ router.post(
         profitSharePct: Number(b.profitSharePct ?? monthlyRoiPct),
         monthlyRoiPct,
         annualRoiPct: Number(b.annualRoiPct ?? annualRoiPct(monthlyRoiPct)),
-        settlementCycles: "MONTHLY",
+        settlementCycles: normalizeSettlementCycleId(b.settlementCycles ?? "MONTHLY"),
         color: b.color || cap.color,
         description: b.description || `${cap.label} • ${lockInMonths}-month lock-in sub-category`,
         isActive: b.isActive !== false,
@@ -195,15 +207,17 @@ router.put(
       if (m < 1 || m > 60) return res.status(400).json({ error: "Lock-in must be 1–60 months" });
       data.lockInDays = lockInDaysFromMonths(m);
     }
-    if (b.name !== undefined) data.name = b.name;
-    if (b.minInvestment !== undefined && b.planType) { /* capital fixed by category */ }
-    if (b.maxInvestment !== undefined && b.planType) { /* capital fixed by category */ }
     if (b.monthlyRoiPct !== undefined) {
       data.monthlyRoiPct = Number(b.monthlyRoiPct);
       data.profitSharePct = Number(b.profitSharePct ?? b.monthlyRoiPct);
       data.annualRoiPct = annualRoiPct(Number(b.monthlyRoiPct));
     }
-    if (b.settlementCycles !== undefined) data.settlementCycles = "MONTHLY";
+    if (b.name !== undefined) data.name = b.name;
+    if (b.minInvestment !== undefined && b.planType) { /* capital fixed by category */ }
+    if (b.maxInvestment !== undefined && b.planType) { /* capital fixed by category */ }
+    if (b.settlementCycles !== undefined) {
+      data.settlementCycles = normalizeSettlementCycleId(b.settlementCycles);
+    }
     if (b.color !== undefined) data.color = b.color;
     if (b.description !== undefined) data.description = b.description;
     if (b.isActive !== undefined) data.isActive = b.isActive;

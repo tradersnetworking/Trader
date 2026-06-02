@@ -31,7 +31,11 @@ export async function api(scope, path, { method = "GET", body, isForm } = {}) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
-  const res = await fetch(`/api/${scope}${path}`, { method, headers, body: payload });
+  const cache =
+    method === "GET" && scope === "invest" && String(path).startsWith("/public/")
+      ? "no-store"
+      : undefined;
+  const res = await fetch(`/api/${scope}${path}`, { method, headers, body: payload, cache });
   const ct = res.headers.get("content-type") || "";
   const data = ct.includes("application/json") ? await res.json() : await res.text();
   if (!res.ok) {

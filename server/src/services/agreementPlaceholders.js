@@ -44,7 +44,8 @@ function settlementLabel(cycle) {
     WEEKLY: "Weekly",
     MONTHLY: "Monthly",
     QUARTERLY: "Quarterly",
-    HALF_YEARLY: "Half-Yearly",
+    HALFYEARLY: "Halfyearly",
+    HALF_YEARLY: "Halfyearly",
     ANNUALLY: "Annually",
     ANNUAL: "Annually",
   };

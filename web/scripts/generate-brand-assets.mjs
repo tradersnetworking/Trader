@@ -3,7 +3,7 @@
  * Usage: node scripts/generate-brand-assets.mjs
  */
 import sharp from "sharp";
-import { mkdirSync, copyFileSync, existsSync, statSync } from "fs";
+import { mkdirSync, copyFileSync, existsSync, statSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -17,6 +17,34 @@ const planShareDir = join(shareDir, "plans");
 mkdirSync(outDir, { recursive: true });
 mkdirSync(catDir, { recursive: true });
 mkdirSync(planShareDir, { recursive: true });
+
+/** Invest portal favicon / PWA icon with readable brand text. */
+function investFaviconSvg({ showText = true } = {}) {
+  const textBlock = showText
+    ? `<text x="256" y="300" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="44" font-weight="800" fill="#FFFFFF">Akshaya</text>
+    <text x="256" y="352" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="700" fill="#D4AF37">Investments</text>`
+    : `<text x="256" y="318" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="88" font-weight="800" fill="#D4AF37">AI</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#002366"/>
+        <stop offset="100%" stop-color="#0a3d91"/>
+      </linearGradient>
+      <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FFD700"/>
+        <stop offset="50%" stop-color="#D4AF37"/>
+        <stop offset="100%" stop-color="#B8860B"/>
+      </linearGradient>
+    </defs>
+    <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+    <circle cx="256" cy="168" r="72" fill="none" stroke="url(#gold)" stroke-width="14"/>
+    <ellipse cx="256" cy="168" rx="72" ry="30" fill="none" stroke="url(#gold)" stroke-width="10"/>
+    <path d="M256 96 L256 240" stroke="url(#gold)" stroke-width="10"/>
+    <path d="M184 168 Q256 132 328 168 Q256 204 184 168" fill="none" stroke="url(#gold)" stroke-width="10"/>
+    <text x="256" y="188" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="56" font-weight="800" fill="url(#gold)">A</text>
+    ${textBlock}
+  </svg>`;
+}
 
 function logoSvg({ compact = false } = {}) {
   if (compact) {
@@ -104,6 +132,41 @@ if (!existsSync(icon512)) {
   await sharp(markLogo).resize(512, 512).png().toFile(icon512);
   console.log("Created icon-512.png");
 }
+
+/** Invest favicons — always refresh so tab / home-screen label artwork matches Akshaya Investments */
+const investIcon512 = join(outDir, "icon-invest-512.png");
+const investIcon192 = join(outDir, "icon-invest-192.png");
+const investFavicon = join(outDir, "favicon-invest.png");
+const investApple = join(outDir, "apple-touch-icon-invest.png");
+const investSvg512 = investFaviconSvg({ showText: true });
+const investSvgCompact = investFaviconSvg({ showText: false });
+
+await writeSvgPng(investSvg512, investIcon512, 512, 512);
+await writeSvgPng(investSvg512, investIcon192, 192, 192);
+await writeSvgPng(investSvg512, investApple, 180, 180);
+await writeSvgPng(investSvgCompact, investFavicon, 32, 32);
+copyFileSync(investFavicon, join(root, "public", "favicon-invest.png"));
+for (const size of [16, 32, 48]) {
+  await writeSvgPng(investSvgCompact, join(outDir, `favicon-invest-${size}.png`), size, size);
+}
+function writeIcoFromPngInvest(pngPath, icoPath) {
+  const png = readFileSync(pngPath);
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(1, 4);
+  const dir = Buffer.alloc(16);
+  dir[0] = 32;
+  dir[1] = 32;
+  dir.writeUInt16LE(1, 4);
+  dir.writeUInt16LE(32, 6);
+  dir.writeUInt32LE(png.length, 8);
+  dir.writeUInt32LE(22, 12);
+  writeFileSync(icoPath, Buffer.concat([header, dir, png]));
+}
+writeIcoFromPngInvest(investFavicon, join(outDir, "favicon-invest.ico"));
+copyFileSync(join(outDir, "favicon-invest.ico"), join(root, "public", "favicon-invest.ico"));
+console.log("Invest favicons ready (Akshaya Investments)");
 if (!existsSync(defaultTrade)) {
   await sharp(Buffer.from(defaultTradeSvg())).webp({ quality: 82 }).toFile(defaultTrade);
   console.log("Created default-trade.webp");

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Logo } from "../ui.jsx";
+import BrandMark from "../BrandMark.jsx";
 import { investPath } from "../../lib/site.js";
 
 /** Left brand panel for invest auth pages (desktop). Invest-only stats — no trading. */
@@ -17,9 +17,15 @@ export default function AuthBrandPanel() {
       <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-amber-500/10 blur-3xl" />
       <div className="absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-amber-600/10 blur-3xl" />
       <div className="relative z-10 max-w-lg">
-        <Link to={investPath("")} className="mb-8 block no-underline">
-          <Logo variant="full" className="mb-6 h-24 w-auto max-w-[280px] lg:h-32 lg:max-w-[340px]" />
-        </Link>
+        <BrandMark
+          to={investPath("")}
+          investSiteTitle
+          brandSize="md"
+          onDark
+          fullLogo={false}
+          titleBesideLogo
+          className="mb-8"
+        />
         <p className="text-xl font-light leading-relaxed text-slate-300">
           Smart investment. Secure future. Grow your wealth with AKASHYA INVESTMENTS structured plans — transparent ROI, flexible lock-ins, INR settlements.
         </p>
@@ -38,13 +44,15 @@ export default function AuthBrandPanel() {
 
 export function AuthMobileBrand() {
   return (
-    <div className="mb-5 flex flex-col items-center md:hidden">
-      <Link to={investPath("")} className="block no-underline">
-        <Logo variant="full" className="h-14 w-auto max-w-[220px] sm:h-16" />
-      </Link>
-      <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-        Investment Portal
-      </p>
+    <div className="mb-4 flex justify-center md:hidden">
+      <BrandMark
+        to={investPath("")}
+        investSiteTitle
+        brandSize="lg"
+        fullLogo={false}
+        titleBesideLogo
+        subtitle="Investment Portal"
+      />
     </div>
   );
 }

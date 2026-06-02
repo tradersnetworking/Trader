@@ -142,9 +142,9 @@ export default function InvestDashboardShell({
   const renderSidebarInner = (mobile, onClose, navRef) => (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`flex shrink-0 items-center border-b border-sidebar-border bg-gradient-to-r from-primary/5 to-brand-blue/5 px-4 py-4 ${
-          collapsed && !mobile ? "justify-center" : "justify-between gap-3"
-        }`}
+        className={`flex shrink-0 items-center border-b border-sidebar-border bg-gradient-to-r from-primary/5 to-brand-blue/5 px-4 ${
+          mobile ? "py-2.5" : "py-4"
+        } ${collapsed && !mobile ? "justify-center" : "justify-between gap-3"}`}
       >
         {collapsed && !mobile ? (
           <Link to={role === "admin" ? investPath("/admin") : investPath("/dashboard")} className="block">
@@ -154,10 +154,11 @@ export default function InvestDashboardShell({
           <>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              line1="AKASHYA INVESTMENTS"
-              line2=""
+              investSiteTitle
+              brandSize={mobile ? "lg" : "md"}
               subtitle={role === "admin" ? "Admin Portal" : "Investor Portal"}
-              compact={mobile}
+              fullLogo={false}
+              titleBesideLogo
               className="min-w-0 flex-1"
             />
             {mobile && onClose && (
@@ -298,6 +299,17 @@ export default function InvestDashboardShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="invest-header sticky top-0 z-30 shrink-0 overflow-x-clip border-b backdrop-blur-md">
+          <div className="border-b border-border/60 px-2 py-1.5 md:hidden">
+            <BrandMark
+              to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
+              investSiteTitle
+              brandSize="lg"
+              mobileBarFill
+              fullLogo={false}
+              titleBesideLogo
+              className="w-full"
+            />
+          </div>
           <div className="flex min-w-0 items-center gap-1 px-2 py-1.5 sm:gap-2 sm:px-4 sm:py-2.5">
             <button
               type="button"
@@ -309,19 +321,18 @@ export default function InvestDashboardShell({
             </button>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              line1="AKASHYA INVESTMENTS"
-              line2=""
-              compact
+              investSiteTitle
+              brandSize="md"
               fullLogo={false}
               titleBesideLogo
-              className="min-w-0 shrink-0 md:hidden"
+              className="hidden shrink-0 md:flex"
             />
-            <div className="hidden min-w-0 flex-1 overflow-hidden md:block">
+            <div className="hidden min-w-0 flex-1 overflow-hidden xl:block">
               <h1 className="page-title truncate">{pageTitle}</h1>
               {pageSubtitle && <p className="page-subtitle truncate">{pageSubtitle}</p>}
             </div>
-            <div className="min-w-0 flex-1 truncate md:hidden">
-              <h1 className="truncate text-sm font-bold leading-tight text-foreground">{pageTitle}</h1>
+            <div className="min-w-0 flex-1 truncate md:block xl:hidden">
+              <h1 className="truncate text-sm font-bold leading-tight text-foreground sm:text-base">{pageTitle}</h1>
             </div>
 
             <div className="ml-auto flex max-w-full shrink-0 items-center gap-0.5 sm:gap-1.5">

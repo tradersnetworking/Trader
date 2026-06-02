@@ -5,7 +5,7 @@ import { inr, dateStr } from "../../lib/format.js";
 import { Modal, Field, Alert } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
 import { lockInCategoryLabel } from "../../lib/plan-types.js";
-import { planCalcPreview } from "../../lib/plan-calc.js";
+import { planCalcPreview, parseSettlementCycles } from "../../lib/plan-calc.js";
 
 const STEPS = [
   { id: "plan", label: "Plan" },
@@ -61,7 +61,10 @@ export default function InvestSubscribeWizard({
 }) {
   const [step, setStep] = useState(initialStep);
   const [amount, setAmount] = useState(String(initialAmount ?? plan.minInvestment));
-  const [cycle] = useState("MONTHLY");
+  const cycle = useMemo(
+    () => parseSettlementCycles(plan.settlementCycles)[0] || "MONTHLY",
+    [plan.settlementCycles]
+  );
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptRisk, setAcceptRisk] = useState(false);
   const [calc, setCalc] = useState(null);
@@ -198,7 +201,7 @@ export default function InvestSubscribeWizard({
             <SummaryRow label="Monthly ROI" value={`${plan.monthlyRoiPct}%`} accent="text-emerald-600" />
             <SummaryRow label="Annual ROI (linear)" value={`${annualPct}%`} />
             <SummaryRow label="Investment range" value={`${inr(plan.minInvestment)} – ${inr(plan.maxInvestment)}`} />
-            <SummaryRow label="Settlement" value="Monthly" />
+            <SummaryRow label="Settlement" value={calc?.settlementLabel || cycle} />
             <SummaryRow label="Compounding" value="At maturity only" />
           </div>
           <button type="button" className="btn-gold w-full" onClick={next}>Continue</button>

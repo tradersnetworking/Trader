@@ -10,7 +10,9 @@
     "db:push": "prisma db push --schema prisma/main.prisma && prisma db push --schema prisma/invest.prisma",
     "db:push:postgres": "prisma db push --schema prisma/invest.postgresql.prisma",
     "db:setup": "npm run prisma:generate && npm run db:push",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "seed:plans": "node src/seed.js --plans-only",
+    "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

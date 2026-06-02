@@ -3,10 +3,16 @@
  * Category = plan tier by investment capital (₹).
  * Sub-category = lock-in period in months (1–60, multiples of 30 days).
  */
-import { PLAN_TYPES, PLAN_CAPITAL, lockInDaysFromMonths, annualRoiPct } from "../utils/invest.js";
+import {
+  PLAN_TYPES,
+  PLAN_CAPITAL,
+  lockInDaysFromMonths,
+  annualRoiPct,
+  monthlyRoiForLockInMonths,
+} from "../utils/invest.js";
 
-/** Standard lock-in sub-categories offered under every capital tier. */
-export const LOCK_IN_SUB_CATEGORIES = [1, 3, 6, 12, 24, 36, 60];
+/** Lock-in options (months) — ROI depends on duration, not capital tier. */
+export const LOCK_IN_SUB_CATEGORIES = [1, 3, 6, 9, 12, 24, 36];
 
 /** Default / recommended lock-in (months) per tier — matches Akshaya flyer. */
 export const DEFAULT_LOCK_IN_MONTHS = {
@@ -30,7 +36,7 @@ const TIER_NAMES = {
 export function planCatalogEntry(planType, lockInMonths) {
   const cap = PLAN_CAPITAL[planType];
   const m = Number(lockInMonths);
-  const monthlyRoiPct = cap.monthlyRoiPct;
+  const monthlyRoiPct = monthlyRoiForLockInMonths(m);
   const capitalLabel = cap.label || planType;
   return {
     planType,

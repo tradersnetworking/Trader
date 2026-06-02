@@ -350,6 +350,8 @@
   }
   .gold-text { color: #D4AF37; }
   .dark .gold-text { color: #FFD700; }
+  .silver-text { color: #C0C0C0; }
+  .dark .silver-text { color: #E2E8F0; }
 
   .hero-title {
     font-size: clamp(1.25rem, 2.8vw + 0.65rem, 3rem);

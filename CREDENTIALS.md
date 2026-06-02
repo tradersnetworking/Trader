@@ -2,6 +2,12 @@
 
 > **Change all passwords before going to production.**
 
+### VPS / production
+
+- **Existing super admin and admin passwords are never changed** by `npm run seed` or deploy entrypoint (accounts are create-if-missing only).
+- On VPS after deploy, sync plans with: `npm run seed:plans` (invest DB only, no staff accounts).
+- Keep production passwords in server `.env` only for **new** installs; do not re-run full seed expecting defaults to apply to existing users.
+
 ---
 
 ## Marketplace — `akshayaexim.com` / `akshayaexim.in`

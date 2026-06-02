@@ -71,21 +71,29 @@ Each portal has: **User login**, **Staff/Admin login** (button below user login)
 
 ---
 
-## Investment Plans (from the brochure)
-Seeded plan tiers (lock-in is always a multiple of 30 days):
+## Investment Plans
+Lock-in is always a multiple of 30 days. **Monthly ROI depends on lock-in length** (same in every capital tier). **Min/max investment** depends on category:
 
-| Plan | Lock-in | Monthly ROI | Annual ROI |
-| --- | --- | --- | --- |
-| Starter | 30 days | 10% | 120% |
-| Bronze | 90 days | 12% | 144% |
-| Silver | 180 days | 15% | 180% |
-| Gold | 360 days* | 17% | 204% |
-| Platinum | 720 days | 19% | 228% |
-| Diamond | 1080 days | 20% | 240% |
+| Category | Investment range |
+| --- | --- |
+| Starter | ₹1 – 5 Lakhs |
+| Bronze | ₹6 – 10 Lakhs |
+| Silver | ₹11 – 15 Lakhs |
+| Gold | ₹16 – 30 Lakhs |
+| Platinum | ₹31 – 50 Lakhs |
+| Diamond | Above ₹50 Lakhs |
 
-\* The brochure shows 365 days for Gold; we use 360 so every lock-in stays a multiple of 30 (per requirement). Edit any plan from the Super Admin dashboard.
+| Lock-in | Monthly ROI | Annual ROI (×12) |
+| --- | --- | --- |
+| 1 month | 15% | 180% |
+| 3 months | 16% | 192% |
+| 6 months | 17% | 204% |
+| 9 months | 18% | 216% |
+| 12 months | 19% | 228% |
+| 24 months | 20% | 240% |
+| 36 months | 22% | 264% |
 
-When a Super Admin creates a plan they choose: **plan type (dropdown)**, **lock-in period**, **min/max investment**, and **profit share % per month**. Annual ROI is auto-computed (monthly × 12). **Compounding is applied only after the lock-in period completes.**
+6 categories × 7 lock-in options = **42 plans**. Annual ROI is monthly × 12. **Compounding applies only after lock-in completes.** Edit plans in Super Admin → Investment Plans; run `npm run seed` in `server/` to sync the matrix to the database.
 
 ---
 

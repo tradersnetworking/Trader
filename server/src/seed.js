@@ -7,9 +7,28 @@ import { imageForProduct, imageForCategory } from "./data/productImages.js";
 import { generateReferralCode } from "./services/referral.js";
 import { seedDefaultPaymentGateways, ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
 import { buildPlanCatalog, catalogKey } from "./data/investmentPlans.js";
-import { normalizeInvestBrandingText, BRAND_INVEST } from "./data/brand.js";
+import { dedupeInvestPlans } from "./services/investPlans.js";
+import { normalizeInvestBrandingText, BRAND_INVEST, INVEST_HERO_SUBTITLE } from "./data/brand.js";
+import { annualRoiPct } from "./utils/invest.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
+
+const plansOnly = process.argv.includes("--plans-only");
+
+/** Create staff account only if missing — never reset password on existing VPS/production logins. */
+async function ensureStaffUser(email, createData) {
+  const existing = await mainDb.user.findUnique({ where: { email } });
+  if (existing) return { created: false, account: existing };
+  const account = await mainDb.user.create({ data: { email, ...createData } });
+  return { created: true, account };
+}
+
+async function ensureStaffInvestor(email, createData) {
+  const existing = await investDb.investor.findUnique({ where: { email } });
+  if (existing) return { created: false, account: existing };
+  const account = await investDb.investor.create({ data: { email, ...createData } });
+  return { created: true, account };
+}
 
 function defaultMinOrder(unit) {
   if (unit === "MT" || unit === "Container" || unit === "Truck Load") return 1;
@@ -34,21 +53,35 @@ async function syncInvestmentPlans() {
     const existing = await investDb.plan.findFirst({
       where: { planType: p.planType, lockInDays: p.lockInDays },
     });
-    const data = {
-      name: p.name,
-      minInvestment: p.minInvestment,
-      maxInvestment: p.maxInvestment,
-      profitSharePct: p.profitSharePct,
-      monthlyRoiPct: p.monthlyRoiPct,
-      annualRoiPct: p.annualRoiPct,
-      settlementCycles: p.settlementCycles,
-      color: p.color,
-      description: p.description,
-      isActive: p.isActive,
-    };
     if (existing) {
-      await investDb.plan.update({ where: { id: existing.id }, data });
+      await investDb.plan.update({
+        where: { id: existing.id },
+        data: {
+          name: p.name,
+          description: p.description,
+          minInvestment: p.minInvestment,
+          maxInvestment: p.maxInvestment,
+          profitSharePct: p.profitSharePct,
+          monthlyRoiPct: p.monthlyRoiPct,
+          annualRoiPct: p.annualRoiPct,
+          settlementCycles: p.settlementCycles,
+          color: p.color,
+          isActive: existing.isActive,
+        },
+      });
     } else {
+      const data = {
+        name: p.name,
+        minInvestment: p.minInvestment,
+        maxInvestment: p.maxInvestment,
+        profitSharePct: p.profitSharePct,
+        monthlyRoiPct: p.monthlyRoiPct,
+        annualRoiPct: p.annualRoiPct,
+        settlementCycles: p.settlementCycles,
+        color: p.color,
+        description: p.description,
+        isActive: p.isActive,
+      };
       await investDb.plan.create({
         data: { planType: p.planType, lockInDays: p.lockInDays, ...data },
       });
@@ -61,9 +94,22 @@ async function syncInvestmentPlans() {
       await investDb.plan.delete({ where: { id: plan.id } });
     }
   }
-  await investDb.plan.updateMany({ data: { settlementCycles: "MONTHLY" } });
-  await investDb.subscription.updateMany({ data: { settlementCycle: "MONTHLY" } });
-  console.log(`  Plans synced: ${catalog.length} (6 categories × ${catalog.length / 6} lock-in sub-categories), settlement → MONTHLY`);
+  const allPlans = await investDb.plan.findMany();
+  for (const row of allPlans) {
+    const monthly = Number(row.monthlyRoiPct);
+    const expected = annualRoiPct(monthly);
+    if (Number(row.annualRoiPct) !== expected) {
+      await investDb.plan.update({
+        where: { id: row.id },
+        data: { annualRoiPct: expected, profitSharePct: Number(row.profitSharePct ?? monthly) },
+      });
+    }
+  }
+  const dupes = await dedupeInvestPlans();
+  console.log(
+    `  Plans synced: ${catalog.length} (6 categories × ${catalog.length / 6} lock-in sub-categories), settlement → MONTHLY` +
+      (dupes ? `, deduped ${dupes} duplicate row(s)` : "")
+  );
 }
 
 const DEFAULT_INVEST_SETTINGS = [
@@ -84,7 +130,7 @@ const DEFAULT_INVEST_SETTINGS = [
   { key: "early_exit_penalty_pct", value: "10" },
   { key: "early_exit_forfeit_roi", value: "true" },
   { key: "homepage_hero_title", value: "Smart Investment • Secure Future • Grow Your Wealth" },
-  { key: "homepage_hero_subtitle", value: "Invest with Akshaya Investments and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured." },
+  { key: "homepage_hero_subtitle", value: "Invest with AKASHYA INVESTMENTS and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secure." },
   { key: "homepage_about_title", value: "About AKASHYA INVESTMENTS" },
   { key: "homepage_about_body", value: "AKASHYA INVESTMENTS offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
   { key: "homepage_show_calculator", value: "true" },
@@ -180,10 +226,14 @@ async function migrateInvestBranding() {
       });
       continue;
     }
-    if (key === "homepage_hero_subtitle" && /invest in akshaya|exim traders/i.test(row.value)) {
+    if (
+      key === "homepage_hero_subtitle" &&
+      (/invest in akshaya|exim traders|Akshaya Investments and earn|capital secured/i.test(row.value) ||
+        row.value.includes("Invest with Akashaya Investments"))
+    ) {
       await investDb.investSetting.update({
         where: { key },
-        data: { value: normalizeInvestBrandingText(row.value) },
+        data: { value: INVEST_HERO_SUBTITLE },
       });
       continue;
     }
@@ -199,22 +249,31 @@ async function migrateInvestBranding() {
 
 async function seedMain() {
   console.log("Seeding MAIN (marketplace) database...");
-  // accounts
-  await mainDb.user.upsert({
-    where: { email: config.seed.superadminEmail },
-    update: {},
-    create: { email: config.seed.superadminEmail, name: "Super Admin", passwordHash: hashPassword(config.seed.superadminPassword), role: "SUPERADMIN", emailVerified: true },
-  });
-  await mainDb.user.upsert({
-    where: { email: config.seed.adminEmail },
-    update: {},
-    create: { email: config.seed.adminEmail, name: "Marketplace Admin", passwordHash: hashPassword(config.seed.adminPassword), role: "ADMIN", emailVerified: true },
-  });
-  await mainDb.user.upsert({
-    where: { email: "user@akshayaexim.com" },
-    update: {},
-    create: { email: "user@akshayaexim.com", name: "Demo Buyer", passwordHash: hashPassword("User@123"), role: "USER", accountType: "B2B", companyName: "Demo Trading Co.", emailVerified: true },
-  });
+  const mainStaff = await Promise.all([
+    ensureStaffUser(config.seed.superadminEmail, {
+      name: "Super Admin",
+      passwordHash: hashPassword(config.seed.superadminPassword),
+      role: "SUPERADMIN",
+      emailVerified: true,
+    }),
+    ensureStaffUser(config.seed.adminEmail, {
+      name: "Marketplace Admin",
+      passwordHash: hashPassword(config.seed.adminPassword),
+      role: "ADMIN",
+      emailVerified: true,
+    }),
+    ensureStaffUser("user@akshayaexim.com", {
+      name: "Demo Buyer",
+      passwordHash: hashPassword("User@123"),
+      role: "USER",
+      accountType: "B2B",
+      companyName: "Demo Trading Co.",
+      emailVerified: true,
+    }),
+  ]);
+  if (!mainStaff[0].created || !mainStaff[1].created) {
+    console.log("  Staff logins unchanged (existing super admin / admin passwords preserved).");
+  }
 
   // Reset catalog so the full EXIM taxonomy is (re)applied on every seed run.
   await mainDb.product.deleteMany({});
@@ -266,16 +325,23 @@ async function seedMain() {
 
 async function seedInvest() {
   console.log("Seeding INVEST (investor portal) database...");
-  await investDb.investor.upsert({
-    where: { email: config.seed.superadminEmail },
-    update: {},
-    create: { email: config.seed.superadminEmail, name: "Super Admin", passwordHash: hashPassword(config.seed.superadminPassword), role: "SUPERADMIN", emailVerified: true },
-  });
-  await investDb.investor.upsert({
-    where: { email: config.seed.adminEmail },
-    update: {},
-    create: { email: config.seed.adminEmail, name: "Invest Admin", passwordHash: hashPassword(config.seed.adminPassword), role: "ADMIN", emailVerified: true },
-  });
+  const investStaff = await Promise.all([
+    ensureStaffInvestor(config.seed.superadminEmail, {
+      name: "Super Admin",
+      passwordHash: hashPassword(config.seed.superadminPassword),
+      role: "SUPERADMIN",
+      emailVerified: true,
+    }),
+    ensureStaffInvestor(config.seed.adminEmail, {
+      name: "Invest Admin",
+      passwordHash: hashPassword(config.seed.adminPassword),
+      role: "ADMIN",
+      emailVerified: true,
+    }),
+  ]);
+  if (!investStaff[0].created || !investStaff[1].created) {
+    console.log("  Staff logins unchanged (existing super admin / admin passwords preserved).");
+  }
 
   // a demo investor with an approved KYC + wallet balance for testing
   const demoEmail = "investor@akshayaexim.com";
@@ -323,18 +389,34 @@ async function seedInvest() {
   console.log("  INVEST done.");
 }
 
+async function seedPlansOnly() {
+  console.log("Seeding investment plans only (staff accounts untouched)…");
+  await syncInvestmentPlans();
+  await dedupeInvestPlans();
+  console.log("  Plans synced.");
+  await investDb.$disconnect();
+  await mainDb.$disconnect();
+}
+
 async function main() {
+  if (plansOnly) {
+    await seedPlansOnly();
+    console.log("\nPlans-only seed complete. Super admin / admin passwords were not modified.");
+    return;
+  }
   await seedMain();
   await seedInvest();
   console.log("\nSeed complete.");
   console.log("\n=== MARKETPLACE (akshayaexim.com / .in) ===");
-  console.log(`  Super Admin: ${config.seed.superadminEmail} / ${config.seed.superadminPassword}`);
-  console.log(`  Admin:       ${config.seed.adminEmail} / ${config.seed.adminPassword}`);
-  console.log(`  Demo User:   user@akshayaexim.com / User@123`);
+  console.log("  Super Admin / Admin: use existing VPS passwords if accounts already exist.");
+  console.log(`  New installs only — Super Admin: ${config.seed.superadminEmail}`);
+  console.log(`  New installs only — Admin:       ${config.seed.adminEmail}`);
+  console.log("  Demo User:   user@akshayaexim.com / User@123");
   console.log("\n=== INVEST (invest.akshayaexim.com / .in) ===");
-  console.log(`  Super Admin: ${config.seed.superadminEmail} / ${config.seed.superadminPassword}`);
-  console.log(`  Admin:       ${config.seed.adminEmail} / ${config.seed.adminPassword}`);
-  console.log(`  Demo Investor: investor@akshayaexim.com / Investor@123`);
+  console.log("  Super Admin / Admin: use existing VPS passwords if accounts already exist.");
+  console.log(`  New installs only — Super Admin: ${config.seed.superadminEmail}`);
+  console.log(`  New installs only — Admin:       ${config.seed.adminEmail}`);
+  console.log("  Demo Investor: investor@akshayaexim.com / Investor@123");
   await mainDb.$disconnect();
   await investDb.$disconnect();
 }

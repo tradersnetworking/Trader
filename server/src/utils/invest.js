@@ -2,29 +2,51 @@
 // monthlyRoiPct is "profit % per month". Annual ROI ~= monthly * 12.
 // Compounding is ONLY applied once the lock-in period is completed.
 
-export const SETTLEMENT_CYCLES = ["WEEKLY", "MONTHLY", "QUARTERLY"];
+export const SETTLEMENT_CYCLES = ["WEEKLY", "MONTHLY", "QUARTERLY", "HALFYEARLY", "ANNUALLY"];
+
+export const SETTLEMENT_CYCLE_OPTIONS = [
+  { id: "WEEKLY", label: "Weekly", days: 7 },
+  { id: "MONTHLY", label: "Monthly", days: 30 },
+  { id: "QUARTERLY", label: "Quarterly", days: 90 },
+  { id: "HALFYEARLY", label: "Halfyearly", days: 180 },
+  { id: "ANNUALLY", label: "Annually", days: 365 },
+];
+
+export function normalizeSettlementCycleId(cycle) {
+  const c = String(cycle || "MONTHLY").trim().toUpperCase().replace("HALF_YEARLY", "HALFYEARLY");
+  return SETTLEMENT_CYCLES.includes(c) ? c : "MONTHLY";
+}
+
+export function settlementCycleLabel(cycle) {
+  const id = normalizeSettlementCycleId(cycle);
+  return SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === id)?.label || id;
+}
+
+export function settlementCycleDays(cycle) {
+  const id = normalizeSettlementCycleId(cycle);
+  return SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === id)?.days || 30;
+}
 const MS_DAY = 86400000;
 
 export function parseSettlementCycles(str) {
   return String(str || "MONTHLY")
     .split(",")
-    .map((s) => s.trim().toUpperCase())
+    .map((s) => normalizeSettlementCycleId(s))
     .filter(Boolean);
 }
 
 export function settlementCycleMs(cycle) {
-  const c = String(cycle || "MONTHLY").toUpperCase();
-  if (c === "WEEKLY") return 7 * MS_DAY;
-  if (c === "QUARTERLY") return 90 * MS_DAY;
-  return 30 * MS_DAY;
+  return settlementCycleDays(cycle) * MS_DAY;
 }
 
-/** Per-cycle payout amount (weekly = monthly ÷ 4, quarterly = monthly × 3). */
+/** Per-cycle payout amount (monthly ROI is always % per month). */
 export function settlementPayoutAmount(principal, monthlyRoiPct, cycle) {
   const monthly = monthlyReturn(principal, monthlyRoiPct);
-  const c = String(cycle || "MONTHLY").toUpperCase();
+  const c = normalizeSettlementCycleId(cycle);
   if (c === "WEEKLY") return Math.round((monthly / 4) * 100) / 100;
   if (c === "QUARTERLY") return Math.round(monthly * 3 * 100) / 100;
+  if (c === "HALFYEARLY") return Math.round(monthly * 6 * 100) / 100;
+  if (c === "ANNUALLY") return Math.round(monthly * 12 * 100) / 100;
   return monthly;
 }
 
@@ -33,8 +55,20 @@ export function nextSettlementDate(startDate, lastPaidAt, cycle) {
   return new Date(base.getTime() + settlementCycleMs(cycle));
 }
 
-export function validateSettlementCycle(_plan, _cycle) {
-  return { ok: true, cycle: "MONTHLY" };
+export function validateSettlementCycle(plan, cycle) {
+  const allowed = parseSettlementCycles(plan?.settlementCycles);
+  const defaultCycle = allowed[0] || "MONTHLY";
+  const c = normalizeSettlementCycleId(cycle || defaultCycle);
+  if (!SETTLEMENT_CYCLES.includes(c)) {
+    return { ok: false, error: `Invalid settlement cycle: ${c}` };
+  }
+  if (allowed.length && !allowed.includes(c)) {
+    return {
+      ok: false,
+      error: `This plan uses ${settlementCycleLabel(defaultCycle)} settlement (${settlementCycleDays(defaultCycle)} days)`,
+    };
+  }
+  return { ok: true, cycle: c };
 }
 
 /** Plan tiers by investment capital (₹). Lock-in is a separate sub-category (1–60 months). */
@@ -58,14 +92,37 @@ export function sortPlansByTier(plans = []) {
   });
 }
 
-export const PLAN_CAPITAL = {
-  STARTER: { min: 100000, max: 500000, label: "₹1 – 5 Lakhs", monthlyRoiPct: 10, color: "#2e7d32" },
-  BRONZE: { min: 600000, max: 1000000, label: "₹6 – 10 Lakhs", monthlyRoiPct: 12, color: "#a9622b" },
-  SILVER: { min: 1100000, max: 1500000, label: "₹11 – 15 Lakhs", monthlyRoiPct: 15, color: "#8a9099" },
-  GOLD: { min: 1600000, max: 3000000, label: "₹16 – 30 Lakhs", monthlyRoiPct: 17, color: "#d4a017" },
-  PLATINUM: { min: 3100000, max: 5000000, label: "₹31 – 50 Lakhs", monthlyRoiPct: 19, color: "#2f6db5" },
-  DIAMOND: { min: 5000001, max: 50000000, label: "Above ₹50 Lakhs", monthlyRoiPct: 20, color: "#7b3fb0" },
+/** Monthly profit share % by lock-in period (same for every capital tier). */
+export const LOCK_IN_MONTHLY_ROI_PCT = {
+  1: 15,
+  3: 16,
+  6: 17,
+  9: 18,
+  12: 19,
+  24: 20,
+  36: 22,
 };
+
+export const PLAN_CAPITAL = {
+  STARTER: { min: 100000, max: 500000, label: "₹1 – 5 Lakhs", color: "#2e7d32" },
+  BRONZE: { min: 600000, max: 1000000, label: "₹6 – 10 Lakhs", color: "#a9622b" },
+  SILVER: { min: 1100000, max: 1500000, label: "₹11 – 15 Lakhs", color: "#8a9099" },
+  GOLD: { min: 1600000, max: 3000000, label: "₹16 – 30 Lakhs", color: "#d4a017" },
+  PLATINUM: { min: 3100000, max: 5000000, label: "₹31 – 50 Lakhs", color: "#2f6db5" },
+  DIAMOND: { min: 5000001, max: 50000000, label: "Above ₹50 Lakhs", color: "#7b3fb0" },
+};
+
+export function monthlyRoiForLockInMonths(months) {
+  const m = Number(months);
+  if (LOCK_IN_MONTHLY_ROI_PCT[m] != null) return LOCK_IN_MONTHLY_ROI_PCT[m];
+  const rounded = Math.max(1, Math.round(m));
+  if (LOCK_IN_MONTHLY_ROI_PCT[rounded] != null) return LOCK_IN_MONTHLY_ROI_PCT[rounded];
+  return LOCK_IN_MONTHLY_ROI_PCT[1];
+}
+
+export function monthlyRoiForLockInDays(lockInDays) {
+  return monthlyRoiForLockInMonths(lockInMonths(lockInDays));
+}
 
 export function lockInDaysFromMonths(months) {
   return Math.min(60, Math.max(1, Number(months))) * 30;
@@ -95,40 +152,44 @@ export function effectiveAnnualRoiPct(monthlyRoiPct) {
   return Math.round((Math.pow(1 + r, 12) - 1) * 10000) / 100;
 }
 
+/** Use plan ROI from DB; keep stored annual % when set, else monthly × 12. */
 export function normalizePlanRoi(plan) {
   if (!plan) return plan;
   const monthly = Number(plan.monthlyRoiPct ?? plan.profitSharePct ?? 0);
+  const storedAnnual = Number(plan.annualRoiPct);
+  const annual = storedAnnual > 0 ? storedAnnual : annualRoiPct(monthly);
   return {
     ...plan,
     monthlyRoiPct: monthly,
     profitSharePct: Number(plan.profitSharePct ?? monthly),
-    annualRoiPct: annualRoiPct(monthly),
+    annualRoiPct: annual,
     effectiveAnnualRoiPct: effectiveAnnualRoiPct(monthly),
   };
 }
 
 export function planCalcPreview(amount, plan, settlementCycle = "MONTHLY") {
+  const p = normalizePlanRoi(plan);
   const amt = Number(amount);
-  const monthly = Number(plan.monthlyRoiPct);
+  const monthly = Number(p.monthlyRoiPct);
   const cycle = String(settlementCycle || "MONTHLY").toUpperCase();
   const monthlyReturnAmt = monthlyReturn(amt, monthly);
-  const simple = simpleMaturity(amt, monthly, plan.lockInDays);
-  const compounded = compoundedMaturity(amt, monthly, plan.lockInDays);
-  const months = lockInMonths(plan.lockInDays);
+  const simple = simpleMaturity(amt, monthly, p.lockInDays);
+  const compounded = compoundedMaturity(amt, monthly, p.lockInDays);
+  const months = lockInMonths(p.lockInDays);
   const settlementPayout = settlementPayoutAmount(amt, monthly, cycle);
   const start = new Date();
-  const mat = maturityDate(start, plan.lockInDays);
+  const mat = maturityDate(start, p.lockInDays);
   return {
     amount: amt,
     monthlyReturn: monthlyReturnAmt,
     monthlyRoiPct: monthly,
-    annualRoiPct: annualRoiPct(monthly),
+    annualRoiPct: Number(p.annualRoiPct),
     effectiveAnnualRoiPct: effectiveAnnualRoiPct(monthly),
-    lockInDays: plan.lockInDays,
+    lockInDays: p.lockInDays,
     lockInMonths: months,
     settlementCycle: cycle,
     settlementPayout,
-    settlementLabel: cycle === "WEEKLY" ? "Weekly" : cycle === "QUARTERLY" ? "Quarterly" : "Monthly",
+    settlementLabel: settlementCycleLabel(cycle),
     nextSettlementDate: nextSettlementDate(start, null, cycle).toISOString(),
     maturityDate: mat.toISOString(),
     simple,

@@ -5,7 +5,7 @@ import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
 import PlanCard from "../../components/PlanCard.jsx";
 import SubscribeModal from "../../components/SubscribeModal.jsx";
-import { PLAN_TYPES, PLAN_CAPITAL, sortPlansByTier } from "../../lib/plan-types.js";
+import { PLAN_TYPES, PLAN_CAPITAL, sortPlansByTier, tierRoiFromPlans } from "../../lib/plan-types.js";
 import { investPath } from "../../lib/site.js";
 import { BRAND_INVEST, normalizeInvestBrandingText } from "../../lib/brand.js";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
@@ -36,7 +36,9 @@ export default function InvestHome() {
   const [cms, setCms] = useState(null);
 
   useEffect(() => {
-    investApi("/public/plans").then((d) => setPlans(sortPlansByTier(d.plans || []))).catch(() => {});
+    investApi("/public/plans")
+      .then((d) => setPlans(sortPlansByTier(d.plans || [])))
+      .catch(() => {});
     investApi("/public/maintenance").then(setMaintenance).catch(() => {});
     investApi("/public/partners").then((d) => setPartners(d.partners || [])).catch(() => {});
     investApi("/public/homepage").then((d) => setCms(d.homepage || {})).catch(() => {});
@@ -76,7 +78,7 @@ export default function InvestHome() {
       )}
 
       <InvestLandingHero cms={cms} invest={invest} />
-      <InvestLandingStats cms={cms} />
+      <InvestLandingStats cms={cms} plans={plans} />
       <InvestLandingFeatures />
 
       <section id="plans" className="mx-auto max-w-7xl px-4 py-14 sm:py-16">
@@ -107,7 +109,14 @@ export default function InvestHome() {
                 {tier} • {PLAN_CAPITAL[tier].label}
               </h3>
               <p className="mb-4 text-xs text-muted-foreground">
-                {PLAN_CAPITAL[tier].monthlyRoiPct}% {t("home.monthlyRoi")} · {PLAN_CAPITAL[tier].monthlyRoiPct * 12}% {t("home.annualRoi")}
+                {(() => {
+                  const { monthlyLabel, annualLabel } = tierRoiFromPlans(tierPlans);
+                  return (
+                    <>
+                      {monthlyLabel}% {t("home.monthlyRoi")} · {annualLabel}% {t("home.annualRoi")}
+                    </>
+                  );
+                })()}
               </p>
               <div className="flex gap-4 overflow-x-auto pb-2 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3 xl:grid-cols-4">
                 {tierPlans.map((p) => (

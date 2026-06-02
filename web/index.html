@@ -12,11 +12,12 @@
           window.__aexSwCleanup = Promise.resolve();
           var invTitle = "Smart Investment \u2022 Secure Future \u2022 Grow Your Wealth";
           var invDesc =
-            "Invest with Akshaya Investments and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured.";
-          var invSite = "AKASHYA INVESTMENTS";
+            "Invest with AKASHYA INVESTMENTS and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secure.";
+          var invSite = "Akshaya Investments";
+          var invAppName = "Akshaya Investments";
           var ogImg = location.origin + "/assets/share/invest-plans.png";
           var pageUrl = location.origin + "/";
-          document.title = invTitle;
+          document.title = invAppName;
           function setMeta(attr, name, val) {
             if (!val) return;
             var el = document.querySelector("meta[" + attr + '="' + name + '"]');
@@ -36,6 +37,25 @@
           setMeta("name", "twitter:title", invTitle);
           setMeta("name", "twitter:description", invDesc);
           setMeta("name", "twitter:image", ogImg);
+          setMeta("name", "application-name", invAppName);
+          setMeta("name", "apple-mobile-web-app-title", invAppName);
+          function setLink(rel, href, extra) {
+            if (!href) return;
+            var sel = 'link[rel="' + rel + '"]';
+            var el = document.querySelector(sel);
+            if (!el) {
+              el = document.createElement("link");
+              el.setAttribute("rel", rel);
+              document.head.appendChild(el);
+            }
+            el.setAttribute("href", href);
+            if (extra) {
+              for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) el.setAttribute(k, extra[k]);
+            }
+          }
+          setLink("icon", "/assets/favicon-invest.ico", { sizes: "any" });
+          setLink("shortcut icon", "/assets/favicon-invest.png", { type: "image/png" });
+          setLink("apple-touch-icon", "/assets/apple-touch-icon-invest.png", { sizes: "180x180" });
         } else {
           root.classList.add("site-main");
           root.classList.remove("site-invest");

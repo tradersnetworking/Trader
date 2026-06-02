@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH } from "../middleware.js";
-import { normalizePlanRoi, planCalcPreview, validateSettlementCycle, sortPlansByTier } from "../utils/invest.js";
+import { normalizePlanRoi, planCalcPreview, validateSettlementCycle } from "../utils/invest.js";
+import { listInvestPlans } from "../services/investPlans.js";
 import { listGateways } from "../payments/gateways.js";
 import { getSetting } from "../services/investSettings.js";
 import { normalizeInvestBrandingText } from "../data/brand.js";
@@ -16,17 +17,17 @@ const router = Router();
 router.get(
   "/plans",
   asyncH(async (_req, res) => {
-    const plans = await investDb.plan.findMany({
-      where: { isActive: true },
-    });
-    res.json({ plans: sortPlansByTier(plans.map(normalizePlanRoi)) });
+    res.setHeader("Cache-Control", "no-store, max-age=0");
+    res.json({ plans: await listInvestPlans({ activeOnly: true }) });
   })
 );
 
 router.get(
   "/plans/:id/calc",
   asyncH(async (req, res) => {
-    const plan = await investDb.plan.findUnique({ where: { id: req.params.id } });
+    const plan = await investDb.plan.findFirst({
+      where: { id: req.params.id, isActive: true },
+    });
     if (!plan) return res.status(404).json({ error: "Plan not found" });
     const amount = Number(req.query.amount || plan.minInvestment);
     if (amount < plan.minInvestment || amount > plan.maxInvestment) {

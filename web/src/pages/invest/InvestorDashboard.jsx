@@ -241,7 +241,9 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
   const [filterLockIn, setFilterLockIn] = useState("");
 
   const loadPlans = useCallback(() => {
-    investApi("/public/plans").then((d) => setPlans(sortPlansByTier(d.plans || []))).catch(() => {});
+    investApi("/public/plans")
+      .then((d) => setPlans(sortPlansByTier(d.plans || [])))
+      .catch(() => {});
   }, []);
 
   useEffect(() => { loadPlans(); }, [loadPlans]);

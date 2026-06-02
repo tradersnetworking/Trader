@@ -11,7 +11,7 @@ import {
   lockInCategoryLabel,
   lockInMonthsFromDays,
 } from "../../lib/plan-types.js";
-import { planCalcPreview, parseSettlementCycles } from "../../lib/plan-calc.js";
+import { planCalcPreview, parseSettlementCycles, SETTLEMENT_CYCLE_OPTIONS } from "../../lib/plan-calc.js";
 
 const PLAN_TYPES_LIST = PLAN_TYPES;
 
@@ -21,7 +21,12 @@ export default function AdminPlansPanel({ canManage }) {
   const [editing, setEditing] = useState(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterLockIn, setFilterLockIn] = useState("");
-  const base = { ...planFormFromCategory("STARTER", 12), settlementCycles: "MONTHLY", description: "", isActive: true };
+  const base = {
+    ...planFormFromCategory("STARTER", 12),
+    settlementCycles: "MONTHLY",
+    description: "",
+    isActive: true,
+  };
   const [form, setForm] = useState(base);
   const [err, setErr] = useState("");
 
@@ -53,7 +58,8 @@ export default function AdminPlansPanel({ canManage }) {
   const openNew = () => { setEditing(null); setForm(base); setErr(""); setOpen(true); };
   const openEdit = (p) => {
     setEditing(p);
-    setForm({ ...p, lockInMonths: lockInMonthsFromDays(p.lockInDays) });
+    const cycle = parseSettlementCycles(p.settlementCycles)[0] || "MONTHLY";
+    setForm({ ...p, lockInMonths: lockInMonthsFromDays(p.lockInDays), settlementCycles: cycle });
     setErr("");
     setOpen(true);
   };
@@ -82,12 +88,13 @@ export default function AdminPlansPanel({ canManage }) {
   const preview = useMemo(() => {
     if (!form.monthlyRoiPct || !form.lockInDays) return null;
     return planCalcPreview(previewAmount, form, previewCycle);
-  }, [form.monthlyRoiPct, form.lockInDays, form.lockInMonths, previewAmount, previewCycle]);
+  }, [form.monthlyRoiPct, form.lockInDays, form.lockInMonths, form.settlementCycles, previewAmount, previewCycle]);
 
   return (
     <div>
       <Alert type="info">
         Edit <strong>profit share %</strong> and <strong>lock-in period</strong> here — min/max capital, annual ROI, maturity projections, and investor agreements update automatically when investors subscribe.
+        Plans must be <strong>Active</strong> to appear on the public homepage and investor portal.
       </Alert>
       {canManage ? <button onClick={openNew} className="btn-primary mb-4">+ Create Plan</button> : <Alert type="info">You do not have permission to create, edit or delete plans.</Alert>}
       <div className="mb-4 flex flex-wrap gap-2">
@@ -126,6 +133,7 @@ export default function AdminPlansPanel({ canManage }) {
                 </div>
                 <div className="space-y-1 p-4 text-sm">
                   <div className="flex justify-between"><span className="text-slate-400">Lock-in</span><b>{p.lockInDays} days</b></div>
+                  <div className="flex justify-between"><span className="text-slate-400">Settlement</span><b className="text-right text-xs">{SETTLEMENT_CYCLE_OPTIONS.find((o) => o.id === parseSettlementCycles(p.settlementCycles)[0])?.label || "Monthly"}</b></div>
                   <div className="flex justify-between"><span className="text-slate-400">Monthly / Annual ROI</span><b>{p.monthlyRoiPct}% / {p.annualRoiPct}%</b></div>
                   <div className="flex justify-between"><span className="text-slate-400">Min / Max</span><b>{inr(p.minInvestment)} – {inr(p.maxInvestment)}</b></div>
                   <div className="flex justify-between"><span className="text-slate-400">Active</span><Badge status={p.isActive ? "ACTIVE" : "REJECTED"} /></div>
@@ -167,9 +175,18 @@ export default function AdminPlansPanel({ canManage }) {
           </div>
           <p className="text-xs text-slate-400">Lock-in: {form.lockInDays} days ({lockInCategoryLabel(form.lockInDays)}) — capital range {PLAN_CAPITAL[form.planType]?.label}</p>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Settlement Cycles">
-              <input className="input" value="Monthly" readOnly disabled title="All plans use monthly settlement" />
-              <p className="mt-1 text-xs text-muted-foreground">ROI is credited monthly for every plan.</p>
+            <Field label="Settlement Cycle">
+              <select
+                className="input"
+                value={form.settlementCycles || "MONTHLY"}
+                onChange={(e) => setForm({ ...form, settlementCycles: e.target.value })}
+              >
+                {SETTLEMENT_CYCLE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label} ({opt.days} days)
+                  </option>
+                ))}
+              </select>
             </Field>
             <Field label="Card Color"><input className="input h-10" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
           </div>

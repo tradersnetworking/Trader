@@ -1,6 +1,6 @@
 import { investDb } from "../db.js";
 import { hashPassword } from "../utils/auth.js";
-import { maturityDate } from "../utils/invest.js";
+import { maturityDate, validateSettlementCycle } from "../utils/invest.js";
 import { addLedger } from "../routes/investInvestor.js";
 import { notifyInvestor } from "./notifications.js";
 import { notifyInvestmentActivity } from "./investNotifications.js";
@@ -179,6 +179,8 @@ export async function adminAssignSubscription(investorId, body, actor) {
   }
 
   const monthlyRoi = customMonthlyRoiPct != null ? Number(customMonthlyRoiPct) : plan.monthlyRoiPct;
+  const cycleCheck = validateSettlementCycle(plan, settlementCycle);
+  if (!cycleCheck.ok) throw new Error(cycleCheck.error);
   const start = new Date();
 
   const sub = await investDb.subscription.create({
@@ -186,7 +188,7 @@ export async function adminAssignSubscription(investorId, body, actor) {
       investorId,
       planId: plan.id,
       amount: amt,
-      settlementCycle: "MONTHLY",
+      settlementCycle: cycleCheck.cycle,
       monthlyRoiPct: monthlyRoi,
       roiOverrideNote: customMonthlyRoiPct != null ? (roiOverrideNote || "Admin custom ROI") : null,
       lockInDays: plan.lockInDays,

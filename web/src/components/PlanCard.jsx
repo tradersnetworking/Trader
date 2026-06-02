@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { inr, dateStr } from "../lib/format.js";
 import { lockInCategoryLabel, DEFAULT_LOCK_IN_MONTHS } from "../lib/plan-types.js";
-import { planCalcPreview } from "../lib/plan-calc.js";
+import { planCalcPreview, monthlyReturn, formatSettlementCyclesDisplay, parseSettlementCycles } from "../lib/plan-calc.js";
+import { formatRoiPct } from "../lib/plan-types.js";
 import PlanShareIcons from "./invest/PlanShareIcons.jsx";
 
 const ICONS = { STARTER: "🌱", BRONZE: "🥉", SILVER: "🥈", GOLD: "👑", PLATINUM: "💎", DIAMOND: "💠" };
@@ -15,11 +16,14 @@ const TIER_GRADIENT = {
 };
 
 export default function PlanCard({ plan, onSubscribe, featured, previewAmount }) {
-  const isFeatured = featured ?? DEFAULT_LOCK_IN_MONTHS[plan.planType] === Math.round(plan.lockInDays / 30);
+  const isFeatured =
+    featured ?? DEFAULT_LOCK_IN_MONTHS[plan.planType] === Math.round(plan.lockInDays / 30);
   const grad = TIER_GRADIENT[plan.planType] || "from-primary to-brand-blue";
   const amount = previewAmount ?? plan.minInvestment;
-  const calc = useMemo(() => planCalcPreview(amount, plan, "MONTHLY"), [amount, plan]);
-  const annualPct = plan.annualRoiPct ?? plan.monthlyRoiPct * 12;
+  const settlementCycle = parseSettlementCycles(plan.settlementCycles)[0] || "MONTHLY";
+  const calc = useMemo(() => planCalcPreview(amount, plan, settlementCycle), [amount, plan, settlementCycle]);
+  const monthlyPct = Number(plan.monthlyRoiPct);
+  const annualPct = Number(plan.annualRoiPct);
 
   return (
     <article className={`group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl ${isFeatured ? "ring-2 ring-gold/60" : ""}`}>
@@ -47,11 +51,11 @@ export default function PlanCard({ plan, onSubscribe, featured, previewAmount })
       <div className="flex flex-1 flex-col p-5">
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl bg-muted/50 p-3 dark:bg-white/5">
-            <div className="text-2xl font-extrabold text-foreground">{plan.monthlyRoiPct}%</div>
+            <div className="text-2xl font-extrabold text-foreground">{formatRoiPct(monthlyPct)}%</div>
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Monthly ROI</div>
           </div>
           <div className="rounded-xl bg-gold/10 p-3">
-            <div className="text-2xl font-extrabold text-gold-600">{annualPct}%</div>
+            <div className="text-2xl font-extrabold text-gold-600">{formatRoiPct(annualPct)}%</div>
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Annual ROI</div>
           </div>
         </div>
@@ -60,10 +64,13 @@ export default function PlanCard({ plan, onSubscribe, featured, previewAmount })
           <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Min investment</span><b>{inr(plan.minInvestment)}</b></li>
           <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Max investment</span><b>{inr(plan.maxInvestment)}</b></li>
           <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Monthly return @ min</span><b className="text-emerald-600">{inr(calc.monthlyReturn)}</b></li>
-          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Annual return @ min</span><b>{inr(calc.monthlyReturn * 12)}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5">
+            <span className="text-muted-foreground">Annual return @ min</span>
+            <b>{inr(monthlyReturn(plan.minInvestment, monthlyPct) * 12)}</b>
+          </li>
           <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Expected @ lock-in</span><b className="text-emerald-600">{inr(calc.totalSimpleProfit)}</b></li>
           <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Capital return date</span><b>{dateStr(calc.maturityDate)}</b></li>
-          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Settlement</span><b className="text-right">{plan.settlementCycles.replace(/,/g, " · ")}</b></li>
+          <li className="flex justify-between gap-2 border-b border-border/60 pb-1.5"><span className="text-muted-foreground">Settlement</span><b className="text-right">{formatSettlementCyclesDisplay(plan.settlementCycles)}</b></li>
           <li className="flex justify-between gap-2"><span className="text-muted-foreground">Compounding</span><b className="text-right text-[11px]">At maturity only</b></li>
         </ul>
 
