@@ -77,7 +77,7 @@ export default function SupportWidget() {
   const close = () => setOpen(false);
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(var(--mobile-bottom-nav-height,5.25rem)+0.35rem)] right-2.5 z-[80] flex flex-col items-end gap-1.5 md:bottom-4 md:right-4">
+    <div className="pointer-events-none fixed bottom-[calc(var(--invest-mobile-nav-h,var(--mobile-bottom-nav-height,5.25rem))+0.5rem)] right-2.5 z-[80] flex flex-col items-end gap-1.5 md:bottom-4 md:right-4">
       {open && (
         <div className="pointer-events-auto flex flex-col items-end gap-1.5">
           <MenuPill
@@ -85,7 +85,7 @@ export default function SupportWidget() {
             href={whatsappUrl}
             onClick={close}
             className="bg-green-500 text-white hover:bg-green-400"
-            title={whatsappUrl ? "Chat on WhatsApp" : "Set WhatsApp number in Admin → Site Settings"}
+            title={whatsappUrl ? "Chat on WhatsApp" : "Set in Admin → WhatsApp & Telegram"}
           >
             <WhatsAppIcon />
             WhatsApp
@@ -95,7 +95,7 @@ export default function SupportWidget() {
             href={telegramUrl}
             onClick={close}
             className="bg-[#229ED9] text-white hover:bg-[#1a8bbf]"
-            title={telegramUrl ? "Chat on Telegram" : "Set Telegram handle in Admin → Site Settings"}
+            title={telegramUrl ? "Chat on Telegram" : "Set in Admin → WhatsApp & Telegram"}
           >
             <TelegramIcon />
             Telegram
