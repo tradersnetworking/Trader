@@ -11,9 +11,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
 const outDir = join(root, "public", "assets");
 const catDir = join(outDir, "categories");
+const shareDir = join(outDir, "share");
+const planShareDir = join(shareDir, "plans");
 
 mkdirSync(outDir, { recursive: true });
 mkdirSync(catDir, { recursive: true });
+mkdirSync(planShareDir, { recursive: true });
 
 function logoSvg({ compact = false } = {}) {
   if (compact) {
@@ -47,7 +50,7 @@ function logoSvg({ compact = false } = {}) {
       <path d="M12 100 Q100 52 188 100 Q100 148 12 100" fill="none" stroke="url(#gold)" stroke-width="8"/>
       <text x="100" y="118" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="52" font-weight="800" fill="url(#gold)">A</text>
     </g>
-    <text x="230" y="88" font-family="Inter,Arial,sans-serif" font-size="52" font-weight="800" fill="#FFFFFF">Akshaya Exim</text>
+    <text x="230" y="88" font-family="Inter,Arial,sans-serif" font-size="52" font-weight="800" fill="#FFFFFF">AKSHAYA Exim</text>
     <text x="230" y="138" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="700" fill="url(#gold)">Traders</text>
     <text x="230" y="178" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="500" fill="#94A3B8" letter-spacing="4">INVEST · EARN · GROW</text>
   </svg>`;
@@ -152,5 +155,85 @@ for (let i = 0; i < TAXONOMY.length; i++) {
   }
 }
 if (createdCats) console.log(`Created ${createdCats} EXIM category images`);
+
+/** 1200×630 Open Graph plan card (matches dashboard PlanCard tiers). */
+const PLAN_TIERS = [
+  { type: "STARTER", label: "Starter", icon: "🌱", from: "#059669", to: "#065f46", monthly: 10, capital: "₹1 – 5 Lakhs" },
+  { type: "BRONZE", label: "Bronze", icon: "🥉", from: "#b45309", to: "#78350f", monthly: 12, capital: "₹6 – 10 Lakhs" },
+  { type: "SILVER", label: "Silver", icon: "🥈", from: "#64748b", to: "#334155", monthly: 15, capital: "₹11 – 15 Lakhs" },
+  { type: "GOLD", label: "Gold", icon: "👑", from: "#eab308", to: "#b45309", monthly: 17, capital: "₹16 – 30 Lakhs" },
+  { type: "PLATINUM", label: "Platinum", icon: "💎", from: "#2563eb", to: "#3730a3", monthly: 19, capital: "₹31 – 50 Lakhs" },
+  { type: "DIAMOND", label: "Diamond", icon: "💠", from: "#7c3aed", to: "#581c87", monthly: 20, capital: "Above ₹50 Lakhs" },
+];
+
+function planShareCardSvg(tier) {
+  const annual = tier.monthly * 12;
+  const safe = tier.label.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0f172a"/>
+        <stop offset="100%" stop-color="#020617"/>
+      </linearGradient>
+      <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${tier.from}"/>
+        <stop offset="100%" stop-color="${tier.to}"/>
+      </linearGradient>
+      <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#FFD700"/>
+        <stop offset="100%" stop-color="#D4AF37"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="630" fill="url(#bg)"/>
+    <rect x="48" y="48" width="520" height="534" rx="28" fill="url(#card)"/>
+    <text x="88" y="130" font-size="64">${tier.icon}</text>
+    <text x="88" y="210" font-family="Inter,Arial,sans-serif" font-size="44" font-weight="800" fill="#FFFFFF">${safe}</text>
+    <text x="88" y="258" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="600" fill="rgba(255,255,255,0.85)">${tier.type} · ${tier.capital}</text>
+    <text x="88" y="360" font-family="Inter,Arial,sans-serif" font-size="72" font-weight="900" fill="#FFFFFF">${tier.monthly}%</text>
+    <text x="88" y="410" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="600" fill="rgba(255,255,255,0.9)">Monthly ROI</text>
+    <text x="88" y="460" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="700" fill="#FDE68A">~${annual}% annual</text>
+    <text x="620" y="140" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="800" fill="url(#gold)">Akshaya Exim Invest</text>
+    <text x="620" y="200" font-family="Inter,Arial,sans-serif" font-size="26" font-weight="600" fill="#E2E8F0">Investment Plan Card</text>
+    <text x="620" y="260" font-family="Inter,Arial,sans-serif" font-size="20" fill="#94A3B8">Transparent monthly returns · KYC verified</text>
+    <text x="620" y="300" font-family="Inter,Arial,sans-serif" font-size="20" fill="#94A3B8">Wallet, ledger &amp; digital agreements</text>
+    <text x="620" y="340" font-family="Inter,Arial,sans-serif" font-size="20" fill="#94A3B8">KYC onboarding · Wallet &amp; ledger</text>
+    <rect x="620" y="400" width="520" height="120" rx="16" fill="rgba(212,175,55,0.15)" stroke="#D4AF37" stroke-width="2"/>
+    <text x="640" y="455" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="700" fill="#FDE68A">invest.akshayaexim.com</text>
+    <text x="640" y="490" font-family="Inter,Arial,sans-serif" font-size="16" fill="#94A3B8">Flexible lock-in · 1 to 60 months</text>
+  </svg>`;
+}
+
+function investPlansOverviewSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#002366"/>
+        <stop offset="50%" stop-color="#0a3d91"/>
+        <stop offset="100%" stop-color="#001433"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="630" fill="url(#bg)"/>
+    <text x="600" y="220" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="52" font-weight="800" fill="#FFD700">AKSHAYA Exim Invest</text>
+    <text x="600" y="290" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="32" font-weight="600" fill="#FFFFFF">Investment Plans · Transparent Returns</text>
+    <text x="600" y="350" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="22" fill="#94A3B8">Starter · Bronze · Silver · Gold · Platinum · Diamond</text>
+    <text x="600" y="400" text-anchor="middle" font-family="Inter,Arial,sans-serif" font-size="20" fill="#94A3B8">From ₹1 Lakh · Monthly ROI published · KYC &amp; secure payouts</text>
+  </svg>`;
+}
+
+let createdPlans = 0;
+for (const tier of PLAN_TIERS) {
+  const dest = join(planShareDir, `${tier.type}.png`);
+  if (!existsSync(dest)) {
+    await sharp(Buffer.from(planShareCardSvg(tier))).png({ quality: 90 }).toFile(dest);
+    createdPlans++;
+  }
+}
+if (createdPlans) console.log(`Created ${createdPlans} plan share card images`);
+
+const investPlansOverview = join(shareDir, "invest-plans.png");
+if (!existsSync(investPlansOverview)) {
+  await sharp(Buffer.from(investPlansOverviewSvg())).png({ quality: 90 }).toFile(investPlansOverview);
+  console.log("Created invest-plans.png");
+}
 
 console.log("Brand assets ready.");

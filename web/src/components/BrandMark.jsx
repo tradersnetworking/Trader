@@ -6,7 +6,7 @@ import { Logo } from "./ui.jsx";
  */
 export default function BrandMark({
   to = "/",
-  line1 = "Akshaya Exim",
+  line1 = "AKSHAYA Exim",
   line2 = "Traders",
   line2Gold = true,
   subtitle,

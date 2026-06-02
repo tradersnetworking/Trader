@@ -31,7 +31,7 @@ const DEFAULT_CONTACT_PAGE = {
     { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
   ],
   office: {
-    name: "Akshaya Exim Traders",
+    name: "AKSHAYA Exim Traders",
     address: "Mumbai, Maharashtra, India",
     hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
   },
@@ -40,11 +40,11 @@ const DEFAULT_CONTACT_PAGE = {
 const DEFAULTS = {
   main_google_login_enabled: "false",
   main_google_client_id: "",
-  main_seo_title: "Akshaya EXIM TRADERS — Global Export, Import & B2B Marketplace",
+  main_seo_title: "AKSHAYA EXIM TRADERS — Global Export, Import & B2B Marketplace",
   main_seo_description:
-    "Akshaya EXIM TRADERS — global export and import of agricultural products, FMCG, metals, chemicals, medical supplies, and industrial goods. B2B & B2C trade across India and worldwide.",
+    "AKSHAYA EXIM TRADERS — global export and import of agricultural products, FMCG, metals, chemicals, medical supplies, and industrial goods. B2B & B2C trade across India and worldwide.",
   main_seo_keywords:
-    "export, import, B2B marketplace, EXIM, agricultural export, FMCG trade, metals, chemicals, India export house, Akshaya Exim",
+    "export, import, B2B marketplace, EXIM, agricultural export, FMCG trade, metals, chemicals, India export house, AKSHAYA Exim",
   main_seo_og_image: "/assets/logo.png",
   main_seo_canonical_url: "https://akshayaexim.com",
   main_ga4_measurement_id: "",
@@ -53,7 +53,7 @@ const DEFAULTS = {
   main_bing_site_verification: "",
   main_robots_allow_index: "true",
   main_sitemap_auto_ping: "true",
-  main_site_name: "Akshaya EXIM TRADERS",
+  main_site_name: "AKSHAYA EXIM TRADERS",
   main_sitemap_last_ping: "",
   main_json_ld_description:
     "Global export, import and trade marketplace for agricultural, FMCG, metals, chemicals and industrial products.",

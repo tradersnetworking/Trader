@@ -21,6 +21,8 @@ import { startBackgroundJobs } from "./jobs/backgroundJobs.js";
 import { ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
 import { buildSitemapXml, buildRobotsTxt, buildInvestRobotsTxt } from "./services/mainSiteSettings.js";
 import { resolveHostKindSync, refreshDomainCache } from "./services/additionalDomains.js";
+import { resolveShareMeta, injectMetaIntoHtml } from "./services/shareMeta.js";
+import shareOg from "./routes/shareOg.js";
 import { paymentOrigin } from "./utils/paymentUrls.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -39,6 +41,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(uploadsDir));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "akshaya-exim", time: new Date().toISOString() }));
+app.use("/api/share", shareOg);
 
 app.get("/sitemap.xml", async (req, res, next) => {
   try {
@@ -102,7 +105,7 @@ if (fs.existsSync(webDist)) {
     })
   );
 
-  app.get("*", (req, res, next) => {
+  app.get("*", async (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
 
     const kind = hostKind(req);
@@ -150,7 +153,16 @@ if (fs.existsSync(webDist)) {
     }
 
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.sendFile(path.join(webDist, "index.html"));
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    const indexPath = path.join(webDist, "index.html");
+    try {
+      const meta = await resolveShareMeta(req);
+      const html = injectMetaIntoHtml(fs.readFileSync(indexPath, "utf8"), meta);
+      return res.status(200).send(html);
+    } catch (err) {
+      console.error("[share-meta]", err);
+      return res.sendFile(indexPath);
+    }
   });
 } else if (config.env === "production") {
   console.warn(`[warn] web/dist not found at ${webDist} — UI will not be served. Run: npm run build`);

@@ -72,7 +72,7 @@ export default function PlanCard({ plan, onSubscribe, featured, previewAmount })
           <ShareProfitButton
             type="investment"
             amount={inr(amount)}
-            planName={plan.name}
+            plan={plan}
             monthlyRoiPct={plan.monthlyRoiPct}
             lockInDays={plan.lockInDays}
             label="Share"

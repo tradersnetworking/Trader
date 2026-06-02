@@ -3,17 +3,19 @@ import { config } from "../config.js";
 
 const DEFAULTS = {
   support_email: "support@akshayaexim.in",
-  mail_from: "Akshaya Exim Invest <noreply@akshayaexim.in>",
-  site_name: "Akshaya Exim Invest",
+  mail_from: "AKSHAYA Exim Invest <noreply@akshayaexim.in>",
+  site_name: "AKSHAYA Exim Invest",
   invest_portal_url: config.investPortalUrl,
   homepage_hero_title: "Smart Investment • Secure Future • Grow Your Wealth",
-  homepage_hero_subtitle: "Invest in Akshaya Exim Traders and earn consistent monthly returns. Flexible lock-in periods, transparent profit sharing, weekly or monthly settlements, and 100% capital secured.",
-  homepage_about_title: "About Akshaya Exim Invest",
-  homepage_about_body: "Akshaya Exim Traders offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor.",
+  homepage_hero_subtitle:
+    "Invest in AKSHAYA Exim Traders and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured.",
+  homepage_about_title: "About AKSHAYA Exim Invest",
+  homepage_about_body:
+    "AKSHAYA Exim Traders offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor.",
   homepage_show_calculator: "true",
   homepage_show_partners: "true",
   homepage_show_trust_stats: "true",
-  about_company_name: "Akshaya Exim Traders",
+  about_company_name: "AKSHAYA Exim Traders",
   about_company_tagline: "Export • Import • Investment",
   about_company_credentials: "Registered export house • KYC-verified investors • Secure payment gateways",
   smtp_host: config.smtp.host,

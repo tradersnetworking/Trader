@@ -95,7 +95,7 @@ export default function MainDashboardShell({
     );
   };
 
-  const SidebarContent = ({ mobile, onClose }) => (
+  const renderSidebarInner = (mobile, onClose, navRef) => (
     <div className="flex h-full min-h-0 flex-1 flex-col">
       <div
         className={`flex shrink-0 items-center border-b border-sidebar-border bg-gradient-to-r from-primary/5 to-brand-blue/5 px-4 py-4 ${

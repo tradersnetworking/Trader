@@ -1,13 +1,15 @@
 import { useState } from "react";
 
+import { copyTextToClipboard } from "../../lib/clipboard.js";
+
 function CopyBtn({ text }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(String(text));
+    const ok = await copyTextToClipboard(String(text));
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {}
+    }
   };
   return (
     <button type="button" onClick={copy} className="btn-outline shrink-0 px-2 py-1 text-[10px] sm:text-xs">

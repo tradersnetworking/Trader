@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { useSiteMode } from "../../lib/site.js";
+import { applyDocumentMeta, resolveMainPageMeta } from "../../lib/shareMeta.js";
 
 let cachedConfig = null;
 let configPromise = null;
@@ -17,28 +18,6 @@ function loadConfig() {
       .catch(() => ({}));
   }
   return configPromise;
-}
-
-function upsertMeta(name, content, attr = "name") {
-  if (!content) return;
-  let el = document.querySelector(`meta[${attr}="${name}"]`);
-  if (!el) {
-    el = document.createElement("meta");
-    el.setAttribute(attr, name);
-    document.head.appendChild(el);
-  }
-  el.setAttribute("content", content);
-}
-
-function upsertLink(rel, href) {
-  if (!href) return;
-  let el = document.querySelector(`link[rel="${rel}"]`);
-  if (!el) {
-    el = document.createElement("link");
-    el.setAttribute("rel", rel);
-    document.head.appendChild(el);
-  }
-  el.setAttribute("href", href);
 }
 
 function injectScript(id, html) {
@@ -62,6 +41,9 @@ export default function MainSiteMeta() {
   const mode = useSiteMode();
   const { pathname } = useLocation();
   const [cfg, setCfg] = useState(cachedConfig);
+  const [product, setProduct] = useState(null);
+
+  const productSlug = pathname.match(/^\/products\/([^/]+)/)?.[1];
 
   useEffect(() => {
     if (mode !== "main") return;
@@ -69,30 +51,61 @@ export default function MainSiteMeta() {
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== "main" || !cfg?.seo) return;
+    if (mode !== "main" || !productSlug) {
+      setProduct(null);
+      return;
+    }
+    mainApi(`/products/${productSlug}`)
+      .then((d) => setProduct(d.product || null))
+      .catch(() => setProduct(null));
+  }, [mode, productSlug]);
 
-    const { seo, siteName, analytics, verification, robotsAllowIndex } = cfg;
-    const pageTitle = pathname === "/" ? seo.title : `${document.title || seo.title}`;
-    document.title = seo.title || pageTitle;
+  useEffect(() => {
+    if (mode !== "main") return;
 
-    upsertMeta("description", seo.description);
-    upsertMeta("keywords", seo.keywords);
-    upsertMeta("robots", robotsAllowIndex === false ? "noindex,nofollow" : "index,follow,max-image-preview:large");
-    upsertLink("canonical", seo.canonicalUrl ? `${seo.canonicalUrl.replace(/\/$/, "")}${pathname === "/" ? "" : pathname}` : "");
+    const page = resolveMainPageMeta(pathname, cfg, product);
+    const canonicalBase = cfg?.seo?.canonicalUrl?.replace(/\/$/, "") || window.location.origin;
+    const pathSuffix = pathname === "/" ? "" : pathname;
+    const pageUrl = `${canonicalBase}${pathSuffix}${window.location.search || ""}`;
 
-    upsertMeta("og:title", seo.title, "property");
-    upsertMeta("og:description", seo.description, "property");
-    upsertMeta("og:type", "website", "property");
-    upsertMeta("og:site_name", siteName || "Akshaya EXIM TRADERS", "property");
-    if (seo.ogImage) upsertMeta("og:image", seo.ogImage.startsWith("http") ? seo.ogImage : `${window.location.origin}${seo.ogImage}`, "property");
-    upsertMeta("twitter:card", "summary_large_image");
-    upsertMeta("twitter:title", seo.title);
-    upsertMeta("twitter:description", seo.description);
+    applyDocumentMeta({
+      title: page.title,
+      description: page.description,
+      image: page.image,
+      siteName: page.siteName,
+      url: pageUrl,
+      robots: cfg?.robotsAllowIndex === false ? "noindex,nofollow" : "index,follow,max-image-preview:large",
+    });
 
-    if (verification?.google) upsertMeta("google-site-verification", verification.google);
-    if (verification?.bing) upsertMeta("msvalidate.01", verification.bing);
+    if (cfg?.verification?.google) {
+      let el = document.querySelector('meta[name="google-site-verification"]');
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", "google-site-verification");
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", cfg.verification.google);
+    }
+    if (cfg?.verification?.bing) {
+      let el = document.querySelector('meta[name="msvalidate.01"]');
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", "msvalidate.01");
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", cfg.verification.bing);
+    }
+    if (cfg?.seo?.keywords) {
+      let el = document.querySelector('meta[name="keywords"]');
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", "keywords");
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", cfg.seo.keywords);
+    }
 
-    const gaId = analytics?.ga4MeasurementId;
+    const gaId = cfg?.analytics?.ga4MeasurementId;
     if (gaId && !document.getElementById("aex-ga4")) {
       injectExternalScript("aex-ga4-lib", `https://www.googletagmanager.com/gtag/js?id=${gaId}`);
       injectScript(
@@ -101,7 +114,7 @@ export default function MainSiteMeta() {
       );
     }
 
-    const gtmId = analytics?.gtmContainerId;
+    const gtmId = cfg?.analytics?.gtmContainerId;
     if (gtmId && !document.getElementById("aex-gtm")) {
       injectScript(
         "aex-gtm",
@@ -120,13 +133,13 @@ export default function MainSiteMeta() {
     ld.textContent = JSON.stringify({
       "@context": "https://schema.org",
       "@type": "Organization",
-      name: siteName || "Akshaya EXIM TRADERS",
-      url: seo.canonicalUrl || window.location.origin,
-      logo: seo.ogImage?.startsWith("http") ? seo.ogImage : `${window.location.origin}${seo.ogImage || "/assets/logo.png"}`,
-      description: cfg.seo?.jsonLdDescription || seo.description,
+      name: page.siteName || "AKSHAYA EXIM TRADERS",
+      url: canonicalBase,
+      logo: page.image?.startsWith("http") ? page.image : `${window.location.origin}/assets/logo.png`,
+      description: cfg?.seo?.jsonLdDescription || page.description,
       sameAs: [],
     });
-  }, [mode, cfg, pathname]);
+  }, [mode, cfg, pathname, product]);
 
   return null;
 }

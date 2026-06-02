@@ -92,7 +92,7 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
           </div>
           <p className="text-sm text-muted-foreground">{s.plan?.planType} • {Math.round(s.lockInDays / 30)} month lock-in</p>
         </div>
-        <ShareProfitButton type="investment" amount={inr(s.amount)} planName={s.plan?.name} monthlyRoiPct={s.monthlyRoiPct} lockInDays={s.lockInDays} />
+        <ShareProfitButton type="investment" amount={inr(s.amount)} plan={s.plan} monthlyRoiPct={s.monthlyRoiPct} lockInDays={s.lockInDays} />
         <button type="button" className="btn-outline text-xs" disabled={certBusy} onClick={loadCertificate}>
           {certBusy ? t("common.loading") : t("certificate.download")}
         </button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
@@ -26,7 +26,9 @@ export default function InvestHome() {
   const { invest } = useAuth();
   const { t } = useI18n();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const [plans, setPlans] = useState([]);
+  const [highlightPlanId, setHighlightPlanId] = useState("");
   const [sub, setSub] = useState(null);
   const [maintenance, setMaintenance] = useState(null);
   const [partners, setPartners] = useState([]);
@@ -38,6 +40,22 @@ export default function InvestHome() {
     investApi("/public/partners").then((d) => setPartners(d.partners || [])).catch(() => {});
     investApi("/public/homepage").then((d) => setCms(d.homepage || {})).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const planId = searchParams.get("plan");
+    const ref = searchParams.get("ref");
+    if (planId) setHighlightPlanId(planId);
+    if (ref) {
+      try {
+        localStorage.setItem("invest_ref", ref);
+      } catch {}
+    }
+    if (planId || window.location.hash === "#plans") {
+      requestAnimationFrame(() => {
+        document.getElementById("plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [searchParams, plans.length]);
 
   const onSubscribe = (plan) => {
     if (!invest) return nav(investPath("/login"));
@@ -86,7 +104,11 @@ export default function InvestHome() {
               </p>
               <div className="flex gap-4 overflow-x-auto pb-2 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3 xl:grid-cols-4">
                 {tierPlans.map((p) => (
-                  <div key={p.id} className="min-w-[17rem] shrink-0 snap-start sm:min-w-0">
+                  <div
+                    key={p.id}
+                    id={highlightPlanId === p.id ? "highlight-plan" : undefined}
+                    className={`min-w-[17rem] shrink-0 snap-start sm:min-w-0 ${highlightPlanId === p.id ? "rounded-2xl ring-2 ring-gold ring-offset-2 ring-offset-background" : ""}`}
+                  >
                     <PlanCard plan={p} onSubscribe={onSubscribe} />
                   </div>
                 ))}

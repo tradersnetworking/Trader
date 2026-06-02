@@ -78,7 +78,7 @@ export default function AchievementShareCard({ achievement, totalInvested, onClo
         <canvas ref={canvasRef} className="mx-auto mt-4 w-full max-w-[360px] rounded-xl" />
         <div className="mt-4 flex flex-wrap gap-2">
           {SHARE_PLATFORMS.slice(0, 4).map((p) => (
-            <button key={p.id} type="button" className="btn-outline flex-1 text-xs" onClick={() => openShare(p.id, text)}>
+            <button key={p.id} type="button" className="btn-outline flex-1 text-xs" onClick={() => openShare(p.id, text, referralLink)}>
               {p.icon} {p.label}
             </button>
           ))}

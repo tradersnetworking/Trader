@@ -1,30 +1,74 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { investApi } from "../../lib/api.js";
 import { useSiteMode } from "../../lib/site.js";
-
-function upsertMeta(name, content, attr = "name") {
-  if (!content) return;
-  let el = document.querySelector(`meta[${attr}="${name}"]`);
-  if (!el) {
-    el = document.createElement("meta");
-    el.setAttribute(attr, name);
-    document.head.appendChild(el);
-  }
-  el.setAttribute("content", content);
-}
+import { applyDocumentMeta, resolveInvestPageMeta, INVEST_HOME_DEFAULT } from "../../lib/shareMeta.js";
 
 export default function InvestSiteMeta() {
   const mode = useSiteMode();
+  const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
+  const [plan, setPlan] = useState(null);
+  const [homepageCms, setHomepageCms] = useState({
+    homepage_hero_title: INVEST_HOME_DEFAULT.title,
+    homepage_hero_subtitle: INVEST_HOME_DEFAULT.description,
+  });
+
+  const planId = searchParams.get("plan");
+  const refCode = searchParams.get("ref") || "";
 
   useEffect(() => {
     if (mode !== "invest") return;
-
-    upsertMeta("robots", "noindex, nofollow, noarchive");
-    upsertMeta("googlebot", "noindex, nofollow");
-    upsertMeta("bingbot", "noindex, nofollow");
-
-    const canonical = document.querySelector('link[rel="canonical"]');
-    if (canonical) canonical.remove();
+    investApi("/public/homepage")
+      .then((d) => {
+        const h = d.homepage || {};
+        const sub = h.homepage_hero_subtitle || "";
+        const staleMain =
+          !/INR/i.test(sub) &&
+          (/^Explore Akshaya/i.test(sub) || /export and import|EXIM TRADERS|marketplace/i.test(sub));
+        setHomepageCms(
+          staleMain
+            ? {
+                ...h,
+                homepage_hero_title: INVEST_HOME_DEFAULT.title,
+                homepage_hero_subtitle: INVEST_HOME_DEFAULT.description,
+              }
+            : h
+        );
+      })
+      .catch(() => {});
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "invest" || !planId) {
+      setPlan(null);
+      return;
+    }
+    investApi("/public/plans")
+      .then((d) => {
+        const found = (d.plans || []).find((p) => p.id === planId);
+        setPlan(found || null);
+      })
+      .catch(() => setPlan(null));
+  }, [mode, planId]);
+
+  useLayoutEffect(() => {
+    if (mode !== "invest") return;
+
+    const meta = resolveInvestPageMeta({
+      pathname,
+      plan,
+      refCode,
+      homepageCms,
+      hasPlanQuery: Boolean(planId),
+    });
+
+    applyDocumentMeta({
+      ...meta,
+      url: typeof window !== "undefined" ? window.location.href : meta.url,
+      robots: "noindex, nofollow, noarchive",
+    });
+  }, [mode, pathname, plan, refCode, homepageCms, planId]);
 
   return null;
 }

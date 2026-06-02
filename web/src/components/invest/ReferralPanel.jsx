@@ -4,6 +4,7 @@ import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge } from "../ui.jsx";
 import { useAuth } from "../../lib/store.jsx";
 import { buildReferralLink } from "../../lib/share.js";
+import { copyTextToClipboard } from "../../lib/clipboard.js";
 import { APP_PAGE_STACK, APP_STAT_GRID } from "../../lib/ui-system.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
 import ShareProfitButton from "./ShareProfitButton.jsx";
@@ -44,16 +45,16 @@ export default function ReferralPanel() {
 
   const copyLink = async () => {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
+    const ok = await copyTextToClipboard(link);
+    if (ok) {
       setCopied(true);
       setMsg("Referral link copied!");
       setTimeout(() => {
         setCopied(false);
         setMsg("");
       }, 2000);
-    } catch {
-      setMsg("Could not copy link");
+    } else {
+      setMsg("Could not copy link — select the field and copy manually.");
     }
   };
 

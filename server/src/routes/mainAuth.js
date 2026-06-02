@@ -13,7 +13,7 @@ const SCOPE = "main";
 
 function publicUser(u) {
   if (!u) return null;
-  const { passwordHash, resetToken, resetExpires, ...rest } = u;
+  const { passwordHash, resetToken, resetExpires, sessionId, ...rest } = u;
   return rest;
 }
 

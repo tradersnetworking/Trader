@@ -360,11 +360,24 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
       </div>
       <div className="grid gap-4 md:grid-cols-2">
       {subs.map((s) => (
-        <button key={s.id} type="button" onClick={() => onOpenDetail?.(s.id)} className="card p-5 text-left transition hover:ring-2 hover:ring-primary/30">
+        <div
+          key={s.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpenDetail?.(s.id)}
+          onKeyDown={(e) => e.key === "Enter" && onOpenDetail?.(s.id)}
+          className="card cursor-pointer p-5 text-left transition hover:ring-2 hover:ring-primary/30"
+        >
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold text-navy">{s.plan?.name}</h3>
-            <div className="flex items-center gap-2">
-              <ShareProfitButton type="investment" amount={inr(s.amount)} planName={s.plan?.name} monthlyRoiPct={s.monthlyRoiPct} lockInDays={s.lockInDays} />
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <ShareProfitButton
+                type="investment"
+                amount={inr(s.amount)}
+                plan={s.plan}
+                monthlyRoiPct={s.monthlyRoiPct}
+                lockInDays={s.lockInDays}
+              />
               <Badge status={s.matured ? "MATURED" : s.status} />
             </div>
           </div>
@@ -378,7 +391,7 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
             Projected maturity ({s.matured ? "compounded" : "simple"}): <b className="text-navy dark:text-white">{inr(s.projection.maturityValue)}</b>
           </div>
           <p className="mt-2 text-xs font-semibold text-primary">View details →</p>
-        </button>
+        </div>
       ))}
       {subs.length === 0 && (
         <div className="card p-8 text-center">

@@ -62,7 +62,7 @@ export default function ActivePlansPanel({ subscriptions = [], loading, onNaviga
                     <ShareProfitButton
                       type="investment"
                       amount={inr(s.amount)}
-                      planName={s.plan?.name}
+                      plan={s.plan}
                       label="Share"
                     />
                   </div>

@@ -1,4 +1,4 @@
-const CACHE = "aex-invest-v3";
+const CACHE = "aex-invest-v8";
 const SHELL = [
   "/",
   "/index.html",

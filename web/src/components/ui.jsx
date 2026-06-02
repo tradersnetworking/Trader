@@ -68,7 +68,7 @@ export function Logo({ className, variant = "full" }) {
     <span className={`brand-logo-wrap shrink-0 ${useMark ? "inline-flex" : ""}`}>
       <img
         src={src}
-        alt="Akshaya EXIM TRADERS"
+        alt="AKSHAYA EXIM TRADERS"
         className={`brand-logo ${sizeClass}`}
         draggable={false}
         width={useMark ? 40 : 180}

@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { loadMainSiteConfig } from "./main/MainSiteMeta.jsx";
 
 const ENV_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 export default function GoogleButton({ onCredential, scope = "main" }) {
   const ref = useRef(null);
+  const callbackRef = useRef(onCredential);
+  const initClientRef = useRef("");
   const [clientId, setClientId] = useState(ENV_CLIENT_ID);
   const [enabled, setEnabled] = useState(Boolean(ENV_CLIENT_ID));
+
+  callbackRef.current = onCredential;
 
   useEffect(() => {
     loadMainSiteConfig().then((cfg) => {
@@ -16,15 +20,34 @@ export default function GoogleButton({ onCredential, scope = "main" }) {
     }).catch(() => {});
   }, [scope]);
 
-  useEffect(() => {
+  const renderGoogleButton = useCallback(() => {
     if (!clientId || !enabled || !window.google || !ref.current) return;
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (resp) => onCredential(resp.credential),
-    });
+    if (initClientRef.current !== clientId) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (resp) => callbackRef.current(resp.credential),
+      });
+      initClientRef.current = clientId;
+    }
     ref.current.innerHTML = "";
     window.google.accounts.id.renderButton(ref.current, { theme: "outline", size: "large", width: 320, text: "continue_with" });
-  }, [clientId, enabled, onCredential]);
+  }, [clientId, enabled]);
+
+  useEffect(() => {
+    renderGoogleButton();
+  }, [renderGoogleButton]);
+
+  useEffect(() => {
+    if (!clientId || !enabled) return;
+    const onLoad = () => renderGoogleButton();
+    if (window.google) {
+      onLoad();
+      return undefined;
+    }
+    const gsi = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    gsi?.addEventListener("load", onLoad);
+    return () => gsi?.removeEventListener("load", onLoad);
+  }, [clientId, enabled, renderGoogleButton]);
 
   if (!enabled || !clientId) {
     return (

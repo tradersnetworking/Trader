@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useAuth } from "../lib/store.jsx";
@@ -84,6 +85,11 @@ export function LoginScreen({ scope, staff }) {
     return ["ADMIN", "SUPERADMIN", "STAFF"].includes(user.role) ? "/admin" : "/dashboard";
   };
 
+  const commitLogin = (token, user) => {
+    flushSync(() => login(token, user));
+    nav(dest(user));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setErr(""); setLoading(true);
@@ -96,8 +102,7 @@ export function LoginScreen({ scope, staff }) {
         setLoading(false);
         return;
       }
-      login(token, user);
-      nav(dest(user));
+      commitLogin(token, user);
     } catch (e2) { setErr(e2.message); } finally { setLoading(false); }
   };
 
@@ -105,8 +110,7 @@ export function LoginScreen({ scope, staff }) {
     setErr("");
     try {
       const { token, user } = await api(scope, "/auth/google", { method: "POST", body: { credential } });
-      login(token, user);
-      nav(dest(user));
+      commitLogin(token, user);
     } catch (e2) { setErr(e2.message); }
   };
 
@@ -116,8 +120,7 @@ export function LoginScreen({ scope, staff }) {
     setLoading(true);
     try {
       const { token, user } = await loginWithPasskey(form.email);
-      login(token, user);
-      nav(dest(user));
+      commitLogin(token, user);
     } catch (e2) {
       setErr(e2.message || "Passkey login cancelled");
     } finally {
@@ -130,8 +133,7 @@ export function LoginScreen({ scope, staff }) {
     setLoading(true);
     try {
       const { token, user } = await verify2FAWithPasskey(form.email);
-      login(token, user);
-      nav(dest(user));
+      commitLogin(token, user);
     } catch (e2) {
       setErr(e2.message || "Passkey verification cancelled");
     } finally {
@@ -228,7 +230,7 @@ export function RegisterScreen({ scope }) {
       const body = { ...form };
       if (scope !== "invest") delete body.referralCode;
       const { token, user } = await api(scope, "/auth/register", { method: "POST", body });
-      login(token, user);
+      flushSync(() => login(token, user));
       nav(scope === "invest" ? investPath("/onboarding") : "/dashboard");
     } catch (e2) { setErr(e2.message); } finally { setLoading(false); }
   };
