@@ -1,5 +1,6 @@
 import { investDb } from "../db.js";
 import { config } from "../config.js";
+import { MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { getSetting } from "./investSettings.js";
 
 const ONLINE_PROVIDERS = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank"];
@@ -91,7 +92,7 @@ export async function createPaymentGateway(data) {
       branchName: data.branchName || null,
       qrCodeUrl: data.qrCodeUrl || null,
       provider: data.provider || null,
-      minAmount: Number(data.minAmount ?? 100),
+      minAmount: Number(data.minAmount ?? MIN_WALLET_DEPOSIT),
       maxAmount: data.maxAmount != null ? Number(data.maxAmount) : null,
       isEnabled: data.isEnabled !== false,
       sortOrder: Number(data.sortOrder ?? 0),
@@ -133,7 +134,7 @@ export async function seedDefaultPaymentGateways() {
         type: "upi",
         upiId: config.upi.vpa,
         accountHolder: config.upi.payeeName,
-        minAmount: 100,
+        minAmount: 100000,
         sortOrder: 0,
         isEnabled: true,
       },
@@ -145,7 +146,7 @@ export async function seedDefaultPaymentGateways() {
         accountNumber: config.bank.accountNumber,
         ifsc: config.bank.ifsc,
         branchName: config.bank.branch,
-        minAmount: 1000,
+        minAmount: 100000,
         sortOrder: 0,
         isEnabled: true,
       },
@@ -153,7 +154,7 @@ export async function seedDefaultPaymentGateways() {
         name: p.charAt(0).toUpperCase() + p.slice(1),
         type: "online",
         provider: p,
-        minAmount: 100,
+        minAmount: 100000,
         sortOrder: i,
         isEnabled: true,
       })),
@@ -179,7 +180,7 @@ export async function ensureMissingPaymentGateways() {
         name: p.charAt(0).toUpperCase() + p.slice(1),
         type: "online",
         provider: p,
-        minAmount: 100,
+        minAmount: 100000,
         sortOrder: sortOrder++,
         isEnabled: true,
       },

@@ -2,6 +2,15 @@
 
 export const PLAN_TYPES = ["STARTER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
 
+/** Minimum wallet top-up (₹) — matches lowest plan tier entry. */
+export const MIN_WALLET_DEPOSIT = 100000;
+
+export function resolveDefaultDepositAmount(suggestedAmount) {
+  const n = Number(suggestedAmount);
+  if (n > 0) return Math.max(MIN_WALLET_DEPOSIT, Math.ceil(n));
+  return MIN_WALLET_DEPOSIT;
+}
+
 export function planTierOrder(planType) {
   const i = PLAN_TYPES.indexOf(String(planType || "").toUpperCase());
   return i === -1 ? PLAN_TYPES.length : i;

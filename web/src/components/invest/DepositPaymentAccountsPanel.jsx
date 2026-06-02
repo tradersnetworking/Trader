@@ -51,7 +51,7 @@ const emptyForm = (type) => ({
 
   provider: type === "online" ? "razorpay" : "",
 
-  minAmount: 100,
+  minAmount: 100000,
 
   maxAmount: "",
 

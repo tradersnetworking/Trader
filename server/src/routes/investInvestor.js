@@ -2,7 +2,7 @@ import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole } from "../middleware.js";
 import { upload, fileUrl } from "../utils/upload.js";
-import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle } from "../utils/invest.js";
+import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle, MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { createOrder } from "../payments/gateways.js";
 import { autoApproveDeposit } from "../services/paymentWebhooks.js";
 import { getInvestorDashboard, getWalletHistory } from "../services/investDashboard.js";
@@ -456,6 +456,12 @@ router.post(
   upload.single("proofImage"),
   asyncH(async (req, res) => {
     const { amount, method, reference, planId, promoCode, paymentAccountId } = req.body;
+    const depositAmount = Number(amount);
+    if (!Number.isFinite(depositAmount) || depositAmount < MIN_WALLET_DEPOSIT) {
+      return res.status(400).json({
+        error: `Minimum deposit is ₹${MIN_WALLET_DEPOSIT.toLocaleString("en-IN")}.`,
+      });
+    }
     const methodUpper = String(method || "UPI").toUpperCase();
     const isManual = MANUAL_DEPOSIT_METHODS.has(methodUpper);
 
@@ -481,7 +487,7 @@ router.post(
     let remarks = null;
     if (promoCode?.trim()) {
       const result = await validatePromoCode(promoCode, {
-        amount: Number(amount),
+        amount: depositAmount,
         appliesTo: "DEPOSIT",
         investorId: req.user.id,
       });
@@ -491,7 +497,7 @@ router.post(
     const dep = await investDb.deposit.create({
       data: {
         investorId: req.user.id,
-        amount: Number(amount),
+        amount: depositAmount,
         method: methodUpper,
         reference: reference?.trim() || null,
         planId: planId || null,

@@ -17,6 +17,7 @@ import ShareProfitButton from "./ShareProfitButton.jsx";
 import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/onlineCheckout.js";
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import { MIN_WALLET_DEPOSIT, resolveDefaultDepositAmount } from "../../lib/plan-types.js";
 
 const DEPOSIT_METHODS = [
   { value: "upi", label: "UPI", icon: "📱", tone: "upi" },
@@ -198,6 +199,10 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
     }
     if (method === "bank" && !selectedBank) {
       setErr("No company bank account available. Contact support.");
+      return;
+    }
+    if (Number(amount) < MIN_WALLET_DEPOSIT) {
+      setErr(`Minimum deposit is ${inr(MIN_WALLET_DEPOSIT)}.`);
       return;
     }
     const fd = new FormData();
@@ -480,8 +485,8 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 />
                 {msg && <Alert type="success">{msg}</Alert>}
                 {err && <Alert type="error">{err}</Alert>}
-                <Field label="Amount (₹)">
-                  <input className="input" type="number" min={1000} step={100} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
+                <Field label="Amount (₹)" hint={`Minimum ${inr(MIN_WALLET_DEPOSIT)}`}>
+                  <input className="input" type="number" min={MIN_WALLET_DEPOSIT} step={1000} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
                 </Field>
                 <Field label="Promo code (optional)">
                   <div className="flex gap-2">

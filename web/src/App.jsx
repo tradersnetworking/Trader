@@ -26,6 +26,7 @@ import {
 
   useSiteMode,
   getRouteSet,
+  subscribeHostKind,
 
 } from "./lib/site.js";
 

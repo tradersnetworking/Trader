@@ -45,6 +45,9 @@ export function validateSettlementCycle(plan, cycle) {
 /** Plan tiers by investment capital (₹). Lock-in is a separate sub-category (1–60 months). */
 export const PLAN_TYPES = ["STARTER", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND"];
 
+/** Minimum wallet deposit (₹) — aligned with Starter plan minimum investment. */
+export const MIN_WALLET_DEPOSIT = 100000;
+
 /** Sort key for plan tier (STARTER first — not alphabetical). */
 export function planTierOrder(planType) {
   const i = PLAN_TYPES.indexOf(String(planType || "").toUpperCase());
