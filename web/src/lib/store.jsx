@@ -8,6 +8,8 @@ const AuthContext = createContext(null);
 const authEpoch = { main: 0, invest: 0 };
 
 function shouldLoadScope(scope, mode, kind) {
+  if (kind === "invest-host") return scope === "invest";
+  if (kind === "main-host") return scope === "main";
   if (kind === "local") return true;
   if (scope === "main") return mode === "main";
   return mode === "invest";
@@ -27,7 +29,7 @@ export function AuthProvider({ children }) {
     }
     const epoch = authEpoch[scope];
     const tokenAtStart = token;
-    if (!soft) setter((prev) => ({ user: prev.user, loading: !prev.user }));
+    if (!soft) setter((prev) => ({ user: prev.user, loading: true }));
     try {
       const { user } = await api(scope, "/auth/me");
       if (authEpoch[scope] !== epoch || getToken(scope) !== tokenAtStart) return;

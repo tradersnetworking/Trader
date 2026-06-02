@@ -5,6 +5,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import { MarketplaceLayout, InvestLayout } from "./components/Layouts.jsx";
 
 import { useAuth } from "./lib/store.jsx";
+import { getToken } from "./lib/api.js";
 
 import {
 
@@ -23,6 +24,7 @@ import {
   isLocalDev,
 
   useSiteMode,
+  getAppSiteMode,
 
 } from "./lib/site.js";
 
@@ -89,7 +91,9 @@ function RequireAuth({ scope, roles, children }) {
 
   const fallback = scope === "main" ? "/dashboard" : investPath("/dashboard");
 
-  if (loading) return <div className="p-10 text-center text-muted-foreground">Loading…</div>;
+  if (loading || (!user && getToken(scope))) {
+    return <div className="p-10 text-center text-muted-foreground">Loading…</div>;
+  }
 
   if (!user) return <Navigate to={loginPath} replace />;
 
@@ -338,7 +342,7 @@ export default function App() {
 
       <SiteClassSync />
 
-      {mode === "invest" ? <InvestRoutes /> : <MainRoutes />}
+      {routeSet === "invest" ? <InvestRoutes /> : <MainRoutes />}
 
     </>
 

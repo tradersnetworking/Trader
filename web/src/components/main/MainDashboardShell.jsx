@@ -5,7 +5,6 @@ import BrandMark from "../BrandMark.jsx";
 import { ThemeToggle } from "../../lib/theme.jsx";
 import { navIconBg, navIconFg } from "../../lib/invest-nav.js";
 import { NavIcon } from "../invest/NavIcons.jsx";
-import { investUrl } from "../../lib/site.js";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "../invest/LanguageSelector.jsx";
 
@@ -195,9 +194,6 @@ export default function MainDashboardShell({
               User Dashboard
             </Link>
           )}
-          <a href={investUrl("")} className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted" onClick={() => setUserOpen(false)}>
-            Invest Portal
-          </a>
           <button
             type="button"
             onClick={() => {

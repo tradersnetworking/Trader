@@ -38,12 +38,19 @@ export function isLocalDev() {
   return getHostKind() === "local";
 }
 
+/** Sync portal mode from hostname (invest subdomain / additional domain vs main). */
+export function getAppSiteMode(pathname = "/") {
+  const kind = getHostKind();
+  if (kind === "invest-host") return "invest";
+  if (kind === "main-host") return "main";
+  const p = pathname || "/";
+  return p === "/invest" || p.startsWith("/invest/") ? "invest" : "main";
+}
+
 /** Active portal: invest subdomain, or /invest/* on localhost */
 export function useSiteMode() {
   const { pathname } = useLocation();
-  if (isInvestHost()) return "invest";
-  if (isLocalDev()) return pathname === "/invest" || pathname.startsWith("/invest/") ? "invest" : "main";
-  return "main";
+  return getAppSiteMode(pathname);
 }
 
 /** Route prefix for invest React Router paths */

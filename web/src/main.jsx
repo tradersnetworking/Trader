@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { BrowserRouter } from "react-router-dom";
-import { applySiteRootClass, getHostKind } from "./lib/site.js";
+import { applySiteRootClass, getAppSiteMode } from "./lib/site.js";
 import { loadPortalConfig } from "./lib/portalConfig.js";
 import App from "./App.jsx";
 import { AuthProvider } from "./lib/store.jsx";
@@ -12,7 +12,7 @@ import ScreenshotProtection from "./components/invest/ScreenshotProtection.jsx";
 
 async function bootstrap() {
   await loadPortalConfig();
-  const initialMode = getHostKind() === "invest-host" ? "invest" : "main";
+  const initialMode = getAppSiteMode(typeof window !== "undefined" ? window.location.pathname : "/");
   if (typeof document !== "undefined") applySiteRootClass(initialMode);
 
   if ("serviceWorker" in navigator) {
