@@ -259,7 +259,7 @@ export function resetPricingRunState() {
 export async function backfillZeroProductPrices(db, { useGoogle = false } = {}) {
   resetPricingRunState();
   const products = await db.product.findMany({
-    where: { OR: [{ basePrice: 0 }, { basePrice: null }] },
+    where: { basePrice: { lte: 0 } },
     include: { category: { include: { parent: true } } },
   });
   let updated = 0;
