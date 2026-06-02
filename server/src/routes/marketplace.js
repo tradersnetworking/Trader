@@ -83,13 +83,16 @@ router.post(
   asyncH(async (req, res) => {
     const secret = process.env.MAIN_SEO_SUBMIT_SECRET || "";
     const hdr = String(req.headers["x-seo-submit-secret"] || "");
-    const ip = String(req.ip || "");
-    const local =
+    const ip = String(req.ip || req.socket?.remoteAddress || "");
+    const internal =
       ip === "127.0.0.1" ||
       ip === "::1" ||
       ip.endsWith("127.0.0.1") ||
-      ip === "::ffff:127.0.0.1";
-    if (!local && (!secret || hdr !== secret)) {
+      ip === "::ffff:127.0.0.1" ||
+      /^10\./.test(ip) ||
+      /^192\.168\./.test(ip) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+    if (!internal && (!secret || hdr !== secret)) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const settings = await getMainSiteSettings();
