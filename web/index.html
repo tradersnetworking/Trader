@@ -10,6 +10,32 @@
           root.classList.add("site-invest");
           root.classList.remove("site-main");
           window.__aexSwCleanup = Promise.resolve();
+          var invTitle = "Smart Investment \u2022 Secure Future \u2022 Grow Your Wealth";
+          var invDesc =
+            "Invest in AKSHAYA Exim Traders and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured.";
+          var invSite = "AKSHAYA Exim Invest";
+          var ogImg = location.origin + "/assets/share/invest-plans.png";
+          var pageUrl = location.origin + "/";
+          document.title = invTitle;
+          function setMeta(attr, name, val) {
+            if (!val) return;
+            var el = document.querySelector("meta[" + attr + '="' + name + '"]');
+            if (!el) {
+              el = document.createElement("meta");
+              el.setAttribute(attr, name);
+              document.head.appendChild(el);
+            }
+            el.setAttribute("content", val);
+          }
+          setMeta("name", "description", invDesc);
+          setMeta("property", "og:title", invTitle);
+          setMeta("property", "og:description", invDesc);
+          setMeta("property", "og:site_name", invSite);
+          setMeta("property", "og:url", pageUrl);
+          setMeta("property", "og:image", ogImg);
+          setMeta("name", "twitter:title", invTitle);
+          setMeta("name", "twitter:description", invDesc);
+          setMeta("name", "twitter:image", ogImg);
         } else {
           root.classList.add("site-main");
           root.classList.remove("site-invest");

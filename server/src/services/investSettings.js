@@ -5,6 +5,9 @@ const DEFAULTS = {
   support_email: "support@akshayaexim.in",
   support_whatsapp: "",
   support_telegram: "",
+  telegram_bot_token: "",
+  telegram_notify_enabled: "true",
+  telegram_notify_channels: "",
   mail_from: "AKSHAYA Exim Invest <noreply@akshayaexim.in>",
   site_name: "AKSHAYA Exim Invest",
   invest_portal_url: config.investPortalUrl,
@@ -41,7 +44,10 @@ export async function getAllSettings(includeSecrets = false) {
   const rows = await investDb.investSetting.findMany();
   const map = { ...DEFAULTS };
   for (const r of rows) map[r.key] = r.value;
-  if (!includeSecrets) map.smtp_pass = map.smtp_pass ? "••••••••" : "";
+  if (!includeSecrets) {
+    map.smtp_pass = map.smtp_pass ? "••••••••" : "";
+    map.telegram_bot_token = map.telegram_bot_token ? "••••••••" : "";
+  }
   return map;
 }
 
@@ -49,6 +55,7 @@ export async function setSettings(pairs) {
   for (const [key, value] of Object.entries(pairs)) {
     if (value === undefined) continue;
     if (key === "smtp_pass" && (value === "••••••••" || value === "")) continue;
+    if (key === "telegram_bot_token" && (value === "••••••••" || value === "")) continue;
     await investDb.investSetting.upsert({
       where: { key },
       create: { key, value: String(value) },

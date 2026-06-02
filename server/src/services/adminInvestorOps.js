@@ -3,6 +3,7 @@ import { hashPassword } from "../utils/auth.js";
 import { maturityDate } from "../utils/invest.js";
 import { addLedger } from "../routes/investInvestor.js";
 import { notifyInvestor } from "./notifications.js";
+import { notifyInvestmentActivity } from "./investNotifications.js";
 import { sendMail } from "../utils/mailer.js";
 import { creditReferralOnInvestment } from "./referral.js";
 import { generateSubscriptionAgreement } from "./agreements.js";
@@ -185,7 +186,7 @@ export async function adminAssignSubscription(investorId, body, actor) {
       investorId,
       planId: plan.id,
       amount: amt,
-      settlementCycle: settlementCycle || plan.settlementCycle || "MONTHLY",
+      settlementCycle: "MONTHLY",
       monthlyRoiPct: monthlyRoi,
       roiOverrideNote: customMonthlyRoiPct != null ? (roiOverrideNote || "Admin custom ROI") : null,
       lockInDays: plan.lockInDays,
@@ -210,6 +211,8 @@ export async function adminAssignSubscription(investorId, body, actor) {
   }
 
   await notifyInvestor(investorId, "Investment assigned", `An investment of ${fmtInr(amt)} in ${plan.name} was set up on your account.`, { type: "SUCCESS", link: "investments" });
+  const investor = await investDb.investor.findUnique({ where: { id: investorId } });
+  notifyInvestmentActivity(investor, { planName: plan.name, amount: amt, settlementCycle: sub.settlementCycle, source: "admin" });
 
   await logAudit({
     actorId: actor?.id,

@@ -277,9 +277,7 @@ function Calculator({ plans, t }) {
                 <Row label={t("home.calcAnnualRoi")} value={`${result.annualRoiPct}%`} />
                 <hr className="border-border" />
                 <Row label={t("home.calcLockInProfit").replace("{months}", result.lockInMonths)} value={inr(result.totalSimpleProfit)} />
-                <Row label={t("home.calcMaturitySimple")} value={inr(result.simple.maturityValue)} />
-                <Row label={t("home.calcMaturityCompounded")} value={inr(result.compounded.maturityValue)} accent />
-                <p className="text-xs text-muted-foreground">*{result.note}</p>
+                <p className="text-xs text-muted-foreground">{t("home.calcDisclaimer")}</p>
               </div>
             ) : (
               <p className="text-muted-foreground">{t("home.enterValidAmount")}</p>

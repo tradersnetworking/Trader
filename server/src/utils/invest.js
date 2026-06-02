@@ -33,13 +33,8 @@ export function nextSettlementDate(startDate, lastPaidAt, cycle) {
   return new Date(base.getTime() + settlementCycleMs(cycle));
 }
 
-export function validateSettlementCycle(plan, cycle) {
-  const allowed = parseSettlementCycles(plan.settlementCycles);
-  const c = String(cycle || "MONTHLY").toUpperCase();
-  if (!allowed.includes(c)) {
-    return { ok: false, error: `Settlement must be one of: ${allowed.join(", ")}` };
-  }
-  return { ok: true, cycle: c };
+export function validateSettlementCycle(_plan, _cycle) {
+  return { ok: true, cycle: "MONTHLY" };
 }
 
 /** Plan tiers by investment capital (₹). Lock-in is a separate sub-category (1–60 months). */

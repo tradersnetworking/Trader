@@ -5,6 +5,7 @@ import { useAuth } from "../lib/store.jsx";
 import { ThemeToggle } from "../lib/theme.jsx";
 import LanguageSelector from "./invest/LanguageSelector.jsx";
 import SupportWidget from "./invest/SupportWidget.jsx";
+import InvestShareWidget from "./invest/InvestShareWidget.jsx";
 import CookieConsent from "./invest/CookieConsent.jsx";
 import InvestFooter from "./invest/InvestFooter.jsx";
 import PwaInstallBanner from "./invest/PwaInstallBanner.jsx";
@@ -207,6 +208,7 @@ export function InvestLayout({ children }) {
       />
       <main className="app-content">{children}</main>
       <PwaInstallBanner />
+      <InvestShareWidget />
       <SupportWidget />
       <InvestFooter />
       <CookieConsent />

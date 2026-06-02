@@ -1,6 +1,11 @@
 import { sendMail } from "../utils/mailer.js";
 import { config } from "../config.js";
 import { compoundedMaturity, simpleMaturity } from "../utils/invest.js";
+import { postTelegramTransaction } from "./telegramTransactionAlerts.js";
+
+function tg(event, payload) {
+  postTelegramTransaction(event, payload).catch(() => {});
+}
 
 const PORTAL = config.investPortalUrl;
 
@@ -60,6 +65,7 @@ ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + 
     text: `Hi ${investor.name}, your deposit of ${fmtInr(deposit.amount)} via ${deposit.method} is pending review.`,
     purpose: "deposit_submitted",
   });
+  tg("deposit_submitted", { investor, deposit });
 }
 
 export function notifyDepositApproved(investor, deposit) {
@@ -77,6 +83,7 @@ ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + 
     text: `Hi ${investor.name}, your deposit of ${fmtInr(deposit.amount)} has been approved and credited.`,
     purpose: "deposit_approved",
   });
+  tg("deposit_approved", { investor, deposit });
 }
 
 export function notifyDepositRejected(investor, deposit, remarks) {
@@ -94,6 +101,7 @@ ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + 
     text: `Hi ${investor.name}, your deposit of ${fmtInr(deposit.amount)} was rejected. ${remarks || ""}`,
     purpose: "deposit_rejected",
   });
+  tg("deposit_rejected", { investor, deposit, remarks });
 }
 
 export function notifyWithdrawalRequested(investor, payout) {
@@ -111,6 +119,7 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("D
     text: `Hi ${investor.name}, withdrawal of ${fmtInr(payout.amount)} to ${payout.destination} is pending.`,
     purpose: "withdrawal_submitted",
   });
+  tg("withdrawal_requested", { investor, payout });
 }
 
 export function notifyWithdrawalReleased(investor, payout) {
@@ -126,6 +135,12 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("D
     html,
     text: `Hi ${investor.name}, ${fmtInr(payout.amount)} has been sent to ${payout.destination}.`,
     purpose: "withdrawal_approved",
+  });
+  const event = payout?.gatewayRef ? "payout_gateway_receipt" : "withdrawal_released";
+  tg(event, {
+    investor,
+    payout,
+    receiptNote: payout?.gatewayRef ? "Payment gateway payout completed" : null,
   });
 }
 
@@ -143,6 +158,11 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Remarks", remarks || "Contac
     text: `Hi ${investor.name}, withdrawal of ${fmtInr(payout.amount)} was rejected and refunded. ${remarks || ""}`,
     purpose: "withdrawal_rejected",
   });
+  tg("withdrawal_rejected", { investor, payout, remarks });
+}
+
+export function notifyInvestmentActivity(investor, { planName, amount, settlementCycle, source = "investor" }) {
+  tg("investment", { investor, planName, amount, settlementCycle, source });
 }
 
 export function notifyKycSubmitted(investor) {

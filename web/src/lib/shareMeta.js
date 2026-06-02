@@ -124,7 +124,7 @@ export function resolveInvestHomeMeta(homepageCms) {
   return {
     title,
     description,
-    image: resolveInvestShareImage("/", null, false),
+    image: resolveInvestShareImage(),
     siteName: BRAND_INVEST,
   };
 }
@@ -136,7 +136,7 @@ export function resolveReferralShareMeta(refCode, homepageCms) {
     ...home,
     title: `Join ${BRAND_INVEST} — Referral Invite`,
     description: `Invitation to ${BRAND_INVEST}${ref ? ` (referral ${ref})` : ""}. Compare investment plans with published monthly ROI, flexible lock-in, KYC onboarding and secure wallet payouts.`,
-    image: resolveInvestShareImage("/", null, false),
+    image: resolveInvestShareImage(),
   };
 }
 
@@ -186,7 +186,7 @@ export function resolveInvestPageMeta({ pathname, plan, refCode, homepageCms, ha
     return {
       title,
       description,
-      image: resolveInvestShareImage(pathname, plan, true),
+      image: resolveInvestShareImage(),
       siteName: BRAND_INVEST,
       url: url.startsWith("http") ? url : `${origin}${url}`,
     };
@@ -203,9 +203,19 @@ export function resolveInvestPageMeta({ pathname, plan, refCode, homepageCms, ha
   }
 
   const home = resolveInvestHomeMeta(homepageCms);
+  const isRoot = pathname === "/" || pathname === "";
+  const url =
+    typeof window !== "undefined"
+      ? isRoot
+        ? `${window.location.origin}/`
+        : window.location.href.split("#")[0]
+      : undefined;
   return {
-    ...home,
-    image: resolveInvestShareImage(pathname, null, hasPlanQuery),
+    title: isRoot ? INVEST_HOME_DEFAULT.title : home.title,
+    description: isRoot ? INVEST_HOME_DEFAULT.description : home.description,
+    image: resolveInvestShareImage(),
+    siteName: BRAND_INVEST,
+    url,
   };
 }
 

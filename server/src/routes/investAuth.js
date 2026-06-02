@@ -130,8 +130,10 @@ router.post(
 router.post(
   "/register",
   asyncH(async (req, res) => {
-    const { email, password, name, phone, referralCode, verificationToken, signatureData, acceptTerms } = req.body;
-    if (!email || !password || !name) return res.status(400).json({ error: "name, email, password required" });
+    const { email, password, name, phone, phoneCountryCode, referralCode, verificationToken, signatureData, acceptTerms } =
+      req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    const displayName = String(name || "").trim() || email.split("@")[0] || "Investor";
     if (!verificationToken || !consumeEmailVerification(verificationToken, email)) {
       return res.status(400).json({ error: "Email verification required. Complete OTP step first." });
     }
@@ -143,12 +145,12 @@ router.post(
       data: {
         email: email.toLowerCase(),
         passwordHash: hashPassword(password),
-        name,
-        phone,
+        name: displayName,
+        phone: phone?.trim() || null,
         phoneCountryCode: phoneCountryCode || "+91",
         role: "INVESTOR",
         emailVerified: true,
-        referralCode: generateReferralCode(name),
+        referralCode: generateReferralCode(displayName),
         referredById: referrer?.id || null,
       },
     });
@@ -173,7 +175,12 @@ router.post(
         },
       }).catch(() => {});
     }
-    await sendMail({ to: investor.email, purpose: "registration", subject: "Welcome to Akshaya Exim Invest", text: `Hi ${name}, start investing at invest.akshayaexim.com` });
+    await sendMail({
+      to: investor.email,
+      purpose: "registration",
+      subject: "Welcome to Akshaya Exim Invest",
+      text: `Hi ${displayName}, sign in and complete KYC to start investing at invest.akshayaexim.com`,
+    });
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
     res.json({ token, user: publicInvestor(investor) });
   })

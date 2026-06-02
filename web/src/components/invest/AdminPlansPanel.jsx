@@ -168,14 +168,8 @@ export default function AdminPlansPanel({ canManage }) {
           <p className="text-xs text-slate-400">Lock-in: {form.lockInDays} days ({lockInCategoryLabel(form.lockInDays)}) — capital range {PLAN_CAPITAL[form.planType]?.label}</p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Settlement Cycles">
-              <select className="input" value={form.settlementCycles} onChange={(e) => setForm({ ...form, settlementCycles: e.target.value })}>
-                <option value="MONTHLY">Monthly</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="QUARTERLY">Quarterly</option>
-                <option value="WEEKLY,MONTHLY">Weekly & Monthly</option>
-                <option value="MONTHLY,QUARTERLY">Monthly & Quarterly</option>
-                <option value="WEEKLY,MONTHLY,QUARTERLY">Weekly, Monthly & Quarterly</option>
-              </select>
+              <input className="input" value="Monthly" readOnly disabled title="All plans use monthly settlement" />
+              <p className="mt-1 text-xs text-muted-foreground">ROI is credited monthly for every plan.</p>
             </Field>
             <Field label="Card Color"><input className="input h-10" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
           </div>

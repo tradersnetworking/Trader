@@ -27,12 +27,9 @@ export function isInvestHomePath(pathname, hasPlanQuery = false) {
   return p === "/" || p === "";
 }
 
-/** Investment plan share preview — auto-generated card per plan id. */
-export function planOgImagePath(plan) {
-  if (!plan) return INVEST_PLANS_SHARE_IMAGE;
-  if (plan.id) return `/api/share/plan/${encodeURIComponent(String(plan.id))}.png`;
-  const tier = String(plan.planType || "").toUpperCase();
-  return PLAN_TIER_SHARE_IMAGES[tier] || INVEST_PLANS_SHARE_IMAGE;
+/** Link preview image for invest site / plan URLs (WhatsApp, Telegram, Facebook). */
+export function planOgImagePath() {
+  return INVEST_PLANS_SHARE_IMAGE;
 }
 
 /** Marketplace product share preview. */
@@ -50,9 +47,7 @@ export function resolveMainShareImage(pathname, product) {
   return MAIN_DEFAULT_SHARE_IMAGE;
 }
 
-export function resolveInvestShareImage(pathname, plan, hasPlanQuery) {
-  if (plan || hasPlanQuery) return planOgImagePath(plan);
-  if (isInvestHomePath(pathname, false)) return INVEST_PLANS_SHARE_IMAGE;
+export function resolveInvestShareImage() {
   return INVEST_PLANS_SHARE_IMAGE;
 }
 

@@ -5,12 +5,11 @@ import { inr, dateStr } from "../../lib/format.js";
 import { Modal, Field, Alert } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
 import { lockInCategoryLabel } from "../../lib/plan-types.js";
-import { parseSettlementCycles, planCalcPreview } from "../../lib/plan-calc.js";
+import { planCalcPreview } from "../../lib/plan-calc.js";
 
 const STEPS = [
   { id: "plan", label: "Plan" },
   { id: "amount", label: "Amount" },
-  { id: "settlement", label: "Settlement" },
   { id: "compound", label: "Compounding" },
   { id: "summary", label: "Summary" },
   { id: "agreement", label: "Agreement" },
@@ -62,7 +61,7 @@ export default function InvestSubscribeWizard({
 }) {
   const [step, setStep] = useState(initialStep);
   const [amount, setAmount] = useState(String(initialAmount ?? plan.minInvestment));
-  const [cycle, setCycle] = useState(initialCycle || parseSettlementCycles(plan.settlementCycles)[0] || "MONTHLY");
+  const [cycle] = useState("MONTHLY");
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptRisk, setAcceptRisk] = useState(false);
   const [calc, setCalc] = useState(null);
@@ -73,7 +72,6 @@ export default function InvestSubscribeWizard({
   const [wallet, setWallet] = useState(null);
   const [needFunds, setNeedFunds] = useState(false);
 
-  const cycles = useMemo(() => parseSettlementCycles(plan.settlementCycles), [plan.settlementCycles]);
   const annualPct = plan.annualRoiPct ?? Number(plan.monthlyRoiPct) * 12;
 
   const refreshWallet = () => investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {});
@@ -123,6 +121,15 @@ export default function InvestSubscribeWizard({
       return;
     }
     setErr("");
+    try {
+      const elig = await investApi("/kyc");
+      if (elig.eligibility && !elig.eligibility.canInvest) {
+        setErr(elig.eligibility.message || "Complete KYC and bank details before investing.");
+        return;
+      }
+    } catch {
+      /* server will reject if not eligible */
+    }
     const amt = Number(amount);
     if (wallet && wallet.available < amt) {
       goDepositForFunds(amt);
@@ -191,7 +198,7 @@ export default function InvestSubscribeWizard({
             <SummaryRow label="Monthly ROI" value={`${plan.monthlyRoiPct}%`} accent="text-emerald-600" />
             <SummaryRow label="Annual ROI (linear)" value={`${annualPct}%`} />
             <SummaryRow label="Investment range" value={`${inr(plan.minInvestment)} – ${inr(plan.maxInvestment)}`} />
-            <SummaryRow label="Settlement options" value={cycles.join(" · ")} />
+            <SummaryRow label="Settlement" value="Monthly" />
             <SummaryRow label="Compounding" value="At maturity only" />
           </div>
           <button type="button" className="btn-gold w-full" onClick={next}>Continue</button>
@@ -236,34 +243,6 @@ export default function InvestSubscribeWizard({
 
       {step === 2 && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Choose how often ROI is credited to your wallet during the lock-in period.</p>
-          <div className="grid gap-2">
-            {cycles.map((c) => (
-              <label
-                key={c}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition ${
-                  cycle === c ? "border-gold bg-gold/10 ring-1 ring-gold/40" : "border-border hover:border-primary/30"
-                }`}
-              >
-                <input type="radio" name="cycle" value={c} checked={cycle === c} onChange={() => setCycle(c)} className="accent-amber-600" />
-                <div>
-                  <div className="font-semibold">{c === "WEEKLY" ? "Weekly Settlement" : c === "QUARTERLY" ? "Quarterly Settlement" : "Monthly Settlement"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {calc ? `${inr(calc.settlementPayout)} per ${c.toLowerCase()} cycle` : c}
-                  </div>
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button type="button" className="btn-outline flex-1" onClick={back}>Back</button>
-            <button type="button" className="btn-gold flex-1" onClick={next}>Continue</button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4">
           <Alert type="info">
             Compounding is available <b>only after your lock-in period completes</b>. There is no monthly compounding during lock-in.
           </Alert>
@@ -286,7 +265,7 @@ export default function InvestSubscribeWizard({
         </div>
       )}
 
-      {step === 4 && calc && (
+      {step === 3 && calc && (
         <div className="space-y-4">
           <div className="rounded-xl border border-border p-4">
             <SummaryRow label="Plan" value={plan.name} />
@@ -308,7 +287,7 @@ export default function InvestSubscribeWizard({
         </div>
       )}
 
-      {step === 5 && (
+      {step === 4 && (
         <div className="space-y-4">
           <label className="flex cursor-pointer items-start gap-2 text-sm">
             <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-1" />
@@ -325,7 +304,7 @@ export default function InvestSubscribeWizard({
         </div>
       )}
 
-      {step === 6 && (
+      {step === 5 && (
         <div className="space-y-4">
           {err && <Alert type="error">{err}</Alert>}
           <div className="rounded-xl bg-muted/40 p-4 text-sm">

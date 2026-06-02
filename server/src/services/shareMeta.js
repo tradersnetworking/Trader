@@ -155,7 +155,7 @@ export async function resolveShareMeta(req) {
         return {
           title: `${p.name} — ${BRAND_INVEST}`,
           description: planOgDescription(p),
-          image: absoluteUrl(origin, planShareImage(p)),
+          image: absoluteUrl(origin, planShareImage()),
           url: fullUrl,
           siteName: BRAND_INVEST,
         };
@@ -171,12 +171,14 @@ export async function resolveShareMeta(req) {
     }
 
     const homeMeta = await getInvestHomeMeta();
+    const isInvestRoot = pathOnly === "/" || pathOnly === "";
+    const canonicalUrl = `${origin}/`;
     return {
-      title: homeMeta.title,
-      description: homeMeta.description,
+      title: isInvestRoot ? INVEST_HOME.title : homeMeta.title,
+      description: isInvestRoot ? INVEST_HOME.description : homeMeta.description,
       image: absoluteUrl(origin, INVEST_PLANS),
-      url: fullUrl.split("#")[0],
-      siteName: homeMeta.siteName,
+      url: isInvestRoot ? canonicalUrl : fullUrl.split("#")[0].split("?")[0] || canonicalUrl,
+      siteName: homeMeta.siteName || BRAND_INVEST,
     };
   }
 

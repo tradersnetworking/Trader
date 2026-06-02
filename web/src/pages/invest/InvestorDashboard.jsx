@@ -32,8 +32,6 @@ import {
   SecuritySettingsPanel,
   PushNotificationsToggle,
 } from "./lazyInvestorPanels.js";
-import { investSecurityApi } from "../../lib/api.js";
-import { useNavigate } from "react-router-dom";
 import { investPath } from "../../lib/site.js";
 import PendingInvestBanner from "../../components/invest/PendingInvestBanner.jsx";
 import {
@@ -43,13 +41,13 @@ import {
   canAffordPending,
 } from "../../lib/pendingInvest.js";
 import { emitInvestRefresh, useInvestRefresh } from "../../lib/investRefresh.js";
+import { investEligibility } from "../../lib/investCompliance.js";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
 export default function InvestorDashboard() {
   const { invest, logoutInvest, refreshInvest } = useAuth();
   const { t } = useI18n();
-  const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
   const rawTab = sp.get("tab") || "overview";
   const legacyMoney = { wallet: "overview", deposit: "deposit", withdraw: "withdraw" };
@@ -121,13 +119,6 @@ export default function InvestorDashboard() {
 
   useEffect(() => { fetchCore(); }, [fetchCore]);
 
-  useEffect(() => {
-    if (!invest || invest.role !== "INVESTOR") return;
-    investSecurityApi("/onboarding").then((d) => {
-      if (!d.complete) navigate(investPath("/onboarding"), { replace: true });
-    }).catch(() => {});
-  }, [invest?.id]);
-
   return (
     <InvestDashboardShell
       user={invest}
@@ -151,13 +142,22 @@ export default function InvestorDashboard() {
       }
     >
       <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore(); emitInvestRefresh(); }} />
-      {kyc?.status !== "APPROVED" && tab !== "overview" && tab !== "kyc" && (
-        <div className="mb-4"><Alert type="info">Complete your KYC and add funds before investing.</Alert></div>
+      {!investEligibility(invest, kyc).canInvest && tab !== "overview" && tab !== "kyc" && (
+        <div className="mb-4">
+          <Alert type="info">
+            {investEligibility(invest, kyc).message}{" "}
+            <button type="button" className="font-bold underline" onClick={() => setTab("kyc")}>
+              Complete KYC →
+            </button>
+          </Alert>
+        </div>
       )}
       {tab === "overview" && (
         <InvestorOverviewPanel
           userName={invest?.name}
           profilePicture={invest?.profilePicture}
+          investor={invest}
+          kyc={kyc}
           kycStatus={kyc?.status}
           onNavigate={setTab}
           onOpenDetail={(id) => setSubDetail(id)}
@@ -247,7 +247,16 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
   useEffect(() => { loadPlans(); }, [loadPlans]);
   useInvestRefresh(loadPlans);
 
+  const [investBlocked, setInvestBlocked] = useState(null);
+
+  useEffect(() => {
+    investApi("/kyc")
+      .then((d) => setInvestBlocked(d.eligibility?.canInvest === false ? d.eligibility.message : null))
+      .catch(() => {});
+  }, []);
+
   const openPlan = useCallback((plan, opts = {}) => {
+    if (investBlocked && !opts.forceWizard) return;
     if (wallet && wallet.available < plan.minInvestment && !opts.forceWizard) {
       onNeedDeposit?.({
         planId: plan.id,
@@ -260,7 +269,7 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
     }
     setResume(opts.resume || null);
     setSub(plan);
-  }, [wallet, onNeedDeposit]);
+  }, [wallet, onNeedDeposit, investBlocked]);
 
   useEffect(() => {
     if (!autoResume || !pendingInvest || !plans.length || !wallet) return;
@@ -318,6 +327,14 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
             }}
             onDismiss={onDismissPending}
           />
+        </div>
+      )}
+      {investBlocked && (
+        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
+          {investBlocked}{" "}
+          <button type="button" className="font-bold underline" onClick={() => window.location.assign(investPath("/dashboard?tab=kyc"))}>
+            Complete KYC →
+          </button>
         </div>
       )}
       <p className="mb-4 text-sm text-muted-foreground">Subscribe to as many plans as you like — each investment is tracked separately.</p>

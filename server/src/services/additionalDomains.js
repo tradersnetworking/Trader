@@ -184,9 +184,14 @@ export function isDisabledInvestAliasHostSync(hostname) {
   return disabledHostCache.has(normalizeHostname(hostname));
 }
 
+function hostnameFromRequest(req) {
+  const raw = req.get?.("x-forwarded-host") || req.headers?.host || req.hostname || "";
+  return normalizeHostname(raw);
+}
+
 /** Sync host kind helper for Express — call refreshDomainCache on boot. */
 export function resolveHostKindSync(req) {
-  const h = normalizeHostname(req.hostname || req.headers.host);
+  const h = hostnameFromRequest(req);
   if (h.startsWith("invest.")) return "invest";
   if (isInvestAliasHostSync(h)) return "invest";
   if (isDisabledInvestAliasHostSync(h)) return "invest-disabled";

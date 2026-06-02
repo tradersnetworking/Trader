@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Logo } from "../ui.jsx";
-import { investHash, investPath, mainUrl } from "../../lib/site.js";
+import { investHash, investPath } from "../../lib/site.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 
 export default function InvestFooter() {
@@ -38,7 +38,6 @@ export default function InvestFooter() {
             <li><Link to={investPath("/cookie-policy")} className="hover:text-gold">{t("footer.cookies")}</Link></li>
             <li><Link to={investPath("/risk-disclosure")} className="hover:text-gold">Risk Disclosure</Link></li>
             <li><Link to={investPath("/aml-policy")} className="hover:text-gold">AML / KYC</Link></li>
-            <li className="pt-2"><a href={mainUrl("/")} className="hover:text-gold">← Akshaya Exim Traders</a></li>
           </ul>
         </div>
       </div>

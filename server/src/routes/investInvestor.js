@@ -22,6 +22,7 @@ function clientIp(req) {
 }
 import {
   notifyDepositSubmitted,
+  notifyInvestmentActivity,
   notifyWithdrawalRequested,
   notifyKycSubmitted,
 } from "../services/investNotifications.js";
@@ -217,8 +218,12 @@ router.get(
   "/kyc",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
-    res.json({ kyc });
+    const [kyc, investor] = await Promise.all([
+      investDb.kyc.findUnique({ where: { investorId: req.user.id } }),
+      investDb.investor.findUnique({ where: { id: req.user.id } }),
+    ]);
+    const { investEligibility } = await import("../utils/investCompliance.js");
+    res.json({ kyc, eligibility: investEligibility(investor, kyc) });
   })
 );
 
@@ -306,6 +311,9 @@ router.post(
     if (!hasAadhaarDoc) {
       return res.status(400).json({ error: "Upload Aadhaar front & back, or a single Aadhaar PDF/image" });
     }
+    if (!String(b.bankName || "").trim()) return res.status(400).json({ error: "Bank name is required" });
+    if (!String(b.bankAccount || "").trim()) return res.status(400).json({ error: "Bank account number is required" });
+    if (!String(b.ifscCode || "").trim()) return res.status(400).json({ error: "IFSC code is required" });
 
     const kyc = await investDb.kyc.upsert({
       where: { investorId: req.user.id },
@@ -561,9 +569,9 @@ router.post(
       return res.status(400).json({ error: "Insufficient wallet balance. Please deposit first." });
     }
     // KYC must be approved before investing
-    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
-    if (!kyc || kyc.status !== "APPROVED") {
-      return res.status(403).json({ error: "KYC must be approved before investing." });
+    const gate = await (await import("../utils/investCompliance.js")).assertCanInvest(req.user.id, investDb);
+    if (!gate.ok) {
+      return res.status(403).json({ error: gate.error, code: gate.code, missing: gate.missing });
     }
     const cycleCheck = validateSettlementCycle(plan, settlementCycle);
     if (!cycleCheck.ok) return res.status(400).json({ error: cycleCheck.error });
@@ -597,6 +605,8 @@ router.post(
       console.error("[subscribe] agreement generation failed:", e);
     }
     await notifyInvestor(req.user.id, "Investment confirmed", `You invested ${amt} in ${plan.name}.`, { type: "SUCCESS", link: "investments" });
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+    notifyInvestmentActivity(investor, { planName: plan.name, amount: amt, settlementCycle: cycleCheck.cycle, source: "investor" });
     res.json({ subscription: sub, agreement, agreementError });
   })
 );

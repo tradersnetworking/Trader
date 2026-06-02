@@ -60,7 +60,9 @@ async function syncInvestmentPlans() {
       await investDb.plan.delete({ where: { id: plan.id } });
     }
   }
-  console.log(`  Plans synced: ${catalog.length} (6 categories × ${catalog.length / 6} lock-in sub-categories)`);
+  await investDb.plan.updateMany({ data: { settlementCycles: "MONTHLY" } });
+  await investDb.subscription.updateMany({ data: { settlementCycle: "MONTHLY" } });
+  console.log(`  Plans synced: ${catalog.length} (6 categories × ${catalog.length / 6} lock-in sub-categories), settlement → MONTHLY`);
 }
 
 const DEFAULT_INVEST_SETTINGS = [

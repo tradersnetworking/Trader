@@ -65,9 +65,17 @@ export default function InvestSiteMeta() {
       hasPlanQuery: Boolean(planId),
     });
 
+    const shareUrl =
+      meta.url ||
+      (typeof window !== "undefined"
+        ? pathname === "/" || pathname === ""
+          ? `${window.location.origin}/`
+          : window.location.href.split("#")[0]
+        : undefined);
+
     applyDocumentMeta({
       ...meta,
-      url: typeof window !== "undefined" ? window.location.href : meta.url,
+      url: shareUrl,
       robots: "noindex, nofollow, noarchive",
     });
   }, [mode, pathname, plan, refCode, homepageCms, planId]);

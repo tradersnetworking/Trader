@@ -11,6 +11,7 @@ import { investPath, mainUrl } from "../../lib/site.js";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "./LanguageSelector.jsx";
 import SupportWidget from "./SupportWidget.jsx";
+import InvestShareWidget from "./InvestShareWidget.jsx";
 
 export default function InvestDashboardShell({
   user,
@@ -401,6 +402,7 @@ export default function InvestDashboardShell({
         </main>
       </div>
 
+      <InvestShareWidget />
       <SupportWidget />
 
       <nav className="invest-mobile-nav fixed bottom-0 left-0 right-0 z-40 flex border-t backdrop-blur-xl md:hidden">

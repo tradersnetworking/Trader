@@ -13,10 +13,9 @@ export const PLAN_TIER_SHARE = {
   DIAMOND: "/assets/share/plans/DIAMOND.png",
 };
 
-export function planShareImage(plan) {
-  if (plan?.id) return `/api/share/plan/${encodeURIComponent(String(plan.id))}.png`;
-  const tier = String(plan?.planType || "").toUpperCase();
-  return PLAN_TIER_SHARE[tier] || INVEST_PLANS;
+/** All invest portal link previews use the marketing plans banner. */
+export function planShareImage() {
+  return INVEST_PLANS;
 }
 
 export async function productShareImageBySlug(mainDb, slug) {

@@ -520,7 +520,19 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                       <tr key={d.id} className="border-b border-border/60">
                         <td className="py-2 pr-2 font-medium">{inr(d.amount)}</td>
                         <td className="py-2 pr-2 text-muted-foreground">{d.method}</td>
-                        <td className="py-2"><Badge status={d.status} /></td>
+                        <td className="py-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge status={d.status} />
+                            {d.status === "APPROVED" && (
+                              <ShareProfitButton
+                                type="deposit"
+                                amount={inr(d.amount)}
+                                detail={`Via ${d.method}`}
+                                label="Share"
+                              />
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
-import { Alert } from "../ui.jsx";
 import { useInvestRefresh } from "../../lib/investRefresh.js";
 import {
   INVEST_STAT_GRID,
@@ -24,12 +23,15 @@ import OverviewActionBar from "./OverviewActionBar.jsx";
 import CalendarPeriodFilter from "./CalendarPeriodFilter.jsx";
 import InvestorDashboardChartsBlock from "./InvestorDashboardChartsBlock.jsx";
 import AchievementBadgesPanel from "./AchievementBadgesPanel.jsx";
+import KycCompleteNotice from "./KycCompleteNotice.jsx";
 import { HeroKpi } from "./HeroKpi.jsx";
 import { buildStatsQuery } from "../../lib/finance-period.js";
 import { useAuth } from "../../lib/store.jsx";
+import { investEligibility } from "../../lib/investCompliance.js";
 
-export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userName, kycStatus, profilePicture }) {
-  const { invest } = useAuth();
+export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userName, kycStatus, profilePicture, investor, kyc }) {
+  const { invest: authInvest } = useAuth();
+  const profile = investor || authInvest;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("all");
@@ -52,9 +54,16 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
   const s = data?.summary;
   const allocation = (data?.allocation || []).map((a) => ({ ...a, display: inr(a.value) }));
 
+  const { canInvest } = investEligibility(profile, kyc);
+
   const actions = [
     { icon: "deposit", color: "cyan", label: "Add Funds", onClick: () => onNavigate("money", { moneyTab: "deposit" }) },
-    { icon: "plans", color: "gold", label: "Invest", onClick: () => onNavigate("plans") },
+    {
+      icon: "plans",
+      color: "gold",
+      label: "Invest",
+      onClick: () => (canInvest ? onNavigate("plans") : onNavigate("kyc")),
+    },
     { icon: "referral", color: "amber", label: "Refer & Earn", onClick: () => onNavigate("referral") },
     { icon: "withdraw", color: "pink", label: "Withdraw", onClick: () => onNavigate("money", { moneyTab: "withdraw" }) },
   ];
@@ -68,6 +77,8 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
         profilePicture={profilePicture}
         subtitle={new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
       />
+
+      <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
 
       <OverviewActionBar
         onDeposit={() => onNavigate("money", { moneyTab: "deposit" })}
@@ -85,13 +96,6 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
         onApplyCustom={() => load("custom", customFrom, customTo)}
         periodLabel={pl}
       />
-
-      {kycStatus !== "APPROVED" && (
-        <Alert type="info">
-          Complete KYC verification to start investing.{" "}
-          <button type="button" className="font-bold underline" onClick={() => onNavigate("kyc")}>Verify now →</button>
-        </Alert>
-      )}
 
       {/* Hero KPI strip — Kuber style */}
       <div className="card overflow-hidden border border-amber-500/20 bg-gradient-to-r from-amber-500/10 via-card to-yellow-500/5 p-4 dark:from-amber-500/15 dark:via-card dark:to-yellow-500/10 sm:p-5">
@@ -202,7 +206,7 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
               <div>
                 <h3 className="font-bold text-heading">Referral Program</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Invite friends and earn when they invest.</p>
-                {invest?.referralCode && (
+                {authInvest?.referralCode && (
                   <p className="mt-2 font-mono text-xs text-amber-700 dark:text-amber-400">{invest.referralCode}</p>
                 )}
               </div>

@@ -42,7 +42,7 @@ export function planCatalogEntry(planType, lockInMonths) {
     monthlyRoiPct,
     profitSharePct: monthlyRoiPct,
     annualRoiPct: annualRoiPct(monthlyRoiPct),
-    settlementCycles: "WEEKLY,MONTHLY,QUARTERLY",
+    settlementCycles: "MONTHLY",
     color: cap.color,
     description: `${capitalLabel} • ${m}-month lock-in • ${monthlyRoiPct}% monthly ROI (${annualRoiPct(monthlyRoiPct)}% annual)`,
     isActive: true,

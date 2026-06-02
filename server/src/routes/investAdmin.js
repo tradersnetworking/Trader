@@ -165,7 +165,7 @@ router.post(
         profitSharePct: Number(b.profitSharePct ?? monthlyRoiPct),
         monthlyRoiPct,
         annualRoiPct: Number(b.annualRoiPct ?? annualRoiPct(monthlyRoiPct)),
-        settlementCycles: b.settlementCycles || "MONTHLY",
+        settlementCycles: "MONTHLY",
         color: b.color || cap.color,
         description: b.description || `${cap.label} • ${lockInMonths}-month lock-in sub-category`,
         isActive: b.isActive !== false,
@@ -203,7 +203,7 @@ router.put(
       data.profitSharePct = Number(b.profitSharePct ?? b.monthlyRoiPct);
       data.annualRoiPct = annualRoiPct(Number(b.monthlyRoiPct));
     }
-    if (b.settlementCycles !== undefined) data.settlementCycles = b.settlementCycles;
+    if (b.settlementCycles !== undefined) data.settlementCycles = "MONTHLY";
     if (b.color !== undefined) data.color = b.color;
     if (b.description !== undefined) data.description = b.description;
     if (b.isActive !== undefined) data.isActive = b.isActive;
@@ -943,6 +943,18 @@ router.put(
   asyncH(async (req, res) => {
     const settings = await setSettings(req.body);
     res.json({ settings });
+  })
+);
+
+router.post(
+  "/settings/telegram-test",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    const { testTelegramAlert } = await import("../services/telegramTransactionAlerts.js");
+    const result = await testTelegramAlert();
+    res.json(result);
   })
 );
 

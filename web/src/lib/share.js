@@ -35,8 +35,11 @@ export function buildShareText({ type, amount, planName, plan, userName, referra
     return `${body}${joinLine ? `\n\n🔗 View plan & register:\n${joinLine}` : ""}`;
   }
 
+  if (type === "deposit") {
+    return `I deposited ${amount} to my Akshaya Invest wallet! 💳 Secure KYC, transparent ledger & monthly ROI plans.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
+  }
   if (type === "withdrawal") {
-    return `I just withdrew ${amount} from Akshaya Invest! 🎉 Join me and start investing with Akshaya Exim.${joinLine ? `\n\nSign up: ${joinLine}` : ""}`;
+    return `Withdrawal of ${amount} completed on Akshaya Invest! ✅ Payout sent to my registered account.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
   }
   if (type === "investment") {
     const planLine = planName ? ` — ${planName}` : "";
@@ -115,6 +118,50 @@ export function openShare(platform, text, url = "") {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+/** Share personal milestone (profit / withdrawal / deposit) — text only so link previews stay off the marketing banner. */
+export function openTransactionShare(platform, text) {
+  const p = SHARE_PLATFORMS.find((x) => x.id === platform);
+  if (!p) return;
+  let href;
+  if (platform === "whatsapp") {
+    href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  } else if (platform === "telegram") {
+    href = `https://t.me/share/url?url=${encodeURIComponent("https://t.me")}&text=${encodeURIComponent(text)}`;
+  } else if (platform === "email") {
+    href = `mailto:?subject=${encodeURIComponent("Akshaya Invest")}&body=${encodeURIComponent(text)}`;
+  } else if (platform === "twitter") {
+    href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  } else {
+    href = p.href(text, "");
+  }
+  const a = document.createElement("a");
+  a.href = href;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/** Native share with generated PNG (mobile WhatsApp / Telegram attach). */
+export async function nativeShareImage({ title, text, blob, fileName = "akshaya-invest-milestone.png" }) {
+  if (!navigator.share || !blob) return false;
+  try {
+    const file = new File([blob], fileName, { type: "image/png" });
+    const payload = { files: [file] };
+    if (text) payload.text = text;
+    if (title) payload.title = title;
+    if (navigator.canShare && !navigator.canShare(payload)) {
+      return false;
+    }
+    await navigator.share(payload);
+    return true;
+  } catch (err) {
+    if (err?.name === "AbortError") return true;
+    return false;
+  }
 }
 
 /** Native share sheet when available (mobile). */

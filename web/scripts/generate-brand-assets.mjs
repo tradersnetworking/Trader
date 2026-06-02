@@ -3,7 +3,7 @@
  * Usage: node scripts/generate-brand-assets.mjs
  */
 import sharp from "sharp";
-import { mkdirSync, copyFileSync, existsSync } from "fs";
+import { mkdirSync, copyFileSync, existsSync, statSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -231,9 +231,12 @@ for (const tier of PLAN_TIERS) {
 if (createdPlans) console.log(`Created ${createdPlans} plan share card images`);
 
 const investPlansOverview = join(shareDir, "invest-plans.png");
-if (!existsSync(investPlansOverview)) {
+const investPlansStat = existsSync(investPlansOverview) ? statSync(investPlansOverview) : null;
+if (!investPlansStat) {
   await sharp(Buffer.from(investPlansOverviewSvg())).png({ quality: 90 }).toFile(investPlansOverview);
   console.log("Created invest-plans.png");
+} else if (investPlansStat.size < 120_000) {
+  console.log("Keeping invest-plans.png (run import-invest-plans-banner.mjs to replace with custom banner)");
 }
 
 console.log("Brand assets ready.");
