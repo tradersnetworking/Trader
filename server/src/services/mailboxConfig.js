@@ -37,11 +37,11 @@ export const DEFAULT_MAIN_MAILBOXES = {
 export const DEFAULT_INVEST_MAILBOXES = {
   defaultMailboxId: "noreply",
   mailboxes: [
-    mailbox("noreply", "No Reply (Default)", "Akshaya Exim Invest", "noreply@akshayaexim.in"),
-    mailbox("support", "Support", "Akshaya Invest Support", "support@akshayaexim.in"),
-    mailbox("finance", "Finance & Payouts", "Akshaya Invest Finance", "finance@akshayaexim.in"),
-    mailbox("compliance", "Compliance / KYC", "Akshaya Invest Compliance", "compliance@akshayaexim.in"),
-    mailbox("invest", "Investor Relations", "Akshaya Exim Invest", "invest@akshayaexim.in"),
+    mailbox("noreply", "No Reply (Default)", "AKASHYA INVESTMENTS", "noreply@akshayaexim.in"),
+    mailbox("support", "Support", "AKASHYA INVESTMENTS Support", "support@akshayaexim.in"),
+    mailbox("finance", "Finance & Payouts", "AKASHYA INVESTMENTS Finance", "finance@akshayaexim.in"),
+    mailbox("compliance", "Compliance / KYC", "AKASHYA INVESTMENTS Compliance", "compliance@akshayaexim.in"),
+    mailbox("invest", "Investor Relations", "AKASHYA INVESTMENTS", "invest@akshayaexim.in"),
   ],
 };
 

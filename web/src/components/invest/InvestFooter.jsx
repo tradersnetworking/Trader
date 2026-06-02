@@ -42,7 +42,7 @@ export default function InvestFooter() {
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">
-        © {new Date().getFullYear()} Akshaya Exim Traders. {t("footer.rights")} Returns subject to plan policies.
+        © {new Date().getFullYear()} AKASHYA INVESTMENTS. {t("footer.rights")} Returns subject to plan policies.
       </div>
     </footer>
   );

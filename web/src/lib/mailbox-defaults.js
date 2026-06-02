@@ -9,11 +9,11 @@ export const MAIN_MAILBOXES = [
 ];
 
 export const INVEST_MAILBOXES = [
-  { id: "noreply", label: "No Reply (Default)", name: "Akshaya Exim Invest", address: "noreply@akshayaexim.in" },
-  { id: "support", label: "Support", name: "Akshaya Invest Support", address: "support@akshayaexim.in" },
-  { id: "finance", label: "Finance & Payouts", name: "Akshaya Invest Finance", address: "finance@akshayaexim.in" },
-  { id: "compliance", label: "Compliance / KYC", name: "Akshaya Invest Compliance", address: "compliance@akshayaexim.in" },
-  { id: "invest", label: "Investor Relations", name: "Akshaya Exim Invest", address: "invest@akshayaexim.in" },
+  { id: "noreply", label: "No Reply (Default)", name: "AKASHYA INVESTMENTS", address: "noreply@akshayaexim.in" },
+  { id: "support", label: "Support", name: "AKASHYA INVESTMENTS Support", address: "support@akshayaexim.in" },
+  { id: "finance", label: "Finance & Payouts", name: "AKASHYA INVESTMENTS Finance", address: "finance@akshayaexim.in" },
+  { id: "compliance", label: "Compliance / KYC", name: "AKASHYA INVESTMENTS Compliance", address: "compliance@akshayaexim.in" },
+  { id: "invest", label: "Investor Relations", name: "AKASHYA INVESTMENTS", address: "invest@akshayaexim.in" },
 ];
 
 export function mailboxesForPortal(portal) {

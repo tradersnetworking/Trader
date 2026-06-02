@@ -7,7 +7,7 @@ export default function MobileAppDownload({ compact = false }) {
   useEffect(() => {
     investApi("/public/mobile-app")
       .then(setInfo)
-      .catch(() => setInfo({ androidApkUrl: "/assets/apk/akshaya-invest.apk", appName: "Akshaya Invest", version: "1.0.0" }));
+      .catch(() => setInfo({ androidApkUrl: "/assets/apk/akshaya-invest.apk", appName: "AKASHYA INVESTMENTS", version: "1.0.0" }));
   }, []);
 
   if (!info) return null;

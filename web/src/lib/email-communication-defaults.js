@@ -24,17 +24,17 @@ export const DEFAULT_EMAIL_PURPOSES = Object.keys(DEFAULT_EMAIL_PURPOSE_META);
 
 export const DEFAULT_EMAIL_COMM_CONFIG = {
   identities: [
-    { id: "noreply", label: "No Reply (Default)", name: "Akshaya Exim Invest", address: "noreply@akshayaexim.in" },
-    { id: "support", label: "Support", name: "Akshaya Invest Support", address: "support@akshayaexim.in" },
-    { id: "finance", label: "Finance & Payouts", name: "Akshaya Invest Finance", address: "finance@akshayaexim.in" },
-    { id: "compliance", label: "Compliance / KYC", name: "Akshaya Invest Compliance", address: "compliance@akshayaexim.in" },
-    { id: "invest", label: "Investor Relations", name: "Akshaya Exim Invest", address: "invest@akshayaexim.in" },
+    { id: "noreply", label: "No Reply (Default)", name: "AKASHYA INVESTMENTS", address: "noreply@akshayaexim.in" },
+    { id: "support", label: "Support", name: "AKASHYA INVESTMENTS Support", address: "support@akshayaexim.in" },
+    { id: "finance", label: "Finance & Payouts", name: "AKASHYA INVESTMENTS Finance", address: "finance@akshayaexim.in" },
+    { id: "compliance", label: "Compliance / KYC", name: "AKASHYA INVESTMENTS Compliance", address: "compliance@akshayaexim.in" },
+    { id: "invest", label: "Investor Relations", name: "AKASHYA INVESTMENTS", address: "invest@akshayaexim.in" },
   ],
   assignments: Object.fromEntries(DEFAULT_EMAIL_PURPOSES.map((p) => [p, "noreply"])),
   autoEmails: {
-    registration: { enabled: true, subject: "Welcome to Akshaya Exim Invest" },
-    password_reset: { enabled: true, subject: "Reset your Akshaya Invest password" },
-    otp: { enabled: true, subject: "Your Akshaya Invest verification code" },
+    registration: { enabled: true, subject: "Welcome to AKASHYA INVESTMENTS" },
+    password_reset: { enabled: true, subject: "Reset your AKASHYA INVESTMENTS password" },
+    otp: { enabled: true, subject: "Your AKASHYA INVESTMENTS verification code" },
     deposit_submitted: { enabled: true, subject: "Deposit request received" },
     deposit_approved: { enabled: true, subject: "Deposit approved" },
     deposit_rejected: { enabled: true, subject: "Deposit update" },
@@ -47,8 +47,8 @@ export const DEFAULT_EMAIL_COMM_CONFIG = {
     investment: { enabled: true, subject: "Investment confirmation" },
     ticket_reply: { enabled: true, subject: "Support ticket update" },
     ticket_acknowledgment: { enabled: true, subject: "We received your support request" },
-    broadcast: { enabled: true, subject: "Message from Akshaya Exim Invest" },
-    generic: { enabled: true, subject: "Notification from Akshaya Exim Invest" },
+    broadcast: { enabled: true, subject: "Message from AKASHYA INVESTMENTS" },
+    generic: { enabled: true, subject: "Notification from AKASHYA INVESTMENTS" },
   },
 };
 

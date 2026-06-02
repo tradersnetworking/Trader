@@ -38,7 +38,7 @@ const BANK_TRANSFER_TYPES = [
 
 function buildUpiPayUri(vpa, payeeName, amount) {
   if (!vpa) return null;
-  const params = new URLSearchParams({ pa: vpa, pn: payeeName || "Akshaya Exim", cu: "INR" });
+  const params = new URLSearchParams({ pa: vpa, pn: payeeName || "AKASHYA INVESTMENTS", cu: "INR" });
   if (amount && Number(amount) > 0) params.set("am", String(Number(amount)));
   return `upi://pay?${params.toString()}`;
 }

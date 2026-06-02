@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import BrandMark from "../BrandMark.jsx";
 import { Logo } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
 
@@ -22,7 +21,7 @@ export default function AuthBrandPanel() {
           <Logo variant="full" className="mb-6 h-24 w-auto max-w-[280px] lg:h-32 lg:max-w-[340px]" />
         </Link>
         <p className="text-xl font-light leading-relaxed text-slate-300">
-          Smart investment. Secure future. Grow your wealth with Akshaya Exim structured plans — transparent ROI, flexible lock-ins, INR settlements.
+          Smart investment. Secure future. Grow your wealth with AKASHYA INVESTMENTS structured plans — transparent ROI, flexible lock-ins, INR settlements.
         </p>
         <div className="mt-12 grid grid-cols-2 gap-6">
           {stats.map(([val, lbl]) => (
@@ -39,8 +38,13 @@ export default function AuthBrandPanel() {
 
 export function AuthMobileBrand() {
   return (
-    <div className="mb-4 flex justify-center md:hidden">
-      <BrandMark to={investPath("")} subtitle="Invest Portal" onDark={false} />
+    <div className="mb-5 flex flex-col items-center md:hidden">
+      <Link to={investPath("")} className="block no-underline">
+        <Logo variant="full" className="h-14 w-auto max-w-[220px] sm:h-16" />
+      </Link>
+      <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+        Investment Portal
+      </p>
     </div>
   );
 }

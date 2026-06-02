@@ -58,8 +58,8 @@ export async function sendRegisterOtp(email, captchaToken, captchaAnswer) {
   await sendMail({
     to: normalized,
     purpose: "otp",
-    subject: "Verify your email — Akshaya Invest",
-    html: `<p>Your Akshaya Invest verification code is <b>${otp}</b>. Valid for 10 minutes.</p>`,
+    subject: "Verify your email — AKASHYA INVESTMENTS",
+    html: `<p>Your AKASHYA INVESTMENTS verification code is <b>${otp}</b>. Valid for 10 minutes.</p>`,
   });
 
   return {

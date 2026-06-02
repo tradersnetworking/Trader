@@ -154,7 +154,9 @@ export default function InvestDashboardShell({
           <>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              subtitle={role === "admin" ? "Invest · Admin Portal" : "Invest · Investor Portal"}
+              line1="AKASHYA INVESTMENTS"
+              line2=""
+              subtitle={role === "admin" ? "Admin Portal" : "Investor Portal"}
               compact={mobile}
               className="min-w-0 flex-1"
             />
@@ -307,8 +309,8 @@ export default function InvestDashboardShell({
             </button>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
-              line1="AKSHAYA Exim"
-              line2="Invest"
+              line1="AKASHYA INVESTMENTS"
+              line2=""
               compact
               fullLogo={false}
               titleBesideLogo
@@ -397,7 +399,7 @@ export default function InvestDashboardShell({
             <ErrorBoundary>{children}</ErrorBoundary>
           </div>
           <footer className="hidden border-t border-border px-4 py-3 text-center text-[10px] text-muted-foreground md:block">
-            © {new Date().getFullYear()} Akshaya Exim Invest · <a href={investPath("/privacy")} className="hover:text-primary">Privacy</a> · <a href={investPath("/cookie-policy")} className="hover:text-primary">Cookies</a> · <a href={investPath("/dashboard?tab=support")} className="hover:text-primary">Support</a>
+            © {new Date().getFullYear()} AKASHYA INVESTMENTS · <a href={investPath("/privacy")} className="hover:text-primary">Privacy</a> · <a href={investPath("/cookie-policy")} className="hover:text-primary">Cookies</a> · <a href={investPath("/dashboard?tab=support")} className="hover:text-primary">Support</a>
           </footer>
         </main>
       </div>

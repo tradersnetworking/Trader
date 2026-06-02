@@ -4,6 +4,7 @@ import { asyncH } from "../middleware.js";
 import { normalizePlanRoi, planCalcPreview, validateSettlementCycle, sortPlansByTier } from "../utils/invest.js";
 import { listGateways } from "../payments/gateways.js";
 import { getSetting } from "../services/investSettings.js";
+import { normalizeInvestBrandingText } from "../data/brand.js";
 import { getPrimaryBankDetails, getDepositAccountsForInvestor } from "../services/paymentGateways.js";
 import { verifyCertificateToken, getCertificatePayload } from "../services/investCertificate.js";
 import { getReferralLeaderboard } from "../services/referral.js";
@@ -90,7 +91,17 @@ router.get(
       "about_company_name", "about_company_tagline", "about_company_credentials",
     ];
     const out = {};
-    for (const k of keys) out[k] = await getSetting(k);
+    for (const k of keys) {
+      const raw = await getSetting(k);
+      out[k] = [
+        "homepage_about_title",
+        "homepage_about_body",
+        "homepage_hero_subtitle",
+        "about_company_name",
+      ].includes(k)
+        ? normalizeInvestBrandingText(raw)
+        : raw;
+    }
     res.json({ homepage: out });
   })
 );
@@ -100,7 +111,7 @@ router.get(
   asyncH(async (_req, res) => {
     const apkUrl = (await getSetting("android_apk_url")) || "/assets/apk/akshaya-invest.apk";
     res.json({
-      appName: "Akshaya Invest",
+      appName: "AKASHYA INVESTMENTS",
       androidApkUrl: apkUrl,
       version: (await getSetting("android_app_version")) || "1.0.0",
       pwaEnabled: true,

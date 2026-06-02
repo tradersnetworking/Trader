@@ -1,4 +1,5 @@
 import { investShareUrl } from "./portalConfig.js";
+import { BRAND_INVEST } from "./brand.js";
 import {
   buildPlanShareDescription,
   buildPlanShareUrl,
@@ -36,20 +37,20 @@ export function buildShareText({ type, amount, planName, plan, userName, referra
   }
 
   if (type === "deposit") {
-    return `I deposited ${amount} to my Akshaya Invest wallet! 💳 Secure KYC, transparent ledger & monthly ROI plans.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
+    return `I deposited ${amount} to my ${BRAND_INVEST} wallet! 💳 Secure KYC, transparent ledger & monthly ROI plans.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
   }
   if (type === "withdrawal") {
-    return `Withdrawal of ${amount} completed on Akshaya Invest! ✅ Payout sent to my registered account.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
+    return `Withdrawal of ${amount} completed on ${BRAND_INVEST}! ✅ Payout sent to my registered account.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
   }
   if (type === "investment") {
     const planLine = planName ? ` — ${planName}` : "";
-    return `I'm earning with Akshaya Invest${planLine} — invested ${amount}! 📈 Published monthly ROI, KYC-verified accounts & transparent ledger.${joinLine ? `\n\nView plans & join:\n${joinLine}` : ""}`;
+    return `I'm earning with ${BRAND_INVEST}${planLine} — invested ${amount}! 📈 Published monthly ROI, KYC-verified accounts & transparent ledger.${joinLine ? `\n\nView plans & join:\n${joinLine}` : ""}`;
   }
   if (type === "profit") {
-    return `${userName || "I"} earned ${amount} profit on Akshaya Exim Invest! 💰${planName ? ` Plan: ${planName}.` : ""} Published monthly ROI, KYC-verified wallet & transparent ledger.${joinLine ? `\n\nView plans:\n${joinLine}` : ""}`;
+    return `${userName || "I"} earned ${amount} profit on ${BRAND_INVEST}! 💰${planName ? ` Plan: ${planName}.` : ""} Published monthly ROI, KYC-verified wallet & transparent ledger.${joinLine ? `\n\nView plans:\n${joinLine}` : ""}`;
   }
   if (type === "achievement") {
-    return `${userName || "I"} unlocked "${planName || "an achievement"}" on Akshaya Invest! 🏆${joinLine ? `\n\nJoin:\n${joinLine}` : ""}`;
+    return `${userName || "I"} unlocked "${planName || "an achievement"}" on ${BRAND_INVEST}! 🏆${joinLine ? `\n\nJoin:\n${joinLine}` : ""}`;
   }
   if (type === "referral") {
     return `${INVEST_HOME_DEFAULT.description}${joinLine ? `\n\nUse my invite link:\n${joinLine}` : ""}`;
@@ -130,7 +131,7 @@ export function openTransactionShare(platform, text) {
   } else if (platform === "telegram") {
     href = `https://t.me/share/url?url=${encodeURIComponent("https://t.me")}&text=${encodeURIComponent(text)}`;
   } else if (platform === "email") {
-    href = `mailto:?subject=${encodeURIComponent("Akshaya Invest")}&body=${encodeURIComponent(text)}`;
+    href = `mailto:?subject=${encodeURIComponent(BRAND_INVEST)}&body=${encodeURIComponent(text)}`;
   } else if (platform === "twitter") {
     href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   } else {
@@ -169,7 +170,7 @@ export async function nativeShare({ title, text, url }) {
   if (!navigator.share) return false;
   try {
     await navigator.share({
-      title: title || "Akshaya Invest",
+      title: title || BRAND_INVEST,
       text,
       url: url || undefined,
     });

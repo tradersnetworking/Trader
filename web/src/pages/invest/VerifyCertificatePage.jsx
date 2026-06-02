@@ -32,7 +32,7 @@ export default function VerifyCertificatePage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-16">
       <div className="card p-6 text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-amber-700">Akshaya ExIm Investments</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-amber-700">AKASHYA INVESTMENTS</p>
         <h1 className="mt-2 text-2xl font-bold">{t("certificate.verifyTitle")}</h1>
 
         {loading && <p className="mt-6 text-sm text-muted-foreground">{t("certificate.verifying")}</p>}

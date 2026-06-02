@@ -7,6 +7,7 @@ import PlanCard from "../../components/PlanCard.jsx";
 import SubscribeModal from "../../components/SubscribeModal.jsx";
 import { PLAN_TYPES, PLAN_CAPITAL, sortPlansByTier } from "../../lib/plan-types.js";
 import { investPath } from "../../lib/site.js";
+import { BRAND_INVEST, normalizeInvestBrandingText } from "../../lib/brand.js";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import {
@@ -135,10 +136,15 @@ export default function InvestHome() {
       {(cms?.homepage_about_title || cms?.homepage_about_body) && (
         <section id="about" className="mx-auto max-w-3xl px-4 py-14 text-center">
           <h2 className="text-2xl font-extrabold text-foreground sm:text-3xl">
-            {cms.homepage_about_title || "About Akshaya Exim Invest"}
+            {normalizeInvestBrandingText(cms.homepage_about_title) || `About ${BRAND_INVEST}`}
           </h2>
-          <p className="mt-4 text-muted-foreground">{cms.homepage_about_body}</p>
-          {cms.about_company_credentials && <p className="mt-3 text-sm text-muted-foreground">{cms.about_company_credentials}</p>}
+          <p className="mt-4 text-muted-foreground">
+            {normalizeInvestBrandingText(cms.homepage_about_body) ||
+              `${BRAND_INVEST} offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor.`}
+          </p>
+          {cms.about_company_credentials && (
+            <p className="mt-3 text-sm text-muted-foreground">{normalizeInvestBrandingText(cms.about_company_credentials)}</p>
+          )}
         </section>
       )}
 

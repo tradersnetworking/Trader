@@ -44,7 +44,7 @@ export async function initiateWithdrawal(investor, { amount, mode, destination, 
   await sendMail({
     to: investor.email,
     purpose: "otp",
-    subject: "Confirm your withdrawal — Akshaya Invest",
+    subject: "Confirm your withdrawal — AKASHYA INVESTMENTS",
     html: `<p>Hi ${investor.name},</p><p>Your withdrawal OTP is <b>${otp}</b> (valid 10 minutes).</p><p>Amount: ₹${Number(amount).toLocaleString("en-IN")} via ${mode}</p>`,
   });
 

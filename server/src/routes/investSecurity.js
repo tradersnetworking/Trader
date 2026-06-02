@@ -75,7 +75,7 @@ router.post(
   "/webauthn/register/options",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    res.json(await getRegistrationOptions(req.user));
+    res.json(await getRegistrationOptions(req.user, req));
   })
 );
 
@@ -83,7 +83,7 @@ router.post(
   "/webauthn/register/verify",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    await verifyRegistration(req.user, req.body, req.body.deviceName);
+    await verifyRegistration(req.user, req.body, req.body.deviceName, req);
     res.json({ ok: true });
   })
 );
@@ -92,7 +92,7 @@ router.post(
   "/webauthn/authenticate/options",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    res.json(await getAuthenticationOptions(req.user));
+    res.json(await getAuthenticationOptions(req.user, req));
   })
 );
 

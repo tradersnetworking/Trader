@@ -96,7 +96,7 @@ export function buildPlanShareDescription(plan, opts = {}) {
   ];
   if (opts.amount) lines.push(`My investment: ${opts.amount}`);
   if (opts.userName) lines.push(`Shared by ${opts.userName}`);
-  lines.push("", "View plan details and register on Akshaya Exim Invest.");
+  lines.push("", `View plan details and register on ${BRAND_INVEST}.`);
   return lines.join("\n");
 }
 
@@ -105,7 +105,7 @@ export function buildPlanOgDescription(plan) {
   if (!plan) return INVEST_HOME_DEFAULT.description;
   const monthly = Number(plan.monthlyRoiPct ?? 0);
   const annual = Number(plan.annualRoiPct ?? monthly * 12);
-  return `${plan.name}: invest ${inr(plan.minInvestment)}–${inr(plan.maxInvestment)}, ${monthly}% monthly ROI (~${annual}% p.a.), ${lockInLabel(plan.lockInDays)} lock-in. Transparent plans on Akshaya Exim Invest.`;
+  return `${plan.name}: invest ${inr(plan.minInvestment)}–${inr(plan.maxInvestment)}, ${monthly}% monthly ROI (~${annual}% p.a.), ${lockInLabel(plan.lockInDays)} lock-in. Transparent plans on ${BRAND_INVEST}.`;
 }
 
 /** Invest home OG/title/description (CMS hero or defaults). */
@@ -117,7 +117,9 @@ function isMainMarketplaceCopy(text) {
 export function resolveInvestHomeMeta(homepageCms) {
   let title = homepageCms?.homepage_hero_title || INVEST_HOME_DEFAULT.title;
   let description = homepageCms?.homepage_hero_subtitle || INVEST_HOME_DEFAULT.description;
-  if (isMainMarketplaceCopy(title) || /^Akshaya EXIM TRADERS/i.test(title)) title = INVEST_HOME_DEFAULT.title;
+  if (isMainMarketplaceCopy(title) || /^Akshaya EXIM TRADERS/i.test(title) || /Exim (Traders|Invest)/i.test(title)) {
+    title = INVEST_HOME_DEFAULT.title;
+  }
   if (isMainMarketplaceCopy(description) || (!/INR/i.test(description) && /^Explore Akshaya/i.test(description))) {
     description = INVEST_HOME_DEFAULT.description;
   }

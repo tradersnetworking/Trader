@@ -65,7 +65,7 @@ export function configurePortalPwa(mode) {
     upsertMeta("theme-color", "#002366");
     upsertMeta("mobile-web-app-capable", "yes");
     upsertMeta("apple-mobile-web-app-capable", "yes");
-    upsertMeta("apple-mobile-web-app-title", "AKSHAYA Invest");
+    upsertMeta("apple-mobile-web-app-title", "AKASHYA INVESTMENTS");
     upsertMeta("apple-mobile-web-app-status-bar-style", "black-translucent");
     if (!installListenerAttached) {
       window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);

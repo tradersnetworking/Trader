@@ -89,7 +89,7 @@ export default function InvestShareWidget() {
         style={{ background: "linear-gradient(135deg, #002366, #0a3d91)" }}
         aria-label={open ? "Close share menu" : `Share ${INVEST_HOME_DEFAULT.title}`}
         aria-expanded={open}
-        title="Share Akshaya Invest"
+        title="Share AKASHYA INVESTMENTS"
       >
         {open ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" aria-hidden>

@@ -146,7 +146,7 @@ export function LoginScreen({ scope, staff }) {
   return (
     <Shell scope={scope}
       title={staff ? tx("staffLogin", "Staff / Admin Login") : (scope === "invest" ? tx("investorLogin", "Investor Login") : tx("userLogin", "User Login"))}
-      subtitle={staff ? tx("staffSubtitle", "Authorized personnel only") : (scope === "invest" ? tx("welcomeInvest", "Welcome back to Akshaya Invest") : tx("welcomeMain", "Welcome back to Akshaya Exim"))}>
+      subtitle={staff ? tx("staffSubtitle", "Authorized personnel only") : (scope === "invest" ? tx("welcomeInvest", "Welcome back to AKASHYA INVESTMENTS") : tx("welcomeMain", "Welcome back to Akshaya Exim"))}>
       {scope === "invest" && (
         <Link to={investPath("")} className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-amber-600">
           {tx("backToHome", "← Back to home")}
@@ -178,21 +178,32 @@ export function LoginScreen({ scope, staff }) {
         </>
       )}
       {passkeyOk && !needs2FA && (
-        <button
-          type="button"
-          className="mt-3 w-full rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground transition hover:border-amber-500/40 hover:bg-amber-500/5"
-          disabled={loading || !form.email.trim()}
-          onClick={onPasskey}
-        >
-          🔐 {tx("passkeyLogin", "Sign in with passkey")}
-        </button>
+        <>
+          <button
+            type="button"
+            className="mt-3 w-full rounded-lg border border-border py-2.5 text-sm font-semibold text-foreground transition hover:border-amber-500/40 hover:bg-amber-500/5 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={loading || !form.email.trim()}
+            onClick={onPasskey}
+          >
+            🔐 {tx("passkeyLogin", "Sign in with passkey")}
+          </button>
+          {!form.email.trim() && (
+            <p className="mt-1.5 text-center text-xs text-muted-foreground">
+              {tx("passkeyEmailFirst", "Enter your email above, then use passkey sign-in.")}
+            </p>
+          )}
+        </>
       )}
       {!staff && (
         <>
           <div className={`my-4 flex items-center gap-3 text-xs ${AUTH_MUTED}`}><div className="h-px flex-1 bg-border" />{tx("or", "OR")}<div className="h-px flex-1 bg-border" /></div>
           <GoogleButton scope={scope} onCredential={onGoogle} />
           <p className={`mt-4 text-center text-sm ${AUTH_MUTED}`}>{tx("noAccount", "No account?")} <Link to={p.register} className={AUTH_LINK}>{tx("register", "Register")}</Link></p>
-          <Link to={p.staff} className="mt-3 block w-full rounded-lg border border-border py-2 text-center text-sm font-semibold text-muted-foreground hover:bg-muted">{tx("staffLoginLink", "Staff / Admin Login →")}</Link>
+          <p className={`mt-3 text-center text-xs ${AUTH_MUTED}`}>
+            <Link to={p.staff} className={AUTH_LINK}>
+              {tx("staffLoginLink", "Staff / Admin login")}
+            </Link>
+          </p>
         </>
       )}
       {staff && <Link to={p.login} className={`mt-4 block text-center text-sm ${AUTH_LINK}`}>{tx("backToLogin", "← Back to user login")}</Link>}
@@ -236,7 +247,7 @@ export function RegisterScreen({ scope }) {
   };
 
   return (
-    <Shell scope={scope} title={scope === "invest" ? "Create Investor Account" : "Create Account"} subtitle="Join Akshaya Exim Traders">
+    <Shell scope={scope} title={scope === "invest" ? "Create Investor Account" : "Create Account"} subtitle={scope === "invest" ? "Join AKASHYA INVESTMENTS" : "Join Akshaya Exim Traders"}>
       <form onSubmit={submit} className="space-y-4">
         {err && <Alert type="error">{err}</Alert>}
         <Field label="Full Name"><input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>

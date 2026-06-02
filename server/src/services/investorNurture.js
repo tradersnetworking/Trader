@@ -15,10 +15,10 @@ export async function listNotInvestedInvestors() {
 }
 
 export async function sendNotInvestedEmail({ subject, html, text, investorIds, actor }) {
-  const subjectLine = subject || "Start your investment journey with Akshaya EXIM TRADERS";
+  const subjectLine = subject || "Start your investment journey with AKASHYA INVESTMENTS";
   const bodyHtml =
     html ||
-    `<p>Dear investor,</p><p>You have registered on Akshaya EXIM TRADERS invest portal but haven't started an investment plan yet.</p><p>Explore our plans and begin earning consistent returns with transparent profit sharing.</p><p>— Akshaya EXIM TRADERS Team</p>`;
+    `<p>Dear investor,</p><p>You have registered on AKASHYA INVESTMENTS but haven't started an investment plan yet.</p><p>Explore our plans and begin earning consistent returns with transparent profit sharing.</p><p>— AKASHYA INVESTMENTS Team</p>`;
   const bodyText = text || "You registered but haven't invested yet. Log in to explore investment plans.";
 
   let targets = await listNotInvestedInvestors();

@@ -63,7 +63,7 @@ function escapeAttr(value) {
 function planOgDescription(plan) {
   const monthly = Number(plan.monthlyRoiPct ?? 0);
   const annual = Number(plan.annualRoiPct ?? monthly * 12);
-  return `${plan.name}: invest ${formatInr(plan.minInvestment)}–${formatInr(plan.maxInvestment)}, ${monthly}% monthly ROI (~${annual}% p.a.), ${lockInLabel(plan.lockInDays)} lock-in. AKSHAYA Exim Invest.`;
+  return `${plan.name}: invest ${formatInr(plan.minInvestment)}–${formatInr(plan.maxInvestment)}, ${monthly}% monthly ROI (~${annual}% p.a.), ${lockInLabel(plan.lockInDays)} lock-in. ${BRAND_INVEST}.`;
 }
 
 let investHomeCache = null;
@@ -104,7 +104,7 @@ async function getInvestHomeMeta() {
     const rawDesc = (await getSetting("homepage_hero_subtitle")) || INVEST_HOME.description;
     const { title, description } = normalizeInvestHomeCopy(rawTitle, rawDesc);
     let siteName = (await getSetting("site_name")) || BRAND_INVEST;
-    if (/^Akshaya/i.test(siteName)) siteName = BRAND_INVEST;
+    if (/^Akshaya/i.test(siteName) || /Exim (Traders|Invest)/i.test(siteName)) siteName = BRAND_INVEST;
     investHomeCache = { title, description, siteName };
   } catch {
     investHomeCache = { ...INVEST_HOME, siteName: BRAND_INVEST };

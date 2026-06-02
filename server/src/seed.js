@@ -7,6 +7,7 @@ import { imageForProduct, imageForCategory } from "./data/productImages.js";
 import { generateReferralCode } from "./services/referral.js";
 import { seedDefaultPaymentGateways, ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
 import { buildPlanCatalog, catalogKey } from "./data/investmentPlans.js";
+import { normalizeInvestBrandingText, BRAND_INVEST } from "./data/brand.js";
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + nanoid(4);
 
@@ -68,7 +69,7 @@ async function syncInvestmentPlans() {
 const DEFAULT_INVEST_SETTINGS = [
   { key: "support_email", value: "support@akshayaexim.com" },
   { key: "mail_from", value: "Akshaya Exim <support@akshayaexim.com>" },
-  { key: "site_name", value: "Akshaya Exim Invest" },
+  { key: "site_name", value: "AKASHYA INVESTMENTS" },
   { key: "maintenance_mode", value: "false" },
   { key: "maintenance_message", value: "Platform under maintenance. Please check back soon." },
   { key: "referral_commission_pct", value: "2" },
@@ -83,13 +84,13 @@ const DEFAULT_INVEST_SETTINGS = [
   { key: "early_exit_penalty_pct", value: "10" },
   { key: "early_exit_forfeit_roi", value: "true" },
   { key: "homepage_hero_title", value: "Smart Investment • Secure Future • Grow Your Wealth" },
-  { key: "homepage_hero_subtitle", value: "Invest in Akshaya Exim Traders and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured." },
-  { key: "homepage_about_title", value: "About Akshaya Exim Invest" },
-  { key: "homepage_about_body", value: "Akshaya Exim Traders offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
+  { key: "homepage_hero_subtitle", value: "Invest with Akshaya Investments and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured." },
+  { key: "homepage_about_title", value: "About AKASHYA INVESTMENTS" },
+  { key: "homepage_about_body", value: "AKASHYA INVESTMENTS offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor." },
   { key: "homepage_show_calculator", value: "true" },
   { key: "homepage_show_partners", value: "true" },
   { key: "homepage_show_trust_stats", value: "true" },
-  { key: "about_company_name", value: "Akshaya Exim Traders" },
+  { key: "about_company_name", value: "AKASHYA INVESTMENTS" },
   { key: "about_company_tagline", value: "Export • Import • Investment" },
   { key: "about_company_credentials", value: "Registered export house • KYC-verified investors • Secure payment gateways" },
 ];
@@ -113,7 +114,7 @@ async function seedInvestExtras() {
   if (partnerCount === 0) {
     await investDb.sitePartner.createMany({
       data: [
-        { name: "Akshaya Exim Traders", sortOrder: 1, website: "https://akshayaexim.com" },
+        { name: "AKASHYA INVESTMENTS", sortOrder: 1, website: "https://akshayaexim.com" },
         { name: "Export Finance Partners", sortOrder: 2 },
         { name: "Trade Desk India", sortOrder: 3 },
       ],
@@ -153,6 +154,46 @@ async function seedInvestExtras() {
   await investDb.investSetting.updateMany({
     where: { key: "mail_from", value: "Akshaya Exim <manager@akshayaexim.com>" },
     data: { value: "Akshaya Exim <support@akshayaexim.com>" },
+  });
+  await migrateInvestBranding();
+}
+
+/** Normalize legacy invest CMS/branding strings in DB (keeps email addresses unchanged). */
+async function migrateInvestBranding() {
+  const keys = [
+    "site_name",
+    "homepage_hero_subtitle",
+    "homepage_about_title",
+    "homepage_about_body",
+    "about_company_name",
+    "mail_from",
+    "agreement_company_legal_name",
+  ];
+  for (const key of keys) {
+    const row = await investDb.investSetting.findUnique({ where: { key } });
+    if (!row?.value) continue;
+    const next = normalizeInvestBrandingText(row.value);
+    if (key === "homepage_about_title" && /exim|traders/i.test(next)) {
+      await investDb.investSetting.update({
+        where: { key },
+        data: { value: `About ${BRAND_INVEST}` },
+      });
+      continue;
+    }
+    if (key === "homepage_hero_subtitle" && /invest in akshaya|exim traders/i.test(row.value)) {
+      await investDb.investSetting.update({
+        where: { key },
+        data: { value: normalizeInvestBrandingText(row.value) },
+      });
+      continue;
+    }
+    if (next !== row.value) {
+      await investDb.investSetting.update({ where: { key }, data: { value: next } });
+    }
+  }
+  await investDb.sitePartner.updateMany({
+    where: { name: { in: ["Akshaya Exim Traders", "AKASHYA Exim Traders", "AKASHYA INVESTMENTS"] } },
+    data: { name: BRAND_INVEST },
   });
 }
 

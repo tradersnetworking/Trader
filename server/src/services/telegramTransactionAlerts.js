@@ -184,7 +184,7 @@ export async function testTelegramAlert() {
   const { enabled, token, channels } = await getTelegramAlertConfig();
   if (!token) throw new Error("Telegram bot token is not configured");
   if (!channels.length) throw new Error("Add at least one channel chat ID");
-  const text = "<b>✅ Akshaya Invest</b>\n\nTest alert — transaction notifications are working.";
+  const text = "<b>✅ AKASHYA INVESTMENTS</b>\n\nTest alert — transaction notifications are working.";
   const results = [];
   for (const ch of channels) {
     await sendTelegramMessage(token, ch.chatId, text);

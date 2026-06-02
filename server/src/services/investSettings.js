@@ -1,5 +1,6 @@
 import { investDb } from "../db.js";
 import { config } from "../config.js";
+import { BRAND_INVEST, INVEST_HOME_DESCRIPTION } from "../data/brand.js";
 
 const DEFAULTS = {
   support_email: "support@akshayaexim.in",
@@ -8,19 +9,18 @@ const DEFAULTS = {
   telegram_bot_token: "",
   telegram_notify_enabled: "true",
   telegram_notify_channels: "",
-  mail_from: "AKSHAYA Exim Invest <noreply@akshayaexim.in>",
-  site_name: "AKSHAYA Exim Invest",
+  mail_from: `${BRAND_INVEST} <noreply@akshayaexim.in>`,
+  site_name: BRAND_INVEST,
   invest_portal_url: config.investPortalUrl,
   homepage_hero_title: "Smart Investment • Secure Future • Grow Your Wealth",
-  homepage_hero_subtitle:
-    "Invest in AKSHAYA Exim Traders and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secured.",
-  homepage_about_title: "About AKSHAYA Exim Invest",
+  homepage_hero_subtitle: INVEST_HOME_DESCRIPTION,
+  homepage_about_title: `About ${BRAND_INVEST}`,
   homepage_about_body:
-    "AKSHAYA Exim Traders offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor.",
+    `${BRAND_INVEST} offers structured investment plans with transparent ROI, secure capital protection, and dedicated support for every investor.`,
   homepage_show_calculator: "true",
   homepage_show_partners: "true",
   homepage_show_trust_stats: "true",
-  about_company_name: "AKSHAYA Exim Traders",
+  about_company_name: BRAND_INVEST,
   about_company_tagline: "Export • Import • Investment",
   about_company_credentials: "Registered export house • KYC-verified investors • Secure payment gateways",
   smtp_host: config.smtp.host,
@@ -71,6 +71,6 @@ export async function getSupportEmail() {
 
 export async function getMailFrom() {
   const custom = await getSetting("default_communication_email");
-  if (custom) return custom.includes("<") ? custom : `Akshaya Exim <${custom}>`;
+  if (custom) return custom.includes("<") ? custom : `${BRAND_INVEST} <${custom}>`;
   return (await getSetting("mail_from")) || DEFAULTS.mail_from;
 }

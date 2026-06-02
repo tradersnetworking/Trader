@@ -2,7 +2,7 @@ import PDFDocument from "pdfkit";
 import { createHash } from "crypto";
 import { loadUploadImageBuffer } from "./agreementAssetHelper.js";
 
-const BRAND = "Akshaya Exim Traders";
+const BRAND = "AKASHYA INVESTMENTS";
 const BRAND_GOLD = "#B8860B";
 const INK = "#1A1A1A";
 const MUTED = "#555555";

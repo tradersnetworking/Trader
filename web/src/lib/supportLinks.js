@@ -1,6 +1,8 @@
 /** Build WhatsApp / Telegram URLs from admin site settings (Kuber-style). */
 
-const DEFAULT_WHATSAPP_MESSAGE = "Hello! I need support with Akshaya Exim Invest.";
+import { BRAND_INVEST } from "./brand.js";
+
+const DEFAULT_WHATSAPP_MESSAGE = `Hello! I need support with ${BRAND_INVEST}.`;
 
 export function digitsOnlyPhone(raw) {
   return String(raw || "").replace(/\D/g, "");

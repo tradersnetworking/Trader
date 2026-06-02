@@ -84,7 +84,7 @@ export default function OnboardingWizard() {
   return (
     <div className="mx-auto min-w-0 max-w-2xl px-4 py-6 sm:py-8">
       <h1 className="page-title">Set up your investor account</h1>
-      <p className="page-subtitle mt-1">Complete these steps to start investing in Akshaya Exim plans. All amounts are in INR (₹).</p>
+      <p className="page-subtitle mt-1">Complete these steps to start investing with AKASHYA INVESTMENTS. All amounts are in INR (₹).</p>
 
       <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
         {STEPS.map((s, i) => (
@@ -99,7 +99,7 @@ export default function OnboardingWizard() {
       <div className="card mt-6 space-y-4 p-4 sm:p-6">
         {step === 1 && (
           <>
-            <Alert type="info">Welcome to Akshaya Exim Invest — structured plans with monthly ROI paid in Indian Rupees.</Alert>
+            <Alert type="info">Welcome to AKASHYA INVESTMENTS — structured plans with monthly ROI paid in Indian Rupees.</Alert>
             <Field label="Full name"><input className="input" required value={form.name} onChange={(e) => set("name", e.target.value)} /></Field>
           </>
         )}

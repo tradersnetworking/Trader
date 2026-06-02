@@ -37,13 +37,13 @@ export default function InvestmentCertificate({ data, onClose }) {
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
         <div ref={printRef} className="cert-print border-4 border-double border-amber-500/60 p-6 sm:p-8">
           <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-700">Akshaya ExIm Investments</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-700">AKASHYA INVESTMENTS</p>
             <h1 className="mt-2 text-2xl font-bold text-[#002366] dark:text-white">Investment Certificate</h1>
             <p className="text-sm text-muted-foreground">Certificate No. {data.certificateNumber}</p>
           </div>
 
           <p className="mt-6 text-center text-sm leading-relaxed text-muted-foreground">
-            This certifies that <strong className="text-foreground">{data.investorName}</strong> has subscribed to the investment plan detailed below on the Akshaya ExIm invest portal (INR).
+            This certifies that <strong className="text-foreground">{data.investorName}</strong> has subscribed to the investment plan detailed below on the AKASHYA INVESTMENTS portal (INR).
           </p>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">

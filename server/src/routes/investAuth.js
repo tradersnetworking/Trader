@@ -40,7 +40,7 @@ router.post(
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email required" });
     try {
-      const result = await getLoginAuthenticationOptions(email);
+      const result = await getLoginAuthenticationOptions(email, "auth:login", req);
       res.json({ options: result.options, investorId: result.investorId });
     } catch (e) {
       res.status(400).json({ error: e.message || "Passkey login unavailable" });
@@ -54,7 +54,7 @@ router.post(
     const { email, ...assertion } = req.body;
     if (!email) return res.status(400).json({ error: "Email required" });
     try {
-      const investor = await verifyLoginAuthentication(email, assertion);
+      const investor = await verifyLoginAuthentication(email, assertion, "auth:login", req);
       const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });
       res.json({ token, user: publicInvestor(investor) });
     } catch (e) {
@@ -71,7 +71,7 @@ router.post(
       return res.status(400).json({ error: "2FA session expired. Sign in with password again." });
     }
     try {
-      const result = await getLoginAuthenticationOptions(email, "auth:2fa");
+      const result = await getLoginAuthenticationOptions(email, "auth:2fa", req);
       res.json({ options: result.options });
     } catch (e) {
       res.status(400).json({ error: e.message || "Passkey 2FA unavailable" });
@@ -86,7 +86,7 @@ router.post(
     const pending = getPending2FA(email);
     if (!pending) return res.status(400).json({ error: "2FA session expired. Sign in with password again." });
     try {
-      const investor = await verifyLoginAuthentication(email, assertion, "auth:2fa");
+      const investor = await verifyLoginAuthentication(email, assertion, "auth:2fa", req);
       if (investor.id !== pending.investorId) throw new Error("Passkey verification failed");
       if (pending.staff && !["ADMIN", "SUPERADMIN"].includes(investor.role)) {
         return res.status(403).json({ error: "Not a staff account" });
@@ -178,7 +178,7 @@ router.post(
     await sendMail({
       to: investor.email,
       purpose: "registration",
-      subject: "Welcome to Akshaya Exim Invest",
+      subject: "Welcome to AKASHYA INVESTMENTS",
       text: `Hi ${displayName}, sign in and complete KYC to start investing at invest.akshayaexim.com`,
     });
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email });

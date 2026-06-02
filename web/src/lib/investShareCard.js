@@ -94,7 +94,7 @@ export function renderInvestTransactionCard(canvas, opts) {
 
   ctx.fillStyle = "#d4af37";
   ctx.font = "bold 18px Inter, system-ui, sans-serif";
-  ctx.fillText("AKSHAYA Exim Invest", 32, 52);
+  ctx.fillText("AKASHYA INVESTMENTS", 32, 52);
 
   ctx.fillStyle = "rgba(255,255,255,0.75)";
   ctx.font = "12px Inter, system-ui, sans-serif";

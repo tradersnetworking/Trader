@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { investPath } from "../../../lib/site.js";
+import { INVEST_HERO_SUBTITLE, normalizeInvestBrandingText } from "../../../lib/brand.js";
 import { useI18n } from "../../../lib/i18n/context.jsx";
 import { Logo } from "../../ui.jsx";
 
@@ -194,7 +195,7 @@ export function InvestLandingHero({ cms, invest }) {
           {cms?.homepage_hero_title || t("home.heroTitle")}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base md:text-lg">
-          {cms?.homepage_hero_subtitle || t("home.heroSubtitle")}
+          {normalizeInvestBrandingText(cms?.homepage_hero_subtitle) || t("home.heroSubtitle") || INVEST_HERO_SUBTITLE}
         </p>
         <div className="mt-8 flex flex-col items-stretch justify-center gap-3 px-2 sm:flex-row sm:items-center sm:gap-4">
           {invest ? (
