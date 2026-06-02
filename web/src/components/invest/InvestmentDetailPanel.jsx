@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { inr, dateStr, daysLeft } from "../../lib/format.js";
 import { Badge, Alert } from "../ui.jsx";
-import ShareProfitButton from "./ShareProfitButton.jsx";
+import PlanShareIcons from "./PlanShareIcons.jsx";
 import InvestmentCertificate from "./InvestmentCertificate.jsx";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
@@ -92,7 +92,7 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
           </div>
           <p className="text-sm text-muted-foreground">{s.plan?.planType} • {Math.round(s.lockInDays / 30)} month lock-in</p>
         </div>
-        <ShareProfitButton type="investment" amount={inr(s.amount)} plan={s.plan} monthlyRoiPct={s.monthlyRoiPct} lockInDays={s.lockInDays} />
+        <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />
         <button type="button" className="btn-outline text-xs" disabled={certBusy} onClick={loadCertificate}>
           {certBusy ? t("common.loading") : t("certificate.download")}
         </button>

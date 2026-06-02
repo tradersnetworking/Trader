@@ -16,7 +16,7 @@ import { PLAN_TYPES, LOCK_IN_SUB_CATEGORIES, sortPlansByTier } from "../../lib/p
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
 import WalletQuickActions from "../../components/invest/WalletQuickActions.jsx";
 import MobileAppDownload from "../../components/invest/MobileAppDownload.jsx";
-import ShareProfitButton from "../../components/invest/ShareProfitButton.jsx";
+import PlanShareIcons from "../../components/invest/PlanShareIcons.jsx";
 import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
 import KpiStatCard from "../../components/invest/InvestDashboardWidgets.jsx";
 import {
@@ -370,15 +370,9 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
         >
           <div className="flex items-start justify-between gap-2">
             <h3 className="font-bold text-navy">{s.plan?.name}</h3>
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-              <ShareProfitButton
-                type="investment"
-                amount={inr(s.amount)}
-                plan={s.plan}
-                monthlyRoiPct={s.monthlyRoiPct}
-                lockInDays={s.lockInDays}
-              />
+            <div className="flex flex-col items-end gap-1.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
               <Badge status={s.matured ? "MATURED" : s.status} />
+              <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">

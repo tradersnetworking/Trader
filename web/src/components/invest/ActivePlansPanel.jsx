@@ -1,6 +1,6 @@
 import { inr, dateStr, daysLeft } from "../../lib/format.js";
 import { Badge } from "../ui.jsx";
-import ShareProfitButton from "./ShareProfitButton.jsx";
+import PlanShareIcons from "./PlanShareIcons.jsx";
 
 export default function ActivePlansPanel({ subscriptions = [], loading, onNavigate, onOpenDetail }) {
   const active = subscriptions.filter((s) => s.status === "ACTIVE");
@@ -59,12 +59,7 @@ export default function ActivePlansPanel({ subscriptions = [], loading, onNaviga
                     <p className="mt-1 text-lg font-bold text-emerald-600 dark:text-emerald-400">{inr(s.amount)}</p>
                   </div>
                   <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                    <ShareProfitButton
-                      type="investment"
-                      amount={inr(s.amount)}
-                      plan={s.plan}
-                      label="Share"
-                    />
+                    <PlanShareIcons plan={s.plan} amount={inr(s.amount)} className="justify-end" />
                   </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">

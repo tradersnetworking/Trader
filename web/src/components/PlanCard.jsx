@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { inr, dateStr } from "../lib/format.js";
 import { lockInCategoryLabel, DEFAULT_LOCK_IN_MONTHS } from "../lib/plan-types.js";
 import { planCalcPreview } from "../lib/plan-calc.js";
-import ShareProfitButton from "./invest/ShareProfitButton.jsx";
+import PlanShareIcons from "./invest/PlanShareIcons.jsx";
 
 const ICONS = { STARTER: "🌱", BRONZE: "🥉", SILVER: "🥈", GOLD: "👑", PLATINUM: "💎", DIAMOND: "💠" };
 const TIER_GRADIENT = {
@@ -67,17 +67,11 @@ export default function PlanCard({ plan, onSubscribe, featured, previewAmount })
           <li className="flex justify-between gap-2"><span className="text-muted-foreground">Compounding</span><b className="text-right text-[11px]">At maturity only</b></li>
         </ul>
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-          <button type="button" onClick={() => onSubscribe(plan)} className="btn-gold flex-1 py-2.5 text-sm font-bold">Invest Now</button>
-          <ShareProfitButton
-            type="investment"
-            amount={inr(amount)}
-            plan={plan}
-            monthlyRoiPct={plan.monthlyRoiPct}
-            lockInDays={plan.lockInDays}
-            label="Share"
-            className="flex-1 justify-center sm:flex-none"
-          />
+        <div className="mt-5 space-y-2">
+          <button type="button" onClick={() => onSubscribe(plan)} className="btn-gold w-full py-2.5 text-sm font-bold">
+            Invest Now
+          </button>
+          <PlanShareIcons plan={plan} amount={inr(amount)} />
         </div>
       </div>
     </article>
