@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { mainApi } from "../../lib/api.js";
+import { MAIN_CONTACT_PAGE_DEFAULT, MAIN_SUPPORT_PHONE } from "../../lib/mainContact.js";
 import { Field, Alert } from "../ui.jsx";
 
 const FIELDS = [
@@ -24,20 +25,7 @@ const FIELDS = [
   { key: "main_sitemap_auto_ping", label: "Ping Google & Bing when saving settings", type: "checkbox" },
 ];
 
-const DEFAULT_CONTACT = {
-  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
-  desks: [
-    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
-    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
-    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
-    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
-  ],
-  office: {
-    name: "Akshaya Exim Traders",
-    address: "Mumbai, Maharashtra, India",
-    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
-  },
-};
+const DEFAULT_CONTACT = MAIN_CONTACT_PAGE_DEFAULT;
 
 export default function MainSiteSettingsPanel() {
   const [form, setForm] = useState({});
@@ -177,7 +165,10 @@ export default function MainSiteSettingsPanel() {
           />
         </Field>
 
-        <h4 className="border-t border-border pt-4 text-sm font-bold text-heading">Trade desks</h4>
+        <h4 className="border-t border-border pt-4 text-sm font-bold text-heading">Support desk</h4>
+        <p className="text-xs text-muted-foreground">
+          All buyer, support and contact enquiries use one line: <strong>{MAIN_SUPPORT_PHONE}</strong>
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           {(contact.desks || DEFAULT_CONTACT.desks).map((desk) => (
             <div key={desk.id} className="rounded-lg border border-border p-4 space-y-3">
@@ -187,12 +178,21 @@ export default function MainSiteSettingsPanel() {
               <Field label="Email">
                 <input className="input font-mono text-sm" type="email" value={desk.email || ""} onChange={(e) => updateDesk(desk.id, "email", e.target.value)} />
               </Field>
-              <Field label="Phone">
-                <input className="input" value={desk.phone || ""} onChange={(e) => updateDesk(desk.id, "phone", e.target.value)} />
+              <Field label="Phone (fixed)">
+                <input className="input bg-muted/50" readOnly value={MAIN_SUPPORT_PHONE} />
               </Field>
             </div>
           ))}
         </div>
+
+        <Field label="Telegram support link (optional)" hint="Used by the floating support menu — @username or https://t.me/…">
+          <input
+            className="input font-mono text-sm"
+            value={form.main_support_telegram || ""}
+            onChange={(e) => setForm({ ...form, main_support_telegram: e.target.value })}
+            placeholder="@akshayaexim or https://t.me/akshayaexim"
+          />
+        </Field>
 
         <h4 className="border-t border-border pt-4 text-sm font-bold text-heading">Office</h4>
         <div className="grid gap-3 sm:grid-cols-2">

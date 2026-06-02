@@ -2,21 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "../../components/ui.jsx";
 import { mainApi } from "../../lib/api.js";
+import LegalContactStrip from "../../components/main/LegalContactStrip.jsx";
+import {
+  MAIN_CONTACT_PAGE_DEFAULT,
+  MAIN_SUPPORT_EMAIL,
+  MAIN_SUPPORT_EMAIL_ALT,
+  MAIN_SUPPORT_PHONE,
+  MAIN_SUPPORT_PHONE_TEL,
+} from "../../lib/mainContact.js";
 
-const DEFAULT_CONTACT = {
-  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
-  desks: [
-    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
-    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
-    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
-    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
-  ],
-  office: {
-    name: "Akshaya Exim Traders",
-    address: "Mumbai, Maharashtra, India",
-    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
-  },
-};
+const DEFAULT_CONTACT = MAIN_CONTACT_PAGE_DEFAULT;
 
 export function StaticPage({ title, children, showLogo = true }) {
   return (
@@ -48,6 +43,8 @@ export function AboutUs() {
       <h2 className="text-xl font-bold text-navy">Our Mission</h2>
       <p>To make global trade accessible, transparent and reliable for businesses of every size — from farmers and MSMEs to large corporates.</p>
       <p>Domains: <a href="https://akshayaexim.com" className="text-navy underline">akshayaexim.com</a> · <a href="https://akshayaexim.in" className="text-navy underline">akshayaexim.in</a></p>
+      <p>Contact: <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="text-navy underline">{MAIN_SUPPORT_PHONE}</a> · <a href={`mailto:${MAIN_SUPPORT_EMAIL}`} className="text-navy underline">{MAIN_SUPPORT_EMAIL}</a></p>
+      <LegalContactStrip />
     </StaticPage>
   );
 }
@@ -69,7 +66,8 @@ export function PrivacyPolicy() {
       <h2 className="text-xl font-bold text-navy">Data Sharing</h2>
       <p>We share data only with payment processors, logistics partners (when needed for your order) and as required by law. We never sell your personal data.</p>
       <h2 className="text-xl font-bold text-navy">Your Rights</h2>
-      <p>You may request access, correction or deletion of your data by contacting us at <a href="mailto:privacy@akshayaexim.com" className="text-navy underline">privacy@akshayaexim.com</a>.</p>
+      <p>You may request access, correction or deletion of your data by contacting us at <a href={`mailto:${MAIN_SUPPORT_EMAIL}`} className="text-navy underline">{MAIN_SUPPORT_EMAIL}</a> or <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="text-navy underline">{MAIN_SUPPORT_PHONE}</a>.</p>
+      <LegalContactStrip />
     </StaticPage>
   );
 }
@@ -88,7 +86,11 @@ export function ReturnsRefund() {
       <h2 className="text-xl font-bold text-navy">Refund Timeline</h2>
       <p>Approved refunds are processed within 7–14 business days to the original payment method or bank account.</p>
       <h2 className="text-xl font-bold text-navy">Contact</h2>
-      <p>For return requests email <a href="mailto:support@akshayaexim.com" className="text-navy underline">support@akshayaexim.com</a> with your order/quote reference.</p>
+      <p>
+        For return requests call <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="text-navy underline">{MAIN_SUPPORT_PHONE}</a> or email{" "}
+        <a href={`mailto:${MAIN_SUPPORT_EMAIL_ALT}`} className="text-navy underline">{MAIN_SUPPORT_EMAIL_ALT}</a> with your order/quote reference.
+      </p>
+      <LegalContactStrip />
     </StaticPage>
   );
 }
@@ -105,6 +107,9 @@ export function TermsOfService() {
       <p>Listed prices are indicative for bulk trade. Final pricing is confirmed upon quote acceptance. Prices may change based on market conditions.</p>
       <h2 className="text-xl font-bold text-navy">Limitation of Liability</h2>
       <p>We are not liable for indirect losses. Our liability is limited to the value of the specific transaction in dispute.</p>
+      <h2 className="text-xl font-bold text-navy">Payments</h2>
+      <p>Online payments are processed via authorised third-party gateways. See our <Link to="/privacy" className="text-navy underline">Privacy Policy</Link> and <Link to="/returns" className="text-navy underline">Returns & Refunds</Link> for related terms.</p>
+      <LegalContactStrip />
     </StaticPage>
   );
 }
@@ -142,7 +147,11 @@ export function ContactUs() {
                   <a href={`mailto:${desk.email}`} className="text-navy underline">{desk.email}</a>
                 </p>
               )}
-              {desk.phone && <p className="text-sm text-slate-500">{desk.phone}</p>}
+              {desk.phone && (
+                <p className="text-sm text-slate-500">
+                  <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="text-navy underline">{desk.phone}</a>
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -152,7 +161,10 @@ export function ContactUs() {
         {office.name}
         {office.address && (<><br />{office.address}</>)}
         {office.hours && (<><br />{office.hours}</>)}
+        <br />
+        Phone: <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="text-navy underline">{office.phone || MAIN_SUPPORT_PHONE}</a>
       </p>
+      <LegalContactStrip />
     </StaticPage>
   );
 }
@@ -172,6 +184,7 @@ export function FaqPage() {
           <p className="mt-1 text-sm">{a}</p>
         </div>
       ))}
+      <LegalContactStrip />
     </StaticPage>
   );
 }

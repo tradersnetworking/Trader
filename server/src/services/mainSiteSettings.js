@@ -1,6 +1,13 @@
 import { investDb } from "../db.js";
 import { mainDb } from "../db.js";
 import { config } from "../config.js";
+import {
+  DEFAULT_MAIN_CONTACT_PAGE,
+  MAIN_SUPPORT_EMAIL,
+  MAIN_SUPPORT_PHONE,
+  MAIN_SUPPORT_WHATSAPP,
+  normalizePublicContact,
+} from "../constants/mainContact.js";
 
 export const MAIN_SITE_KEYS = [
   "main_google_login_enabled",
@@ -20,22 +27,10 @@ export const MAIN_SITE_KEYS = [
   "main_sitemap_last_ping",
   "main_json_ld_description",
   "main_contact_page",
+  "main_support_telegram",
 ];
 
-const DEFAULT_CONTACT_PAGE = {
-  intro: "Reach our trade desk for export, import, bulk quotes and supplier partnerships.",
-  desks: [
-    { id: "general", title: "General Enquiries", email: "info@akshayaexim.com", phone: "+91 98765 43210" },
-    { id: "export", title: "Export Desk", email: "export@akshayaexim.com", phone: "+91 98765 43211" },
-    { id: "import", title: "Import Desk", email: "import@akshayaexim.com", phone: "+91 98765 43212" },
-    { id: "support", title: "Support", email: "support@akshayaexim.com", phone: "+91 98765 43213" },
-  ],
-  office: {
-    name: "AKSHAYA Exim Traders",
-    address: "Mumbai, Maharashtra, India",
-    hours: "Mon–Sat, 9:00 AM – 7:00 PM IST",
-  },
-};
+const DEFAULT_CONTACT_PAGE = DEFAULT_MAIN_CONTACT_PAGE;
 
 const DEFAULTS = {
   main_google_login_enabled: "false",
@@ -58,6 +53,7 @@ const DEFAULTS = {
   main_json_ld_description:
     "Global export, import and trade marketplace for agricultural, FMCG, metals, chemicals and industrial products.",
   main_contact_page: JSON.stringify(DEFAULT_CONTACT_PAGE),
+  main_support_telegram: "",
 };
 
 async function getRaw(key) {
@@ -74,23 +70,16 @@ async function getMap(keys = MAIN_SITE_KEYS) {
 }
 
 export function parseContactPage(raw) {
-  if (!raw) return JSON.parse(JSON.stringify(DEFAULT_CONTACT_PAGE));
+  if (!raw) return normalizePublicContact(DEFAULT_CONTACT_PAGE);
   try {
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return {
+    return normalizePublicContact({
       intro: parsed.intro ?? DEFAULT_CONTACT_PAGE.intro,
-      desks: Array.isArray(parsed.desks) && parsed.desks.length
-        ? parsed.desks.map((d, i) => ({
-            id: d.id || DEFAULT_CONTACT_PAGE.desks[i]?.id || `desk-${i}`,
-            title: d.title || "",
-            email: d.email || "",
-            phone: d.phone || "",
-          }))
-        : DEFAULT_CONTACT_PAGE.desks,
-      office: { ...DEFAULT_CONTACT_PAGE.office, ...(parsed.office || {}) },
-    };
+      desks: parsed.desks,
+      office: parsed.office,
+    });
   } catch {
-    return JSON.parse(JSON.stringify(DEFAULT_CONTACT_PAGE));
+    return normalizePublicContact(DEFAULT_CONTACT_PAGE);
   }
 }
 
@@ -155,7 +144,14 @@ export async function getPublicMainSiteConfig() {
       bing: s.main_bing_site_verification || "",
     },
     robotsAllowIndex: s.main_robots_allow_index !== "false",
-    contact: parseContactPage(s.main_contact_page),
+    contact: normalizePublicContact(parseContactPage(s.main_contact_page)),
+    supportLinks: {
+      phone: MAIN_SUPPORT_PHONE,
+      phoneTel: "+919949575426",
+      whatsapp: MAIN_SUPPORT_WHATSAPP,
+      telegram: (await getRaw("main_support_telegram")) || (await getRaw("support_telegram")) || "",
+      email: MAIN_SUPPORT_EMAIL,
+    },
   };
 }
 

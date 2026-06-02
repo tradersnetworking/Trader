@@ -10,6 +10,9 @@ import CookieConsent from "./invest/CookieConsent.jsx";
 import InvestFooter from "./invest/InvestFooter.jsx";
 import PwaInstallBanner from "./invest/PwaInstallBanner.jsx";
 import { Logo } from "./ui.jsx";
+import MainSupportWidget from "./main/MainSupportWidget.jsx";
+import MainShareWidget from "./main/MainShareWidget.jsx";
+import { MAIN_SUPPORT_PHONE, MAIN_SUPPORT_PHONE_TEL } from "../lib/mainContact.js";
 import { investHash, investPath, investUrl, mainUrl } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
@@ -155,13 +158,15 @@ export function MarketplaceLayout({ children }) {
     <div className="app-shell site-main-shell overflow-x-clip">
       <Shell
         homeTo="/"
-        brandLine1="AKASHYA INVESTMENTS"
-        brandLine2="Traders"
+        brandLine1="AKASHYA EXIM"
+        brandLine2="TRADERS"
         brandSub="Global Export & Import"
         links={links}
         actions={actions}
       />
       <main className="app-content">{children}</main>
+      <MainShareWidget />
+      <MainSupportWidget />
       <MarketplaceFooter />
     </div>
   );
@@ -320,6 +325,10 @@ function MarketplaceFooter() {
             </li>
           </ul>
           <p className="mt-4 text-xs text-slate-400">
+            <a href={`tel:${MAIN_SUPPORT_PHONE_TEL}`} className="hover:text-gold">
+              {MAIN_SUPPORT_PHONE}
+            </a>
+            <br />
             akshayaexim.com · akshayaexim.in ·{" "}
             <a href={investUrl("")} className="hover:text-gold">
               invest.akshayaexim.com
