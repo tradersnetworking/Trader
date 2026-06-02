@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal } from "../ui.jsx";
-import {
-  fetchAgreementPdfBlob,
-  fetchAgreementPdfViewUrl,
-  openAgreementPdfInNewTab,
-} from "../../lib/agreements-api.js";
+import { fetchAgreementPdfBlob } from "../../lib/agreements-api.js";
+import InlinePdfViewer from "./InlinePdfViewer.jsx";
 
 /**
- * Agreement PDF viewer: short-lived view URL in iframe (works without blob: quirks),
- * with blob fallback for download.
+ * Agreement PDF viewer — renders inside the modal via PDF.js (no new tab).
  */
 export default function AgreementPdfViewDialog({
   open,
@@ -23,7 +19,7 @@ export default function AgreementPdfViewDialog({
   agreementId,
   agreementUid,
 }) {
-  const [iframeSrc, setIframeSrc] = useState(null);
+  const [pdfBlob, setPdfBlob] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
@@ -38,21 +34,14 @@ export default function AgreementPdfViewDialog({
   const dlName = downloadFilename || `${agreementUid || "agreement"}.pdf`;
   const key = documentKey ?? agreementId;
 
-  const revokeBlobSrc = (src) => {
-    if (src?.startsWith("blob:")) URL.revokeObjectURL(src);
-  };
-
   useEffect(() => {
     if (!open) {
-      setIframeSrc((prev) => {
-        revokeBlobSrc(prev);
-        return null;
-      });
+      setPdfBlob(null);
       setErr("");
       return undefined;
     }
 
-    if (!key) {
+    if (!fetchBlobRef.current || !key) {
       setErr("No agreement selected");
       return undefined;
     }
@@ -60,22 +49,13 @@ export default function AgreementPdfViewDialog({
     let cancelled = false;
     setLoading(true);
     setErr("");
-    setIframeSrc(null);
+    setPdfBlob(null);
 
-    const load = async () => {
-      try {
-        const viewUrl = await fetchAgreementPdfViewUrl(key, { admin });
-        if (cancelled) return;
-        setIframeSrc(viewUrl);
-      } catch (urlErr) {
-        if (!fetchBlobRef.current) throw urlErr;
-        const blob = await fetchBlobRef.current();
-        if (cancelled) return;
-        setIframeSrc(URL.createObjectURL(blob));
-      }
-    };
-
-    load()
+    fetchBlobRef
+      .current()
+      .then((blob) => {
+        if (!cancelled) setPdfBlob(blob);
+      })
       .catch((e) => {
         if (!cancelled) setErr(e.message || "Could not load agreement PDF");
       })
@@ -88,25 +68,12 @@ export default function AgreementPdfViewDialog({
     };
   }, [open, key, admin]);
 
-  useEffect(
-    () => () => {
-      setIframeSrc((prev) => {
-        revokeBlobSrc(prev);
-        return null;
-      });
-    },
-    []
-  );
-
   const download = async () => {
     try {
-      let blob;
-      if (fetchBlobRef.current) {
+      let blob = pdfBlob;
+      if (!blob) {
+        if (!fetchBlobRef.current) return;
         blob = await fetchBlobRef.current();
-      } else if (agreementId) {
-        blob = await fetchAgreementPdfBlob(agreementId, { admin, download: true });
-      } else {
-        return;
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -120,22 +87,16 @@ export default function AgreementPdfViewDialog({
   };
 
   const retry = () => {
-    if (!key) return;
+    if (!fetchBlobRef.current || !key) return;
     setLoading(true);
     setErr("");
-    setIframeSrc(null);
-    fetchAgreementPdfViewUrl(key, { admin })
-      .then((viewUrl) => setIframeSrc(viewUrl))
-      .catch(async () => {
-        if (!fetchBlobRef.current) throw new Error("Could not load PDF");
-        const blob = await fetchBlobRef.current();
-        setIframeSrc(URL.createObjectURL(blob));
-      })
+    setPdfBlob(null);
+    fetchBlobRef
+      .current()
+      .then(setPdfBlob)
       .catch((e) => setErr(e.message || "Could not load PDF"))
       .finally(() => setLoading(false));
   };
-
-  const previewSrc = iframeSrc;
 
   return (
     <Modal open={open} onClose={onClose} title={displayTitle} wide>
@@ -149,65 +110,18 @@ export default function AgreementPdfViewDialog({
         {err && !loading && (
           <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 p-6 text-center">
             <p className="text-sm text-red-500">{err}</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button type="button" className="btn-outline text-sm" onClick={retry}>
-                Retry
-              </button>
-              {agreementId && (
-                <button
-                  type="button"
-                  className="btn-gold text-sm"
-                  onClick={() => openAgreementPdfInNewTab(agreementId, { admin }).catch((e) => setErr(e.message))}
-                >
-                  Open in new tab
-                </button>
-              )}
-            </div>
+            <button type="button" className="btn-outline text-sm" onClick={retry}>
+              Retry
+            </button>
           </div>
         )}
-        {previewSrc && !loading && !err && (
-          previewSrc.startsWith("blob:") ? (
-            <object
-              data={previewSrc}
-              type="application/pdf"
-              className="h-[70vh] w-full rounded-lg bg-white"
-              aria-label={displayTitle}
-            >
-              <embed src={previewSrc} type="application/pdf" className="h-[70vh] w-full" />
-              <p className="p-4 text-center text-sm text-muted-foreground">
-                PDF preview is not supported in this browser.{" "}
-                <button
-                  type="button"
-                  className="font-semibold text-primary underline"
-                  onClick={() => agreementId && openAgreementPdfInNewTab(agreementId, { admin })}
-                >
-                  Open PDF
-                </button>
-              </p>
-            </object>
-          ) : (
-            <iframe
-              title={displayTitle}
-              src={previewSrc}
-              className="h-[70vh] w-full rounded-lg border-0 bg-white"
-            />
-          )
-        )}
+        {pdfBlob && !loading && !err && <InlinePdfViewer blob={pdfBlob} />}
       </div>
-      {!allowDownload && !admin && previewSrc && (
+      {!allowDownload && !admin && pdfBlob && (
         <p className="mt-2 text-xs text-muted-foreground">View-only mode — download is disabled for investors.</p>
       )}
       <div className="mt-3 flex flex-wrap gap-2 print:hidden">
-        {agreementId && (
-          <button
-            type="button"
-            className="btn-outline text-sm"
-            onClick={() => openAgreementPdfInNewTab(agreementId, { admin }).catch((e) => setErr(e.message))}
-          >
-            Open in new tab
-          </button>
-        )}
-        {(allowDownload || admin) && agreementId && (
+        {(allowDownload || admin) && pdfBlob && (
           <button type="button" className="btn-gold text-sm" onClick={download}>
             Download PDF
           </button>

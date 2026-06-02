@@ -27,18 +27,6 @@ export async function fetchAgreementPdfBlob(agreementId, { download = false, adm
   return assertPdfBlob(blob);
 }
 
-export async function openAgreementPdfInNewTab(agreementId, { admin = false } = {}) {
-  try {
-    const viewUrl = await fetchAgreementPdfViewUrl(agreementId, { admin });
-    window.open(viewUrl, "_blank", "noopener,noreferrer");
-  } catch {
-    const blob = await fetchAgreementPdfBlob(agreementId, { admin });
-    const tabUrl = URL.createObjectURL(blob);
-    window.open(tabUrl, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(tabUrl), 120_000);
-  }
-}
-
 export async function fetchAgreementUserSettings() {
   return investApi("/agreements/settings/public");
 }
