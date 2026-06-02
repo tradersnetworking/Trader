@@ -198,6 +198,7 @@ export async function listInvestorAgreements(investorId) {
   });
   return rows.filter((ag) => {
     if (!ag.subscriptionId) return true;
+    if (ag.status === "SIGNED") return true;
     const st = ag.subscription?.status;
     return st === "ACTIVE" || st === "PENDING";
   });
@@ -221,6 +222,32 @@ async function resolveSignatureForAgreement(ag) {
 function agreementContentAsTemplate(ag) {
   const base = (ag.content || "").split(/\n\n---\n\*\*Digitally Signed/)[0].trim();
   return dbTemplateToContent({ type: ag.type, title: ag.title, content: base });
+}
+
+/** Always return a template shape safe for PDFKit (sections array required). */
+async function normalizeAgreementTemplate(ag) {
+  try {
+    const parsed = agreementContentAsTemplate(ag);
+    if (parsed?.sections?.length) return parsed;
+  } catch {
+    /* fall through */
+  }
+  try {
+    const fromDb = (await resolveTemplate(ag.type)).content;
+    if (fromDb?.sections?.length) return fromDb;
+  } catch {
+    /* fall through */
+  }
+  const def = getDefaultTemplate(ag.type);
+  if (def?.sections?.length) return def;
+  const body =
+    (ag.content || "").split(/\n\n---\n\*\*Digitally Signed/)[0].trim() ||
+    "Agreement terms as recorded in the investor portal.";
+  return {
+    type: ag.type || "investment",
+    title: ag.title || "Investment Agreement",
+    sections: [{ heading: ag.title || "Agreement", body }],
+  };
 }
 
 export async function autoSignPendingAgreementsForInvestor(investorId, meta = {}) {
@@ -297,23 +324,23 @@ export async function getAgreementPdfBuffer(agreementId, requesterId, { isAdmin 
   if (!isAdmin && ag.status === "PURGED") {
     throw new Error("This agreement is no longer available. The linked investment has ended.");
   }
-  if (!isAdmin && ag.subscriptionId) {
+  if (!isAdmin && ag.subscriptionId && ag.status !== "SIGNED") {
     const st = ag.subscription?.status;
     if (st && !["ACTIVE", "PENDING"].includes(st)) {
       throw new Error("This agreement is no longer available. The investment has ended.");
     }
   }
 
-  const filledData = JSON.parse(ag.filledData || "{}");
-  let template;
+  let filledData = {};
   try {
-    template = agreementContentAsTemplate(ag);
+    filledData = JSON.parse(ag.filledData || "{}");
   } catch {
-    template = (await resolveTemplate(ag.type)).content;
+    filledData = {};
   }
+  const template = await normalizeAgreementTemplate(ag);
   const signatureBase64 = await resolveSignatureForAgreement(ag);
   const { buffer } = await generateAgreementPDF({
-    template: { ...template, title: fillTemplatePlaceholders(template.title, filledData) },
+    template: { ...template, title: fillTemplatePlaceholders(template.title || ag.title, filledData) },
     filledData,
     agreementUid: ag.agreementUid,
     userName: ag.investor?.name || filledData.FULL_NAME || filledData.INVESTOR_NAME,

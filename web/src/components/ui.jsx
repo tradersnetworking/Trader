@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 
 
@@ -231,31 +232,25 @@ export function Stat({ label, value, accent = "navy" }) {
 
 
 export function Modal({ open, onClose, title, children, wide }) {
+  if (!open || typeof document === "undefined") return null;
 
-  if (!open) return null;
-
-  return (
-
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-
-      <div className={`card w-full ${wide ? "max-w-2xl" : "max-w-md"} max-h-[90vh] overflow-y-auto p-6`} onClick={(e) => e.stopPropagation()}>
-
-        <div className="mb-4 flex items-center justify-between">
-
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className={`card w-full ${wide ? "max-w-4xl" : "max-w-md"} max-h-[92vh] overflow-y-auto p-6`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-foreground">{title}</h3>
-
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">✕</button>
-
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+            ✕
+          </button>
         </div>
-
         {children}
-
       </div>
-
-    </div>
-
+    </div>,
+    document.body
   );
-
 }
 
 

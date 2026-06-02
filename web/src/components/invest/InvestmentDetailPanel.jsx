@@ -167,7 +167,7 @@ export default function InvestmentDetailPanel({ subscriptionId, onBack }) {
         </div>
       )}
 
-      {s.status === "ACTIVE" && s.agreements?.filter((a) => a.status !== "PURGED").length > 0 && (
+      {s.agreements?.filter((a) => a.status !== "PURGED").length > 0 && (
         <div className="card p-5">
           <h3 className="mb-3 font-bold text-foreground">Investment agreement</h3>
           {s.agreements

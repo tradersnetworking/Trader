@@ -159,7 +159,13 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
             <p className="mt-1 text-xs text-muted-foreground">{dateStr(a.createdAt)}{a.signedAt && ` · Signed ${dateStr(a.signedAt)}`}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" className="btn-outline text-xs" onClick={() => setView(a)}>Preview text</button>
-              <button type="button" className="btn-outline text-xs" onClick={() => setPdfView({ id: a.id, agreementUid: a.agreementUid })}>View PDF</button>
+              <button
+                type="button"
+                className="btn-outline text-xs"
+                onClick={() => setPdfView({ id: a.id, agreementUid: a.agreementUid || a.id.slice(-8) })}
+              >
+                View PDF
+              </button>
               {downloadEnabled && a.status === "SIGNED" && (
                 <button type="button" className="btn-outline text-xs" onClick={() => downloadPdf(a)}>Download PDF</button>
               )}
@@ -370,7 +376,13 @@ export function AdminAgreementsPanel({ isSuper }) {
                     <td className="p-3"><Badge status={a.status} /></td>
                     <td className="p-3">{dateStr(a.createdAt)}</td>
                     <td className="p-3 text-right space-x-2">
-                      <button type="button" className="text-xs font-semibold text-primary" onClick={() => setPdfView(a)}>PDF</button>
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-primary"
+                        onClick={() => setPdfView({ id: a.id, agreementUid: a.agreementUid || a.id.slice(-8) })}
+                      >
+                        View PDF
+                      </button>
                       {a.status !== "REVOKED" && a.status !== "PURGED" && (
                         <button type="button" className="text-xs text-rose-500" onClick={() => revoke(a.id)}>Revoke</button>
                       )}

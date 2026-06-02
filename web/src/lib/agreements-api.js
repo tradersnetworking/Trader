@@ -10,12 +10,20 @@ export async function fetchAgreementPdfBlob(agreementId, { download = false, adm
   if (!res.ok) {
     const ct = res.headers.get("content-type") || "";
     if (ct.includes("application/json")) {
-      const data = await res.json();
-      throw new Error(data.error || "Could not load PDF");
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(data.error || `Could not load PDF (${res.status})`);
     }
-    throw new Error("Could not load PDF");
+    const text = await res.text();
+    throw new Error(text?.slice(0, 200) || `Could not load PDF (${res.status})`);
   }
-  return res.blob();
+  const blob = await res.blob();
+  if (!blob.size) throw new Error("Agreement PDF is empty");
+  return blob;
 }
 
 export async function fetchAgreementUserSettings() {
