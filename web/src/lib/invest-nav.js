@@ -95,6 +95,8 @@ export const ADMIN_NAV = [
 
   { section: "Site, Content & Mail" },
 
+  { id: "support-links", label: "WhatsApp & Telegram", icon: "support", color: "emerald" },
+
   { id: "settings", label: "Site Settings", icon: "settings", color: "slate" },
 
   { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold" },
@@ -286,6 +288,8 @@ export function navShortLabel(label) {
     "Promo Codes": "Promos",
 
     "Mail Desk": "Mail",
+
+    "WhatsApp & Telegram": "Chat",
 
     "Site Settings": "Site",
 

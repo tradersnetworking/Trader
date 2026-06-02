@@ -12,6 +12,7 @@ import {
   LedgerTable,
   DepositPaymentAccountsPanel,
   InvestSettingsPanel,
+  SupportLinksPanel,
   CommunicationSettingsPanel,
   TodayPendingPayments,
   UpcomingPayments,
@@ -193,6 +194,8 @@ export default function InvestAdminDashboard() {
         return gate("support_tickets", "Mail Desk", <TabPanel><SupportMailPanel /></TabPanel>);
       case "gateways":
         return gate("manage_gateways", "Payment Gateways", <TabPanel><DepositPaymentAccountsPanel editable={hasPerm("manage_gateways")} /></TabPanel>);
+      case "support-links":
+        return gate("manage_settings", "WhatsApp & Telegram", <TabPanel><SupportLinksPanel /></TabPanel>);
       case "communication":
         return gate("manage_settings", "Mail Settings", <TabPanel><CommunicationSettingsPanel /></TabPanel>);
       case "settings":

@@ -66,17 +66,9 @@ export default function InvestSettingsPanel() {
         <Field label="Invest Portal URL"><input className="input" value={form.invest_portal_url || ""} onChange={(e) => set("invest_portal_url", e.target.value)} /></Field>
 
         <Field label="Support Email"><input className="input" type="email" value={form.support_email || ""} onChange={(e) => set("support_email", e.target.value)} /></Field>
-
-        <h3 className="pt-2 font-bold text-navy dark:text-white">Floating support button</h3>
-        <p className="text-xs text-muted-foreground">Links for the gold support icon on every invest page (tap → WhatsApp, Telegram, Support tickets).</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="WhatsApp number">
-            <input className="input" value={form.support_whatsapp || ""} onChange={(e) => set("support_whatsapp", e.target.value)} placeholder="+919876543210" />
-          </Field>
-          <Field label="Telegram username or link">
-            <input className="input" value={form.support_telegram || ""} onChange={(e) => set("support_telegram", e.target.value)} placeholder="@AkshayaInvest or https://t.me/..." />
-          </Field>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          WhatsApp & Telegram for the floating support button are under <strong>WhatsApp & Telegram</strong> in the admin sidebar.
+        </p>
 
         <Field label="Mail From"><input className="input" value={form.mail_from || ""} onChange={(e) => set("mail_from", e.target.value)} /></Field>
 

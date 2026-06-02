@@ -59,6 +59,7 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
   if (canManagePlans) actions.push({ icon: "plans", color: "gold", label: "Plans", onClick: () => onNavigate("plans") });
   if (isSuper) {
     actions.push(
+      { icon: "support", color: "emerald", label: "WhatsApp & Telegram", onClick: () => onNavigate("support-links") },
       { icon: "settings", color: "slate", label: "Site Settings", onClick: () => onNavigate("settings") },
       { icon: "plans", color: "gold", label: "Content Settings", onClick: () => onNavigate("homepage-cms") },
       { icon: "support", color: "cyan", label: "Mail Settings", onClick: () => onNavigate("communication") },

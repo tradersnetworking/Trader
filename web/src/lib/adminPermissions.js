@@ -28,6 +28,7 @@ export const ADMIN_TAB_PERMISSIONS = {
   plans: "manage_plans",
   gateways: "manage_gateways",
   communication: "manage_settings",
+  "support-links": "manage_settings",
   settings: "manage_settings",
   staff: "manage_staff",
 };

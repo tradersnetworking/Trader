@@ -4,6 +4,7 @@ export const AdminOverviewPanel = lazy(() => import("../../components/invest/Adm
 export const LedgerTable = lazy(() => import("../../components/invest/LedgerTable.jsx"));
 export const DepositPaymentAccountsPanel = lazy(() => import("../../components/invest/DepositPaymentAccountsPanel.jsx"));
 export const InvestSettingsPanel = lazy(() => import("../../components/invest/InvestSettingsPanel.jsx"));
+export const SupportLinksPanel = lazy(() => import("../../components/invest/SupportLinksPanel.jsx"));
 export const CommunicationSettingsPanel = lazy(() => import("../../components/invest/CommunicationSettingsPanel.jsx"));
 export const TodayPendingPayments = lazy(() => import("../../components/invest/MaturityPaymentsAdmin.jsx").then((m) => ({ default: m.TodayPendingPayments })));
 export const UpcomingPayments = lazy(() => import("../../components/invest/MaturityPaymentsAdmin.jsx").then((m) => ({ default: m.UpcomingPayments })));
