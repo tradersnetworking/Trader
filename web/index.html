@@ -6,11 +6,11 @@
       (function () {
         var h = (location.hostname || "").toLowerCase().replace(/^www\./, "");
         if (!h.startsWith("invest.") && "serviceWorker" in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function (regs) {
-            regs.forEach(function (r) {
-              r.unregister();
-            });
+          window.__aexSwCleanup = navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
           });
+        } else {
+          window.__aexSwCleanup = Promise.resolve();
         }
       })();
     </script>

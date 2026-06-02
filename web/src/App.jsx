@@ -25,7 +25,7 @@ import {
   isLocalDev,
 
   useSiteMode,
-  getAppSiteMode,
+  getRouteSet,
 
 } from "./lib/site.js";
 
@@ -325,6 +325,7 @@ export default function App() {
   const loc = useLocation();
 
   const mode = useSiteMode();
+  const routeSet = getRouteSet(mode);
 
 
 

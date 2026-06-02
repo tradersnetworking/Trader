@@ -53,6 +53,14 @@ export function useSiteMode() {
   return getAppSiteMode(pathname);
 }
 
+/** Route tree to mount — pinned by hostname in production, path-based on localhost. */
+export function getRouteSet(mode = "main") {
+  const kind = getHostKind();
+  if (kind === "invest-host") return "invest";
+  if (kind === "main-host") return "main";
+  return mode;
+}
+
 /** Route prefix for invest React Router paths */
 export function investRouteBase() {
   return isInvestHost() ? "" : "/invest";

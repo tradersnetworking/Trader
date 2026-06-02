@@ -12,6 +12,7 @@ import { I18nProvider } from "./lib/i18n/context.jsx";
 import ScreenshotProtection from "./components/invest/ScreenshotProtection.jsx";
 
 async function bootstrap() {
+  await (window.__aexSwCleanup || Promise.resolve());
   await loadPortalConfig();
   const initialPath = typeof window !== "undefined" ? window.location.pathname : "/";
   const initialMode = getAppSiteMode(initialPath);
