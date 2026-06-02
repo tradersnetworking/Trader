@@ -20,6 +20,7 @@ import { geoBlockMiddleware } from "./middleware/geoBlock.js";
 import { startBackgroundJobs } from "./jobs/backgroundJobs.js";
 import { ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
 import { buildSitemapXml, buildRobotsTxt, buildInvestRobotsTxt } from "./services/mainSiteSettings.js";
+import { getOrCreateIndexNowKey } from "./services/mainSeo.js";
 import { resolveHostKindSync, refreshDomainCache } from "./services/additionalDomains.js";
 import { resolveShareMeta, injectMetaIntoHtml } from "./services/shareMeta.js";
 import shareOg from "./routes/shareOg.js";
@@ -64,6 +65,18 @@ app.get("/robots.txt", async (req, res, next) => {
       return res.send(buildInvestRobotsTxt());
     }
     res.send(await buildRobotsTxt());
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** IndexNow key verification — main marketplace hosts only */
+app.get(/^\/([a-f0-9]{32})\.txt$/i, async (req, res, next) => {
+  try {
+    if (hostKind(req) === "invest") return next();
+    const key = await getOrCreateIndexNowKey();
+    if (req.params[0]?.toLowerCase() !== key) return next();
+    res.type("text/plain").send(key);
   } catch (e) {
     next(e);
   }

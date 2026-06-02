@@ -102,5 +102,30 @@ const gateways = await req("/api/main/payments/gateways");
 if (gateways.ok && Array.isArray(gateways.data?.gateways)) pass(`Main payment gateways (${gateways.data.gateways.length})`);
 else fail("Main payment gateways");
 
+console.log("\n— Main site SEO —");
+const cfgSeo = cfg.data?.config;
+if (cfgSeo?.robotsAllowIndex !== false) pass("Robots indexing enabled");
+else fail("Robots indexing disabled");
+if (cfgSeo?.seo?.title?.length > 20) pass("SEO title configured");
+else fail("SEO title");
+if (cfgSeo?.seo?.description?.length > 80) pass("SEO meta description");
+else fail("SEO description");
+
+const smRes = await fetch(`${base}/sitemap.xml`);
+const smText = smRes.ok ? await smRes.text() : "";
+if (smRes.ok && smText.includes("/privacy") && smText.includes("/contact") && smText.includes("xhtml:link")) {
+  const urlCount = (smText.match(/<loc>/g) || []).length;
+  pass(`Sitemap (${urlCount} URLs, hreflang + policy pages)`);
+} else fail("Sitemap SEO structure", smRes.status);
+
+const rbRes = await fetch(`${base}/robots.txt`);
+const rbText = rbRes.ok ? await rbRes.text() : "";
+if (rbRes.ok && rbText.includes("Sitemap:") && rbText.includes("akshayaexim.in")) pass("robots.txt (dual TLD sitemaps)");
+else fail("robots.txt");
+
+const seoCfg = cfgSeo?.seo;
+if (seoCfg?.canonicalUrl?.includes("akshayaexim.com")) pass("Canonical URL");
+else fail("Canonical URL", seoCfg?.canonicalUrl);
+
 console.log(failed ? `\nAUDIT FAILED — ${failed} issue(s).` : "\nAUDIT PASSED — portal ready for GitHub + VPS.");
 process.exit(failed ? 1 : 0);

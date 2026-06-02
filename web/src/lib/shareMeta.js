@@ -19,9 +19,9 @@ import {
 export { BRAND_MAIN, BRAND_INVEST };
 
 export const MAIN_HOME_DEFAULT = {
-  title: `${BRAND_MAIN} — Global Export, Import & B2B Marketplace`,
+  title: `${BRAND_MAIN} — Global Export, Import & B2B Marketplace India`,
   description:
-    "AKSHAYA EXIM TRADERS — export and import of agricultural products, food grains, FMCG, metals, chemicals, medical supplies and industrial goods. B2B & B2C trade across India and worldwide. Request quotes, track orders and grow your business.",
+    "AKSHAYA EXIM TRADERS — India export house for agricultural products, FMCG, metals, chemicals, medical and industrial goods. B2B & B2C import export, bulk quotes, secure payments. Mumbai +91 99495 75426.",
 };
 
 export const INVEST_HOME_DEFAULT = {
@@ -53,7 +53,22 @@ const MAIN_PAGES = {
   "/contact": {
     title: `Contact Trade Desk — ${BRAND_MAIN}`,
     description:
-      "Contact AKSHAYA EXIM for export, import, bulk RFQs and partnerships. General, export, import and support desks — Mon–Sat business hours IST.",
+      "Contact AKSHAYA EXIM TRADERS for export, import, bulk RFQs and payment support. Mumbai trade desk +91 99495 75426 — Mon–Sat 9 AM–7 PM IST.",
+  },
+  "/privacy": {
+    title: `Privacy Policy — ${BRAND_MAIN}`,
+    description:
+      "Privacy policy for akshayaexim.com and akshayaexim.in — how Akshaya Exim Traders collects, uses and protects your data for B2B trade and online payments.",
+  },
+  "/terms": {
+    title: `Terms of Service — ${BRAND_MAIN}`,
+    description:
+      "Terms of service for the AKSHAYA EXIM marketplace — platform use, quotes, orders, payments and liability for export–import trade.",
+  },
+  "/returns": {
+    title: `Returns & Refunds — ${BRAND_MAIN}`,
+    description:
+      "Returns and refund policy for bulk B2B and B2C orders on AKSHAYA EXIM TRADERS — quality claims, timelines and contact for return requests.",
   },
   "/faq": {
     title: `FAQ — ${BRAND_MAIN}`,
@@ -275,4 +290,29 @@ export function applyDocumentMeta({ title, description, image, url, siteName, ro
   upsert("name", "twitter:image", img);
 
   upsertLink("canonical", pageUrl.split("#")[0]);
+
+  const isMain =
+    typeof window !== "undefined" &&
+    !window.location.hostname.toLowerCase().startsWith("invest.");
+  if (isMain) {
+    const pathSuffix = window.location.pathname === "/" ? "" : window.location.pathname;
+    const origins = [
+      "https://akshayaexim.com",
+      "https://www.akshayaexim.com",
+      "https://akshayaexim.in",
+      "https://www.akshayaexim.in",
+    ];
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((el) => el.remove());
+    for (const origin of origins) {
+      const el = document.createElement("link");
+      el.setAttribute("rel", "alternate");
+      el.setAttribute("hreflang", "en");
+      el.setAttribute("href", `${origin}${pathSuffix}`);
+      document.head.appendChild(el);
+    }
+    upsert("name", "geo.region", "IN-MH");
+    upsert("name", "geo.placename", "Mumbai");
+    upsert("property", "og:locale", "en_IN");
+    if (image) upsert("property", "og:image:alt", `${siteName || BRAND_MAIN} — export & import marketplace`);
+  }
 }

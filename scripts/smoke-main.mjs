@@ -9,11 +9,25 @@ const checks = [
   ["/api/main/categories", (d) => Array.isArray(d.categories)],
   ["/robots.txt", null, async (res) => {
     const text = await res.text();
-    return res.ok && text.includes("Sitemap:") && !/^Disallow: \/$/m.test(text);
+    return (
+      res.ok &&
+      text.includes("Sitemap:") &&
+      text.includes("akshayaexim.in") &&
+      text.includes("Disallow: /login") &&
+      !/^Disallow: \/$/m.test(text)
+    );
   }],
   ["/sitemap.xml", null, async (res) => {
     const text = await res.text();
-    return res.ok && text.includes("<urlset") && !text.includes("invest.");
+    return (
+      res.ok &&
+      text.includes("<urlset") &&
+      text.includes("xmlns:xhtml") &&
+      text.includes("/privacy") &&
+      text.includes("/returns") &&
+      text.includes("hreflang") &&
+      !text.includes("invest.")
+    );
   }],
 ];
 

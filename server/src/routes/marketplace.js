@@ -24,6 +24,7 @@ import {
   buildRobotsTxt,
   pingSearchEngines,
 } from "../services/mainSiteSettings.js";
+import { submitMainSiteToSearchEngines } from "../services/mainSeo.js";
 import {
   getEmailCommunicationBundle,
   saveEmailCommunicationConfig,
@@ -73,6 +74,27 @@ router.get(
   asyncH(async (_req, res) => {
     res.setHeader("Content-Type", "text/plain");
     res.send(await buildRobotsTxt());
+  })
+);
+
+/** Submit sitemap to Google, Bing, Yandex & IndexNow — main site only (localhost or secret). */
+router.post(
+  "/public/seo/submit-indexing",
+  asyncH(async (req, res) => {
+    const secret = process.env.MAIN_SEO_SUBMIT_SECRET || "";
+    const hdr = String(req.headers["x-seo-submit-secret"] || "");
+    const ip = String(req.ip || "");
+    const local =
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      ip.endsWith("127.0.0.1") ||
+      ip === "::ffff:127.0.0.1";
+    if (!local && (!secret || hdr !== secret)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const settings = await getMainSiteSettings();
+    const result = await submitMainSiteToSearchEngines(settings);
+    res.json({ ok: true, ...result });
   })
 );
 

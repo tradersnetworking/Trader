@@ -8,6 +8,12 @@ import {
   MAIN_SUPPORT_WHATSAPP,
   normalizePublicContact,
 } from "../constants/mainContact.js";
+import { MAIN_SEO_DEFAULTS } from "../constants/mainSeo.js";
+import {
+  buildMainRobotsTxt,
+  buildMainSitemapXml,
+  submitMainSiteToSearchEngines,
+} from "./mainSeo.js";
 
 export const MAIN_SITE_KEYS = [
   "main_google_login_enabled",
@@ -35,11 +41,9 @@ const DEFAULT_CONTACT_PAGE = DEFAULT_MAIN_CONTACT_PAGE;
 const DEFAULTS = {
   main_google_login_enabled: "false",
   main_google_client_id: "",
-  main_seo_title: "AKSHAYA EXIM TRADERS — Global Export, Import & B2B Marketplace",
-  main_seo_description:
-    "AKSHAYA EXIM TRADERS — global export and import of agricultural products, FMCG, metals, chemicals, medical supplies, and industrial goods. B2B & B2C trade across India and worldwide.",
-  main_seo_keywords:
-    "export, import, B2B marketplace, EXIM, agricultural export, FMCG trade, metals, chemicals, India export house, AKSHAYA Exim",
+  main_seo_title: MAIN_SEO_DEFAULTS.title,
+  main_seo_description: MAIN_SEO_DEFAULTS.description,
+  main_seo_keywords: MAIN_SEO_DEFAULTS.keywords,
   main_seo_og_image: "/assets/logo.png",
   main_seo_canonical_url: "https://akshayaexim.com",
   main_ga4_measurement_id: "",
@@ -50,8 +54,7 @@ const DEFAULTS = {
   main_sitemap_auto_ping: "true",
   main_site_name: "AKSHAYA EXIM TRADERS",
   main_sitemap_last_ping: "",
-  main_json_ld_description:
-    "Global export, import and trade marketplace for agricultural, FMCG, metals, chemicals and industrial products.",
+  main_json_ld_description: MAIN_SEO_DEFAULTS.jsonLdDescription,
   main_contact_page: JSON.stringify(DEFAULT_CONTACT_PAGE),
   main_support_telegram: "",
 };
@@ -165,62 +168,11 @@ function siteOrigin(settings) {
 }
 
 export async function buildSitemapXml() {
-  const settings = await getMainSiteSettings();
-  const origin = siteOrigin(settings);
-  const staticPaths = [
-    "/",
-    "/categories",
-    "/products",
-    "/products?listingType=EXPORT",
-    "/products?listingType=IMPORT",
-    "/sell",
-    "/about",
-    "/contact",
-    "/faq",
-    "/privacy",
-    "/terms",
-    "/returns",
-  ];
-
-  const [products, categories] = await Promise.all([
-    mainDb.product.findMany({ select: { slug: true, updatedAt: true }, take: 500, orderBy: { updatedAt: "desc" } }),
-    mainDb.category.findMany({ select: { slug: true, createdAt: true } }),
-  ]);
-
-  const urls = [
-    ...staticPaths.map((p) => ({ loc: `${origin}${p}`, lastmod: new Date().toISOString().slice(0, 10) })),
-    ...categories.filter((c) => c.slug).map((c) => ({
-      loc: `${origin}/categories?cat=${encodeURIComponent(c.slug)}`,
-      lastmod: c.createdAt?.toISOString?.()?.slice(0, 10),
-    })),
-    ...products.filter((p) => p.slug).map((p) => ({
-      loc: `${origin}/products/${p.slug}`,
-      lastmod: p.updatedAt?.toISOString?.()?.slice(0, 10),
-    })),
-  ];
-
-  const body = urls
-    .map(
-      (u) =>
-        `  <url><loc>${escapeXml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}<changefreq>weekly</changefreq><priority>0.7</priority></url>`
-    )
-    .join("\n");
-
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
-}
-
-function escapeXml(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return buildMainSitemapXml(await getMainSiteSettings());
 }
 
 export async function buildRobotsTxt() {
-  const settings = await getMainSiteSettings();
-  const origin = siteOrigin(settings);
-  const allow = settings.main_robots_allow_index !== "false";
-  if (!allow) {
-    return "User-agent: *\nDisallow: /\n";
-  }
-  return `User-agent: *\nAllow: /\nDisallow: /dashboard\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n`;
+  return buildMainRobotsTxt(await getMainSiteSettings());
 }
 
 /** Invest subdomain — block all crawlers; never submit to search engines. */
@@ -230,28 +182,14 @@ export function buildInvestRobotsTxt() {
 
 export async function pingSearchEngines() {
   const settings = await getMainSiteSettings();
-  const origin = siteOrigin(settings);
-  const sitemapUrl = `${origin}/sitemap.xml`;
-  const endpoints = [
-    `https://www.google.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-    `https://www.bing.com/ping?sitemap=${encodeURIComponent(sitemapUrl)}`,
-  ];
-  const results = [];
-  for (const url of endpoints) {
-    try {
-      const res = await fetch(url, { method: "GET" });
-      results.push({ url, ok: res.ok, status: res.status });
-    } catch (e) {
-      results.push({ url, ok: false, error: e.message });
-    }
-  }
-  const stamp = new Date().toISOString();
-  await investDb.investSetting.upsert({
-    where: { key: "main_sitemap_last_ping" },
-    create: { key: "main_sitemap_last_ping", value: stamp },
-    update: { value: stamp },
-  });
-  return { sitemapUrl, pingedAt: stamp, results };
+  const out = await submitMainSiteToSearchEngines(settings);
+  return {
+    sitemapUrl: out.sitemapUrl,
+    pingedAt: out.pingedAt,
+    urlCount: out.urlCount,
+    results: out.ping,
+    indexNow: out.indexNow,
+  };
 }
 
 export async function getMainSiteAdminStats() {

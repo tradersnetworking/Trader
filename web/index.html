@@ -59,6 +59,35 @@
         } else {
           root.classList.add("site-main");
           root.classList.remove("site-invest");
+          var mainTitle = "AKSHAYA EXIM TRADERS \u2014 Global Export, Import & B2B Marketplace India";
+          var mainDesc =
+            "AKSHAYA EXIM TRADERS \u2014 India export house for agricultural, FMCG, metals, chemicals and industrial goods. B2B import export, bulk quotes, secure payments.";
+          var mainSite = "AKSHAYA EXIM TRADERS";
+          var mainUrl = location.origin + "/";
+          var mainOg = location.origin + "/assets/logo.png";
+          document.title = mainTitle;
+          function setMeta(attr, name, val) {
+            if (!val) return;
+            var el = document.querySelector("meta[" + attr + '="' + name + '"]');
+            if (!el) {
+              el = document.createElement("meta");
+              el.setAttribute(attr, name);
+              document.head.appendChild(el);
+            }
+            el.setAttribute("content", val);
+          }
+          setMeta("name", "description", mainDesc);
+          setMeta("name", "robots", "index,follow,max-image-preview:large");
+          setMeta("property", "og:title", mainTitle);
+          setMeta("property", "og:description", mainDesc);
+          setMeta("property", "og:site_name", mainSite);
+          setMeta("property", "og:url", mainUrl);
+          setMeta("property", "og:image", mainOg);
+          setMeta("property", "og:locale", "en_IN");
+          setMeta("name", "twitter:card", "summary_large_image");
+          setMeta("name", "twitter:title", mainTitle);
+          setMeta("name", "twitter:description", mainDesc);
+          setMeta("name", "twitter:image", mainOg);
           if ("serviceWorker" in navigator) {
             window.__aexSwCleanup = navigator.serviceWorker.getRegistrations().then(function (regs) {
               return Promise.all(regs.map(function (r) { return r.unregister(); }));

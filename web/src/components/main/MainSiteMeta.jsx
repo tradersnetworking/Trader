@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { useSiteMode } from "../../lib/site.js";
 import { applyDocumentMeta, resolveMainPageMeta } from "../../lib/shareMeta.js";
+import { MAIN_SUPPORT_EMAIL, MAIN_SUPPORT_PHONE_TEL } from "../../lib/mainContact.js";
 
 let cachedConfig = null;
 let configPromise = null;
@@ -130,15 +131,53 @@ export default function MainSiteMeta() {
       ld.type = "application/ld+json";
       document.head.appendChild(ld);
     }
-    ld.textContent = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: page.siteName || "AKSHAYA EXIM TRADERS",
-      url: canonicalBase,
-      logo: page.image?.startsWith("http") ? page.image : `${window.location.origin}/assets/logo.png`,
-      description: cfg?.seo?.jsonLdDescription || page.description,
-      sameAs: [],
-    });
+    const orgName = page.siteName || "AKSHAYA EXIM TRADERS";
+    const logo = page.image?.startsWith("http") ? page.image : `${canonicalBase}/assets/logo.png`;
+    const graph = [
+      {
+        "@type": "Organization",
+        "@id": `${canonicalBase}/#organization`,
+        name: orgName,
+        url: canonicalBase,
+        logo,
+        description: cfg?.seo?.jsonLdDescription || page.description,
+        email: MAIN_SUPPORT_EMAIL,
+        telephone: MAIN_SUPPORT_PHONE_TEL,
+        areaServed: "Worldwide",
+        sameAs: ["https://akshayaexim.in"],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${canonicalBase}/#website`,
+        url: canonicalBase,
+        name: orgName,
+        publisher: { "@id": `${canonicalBase}/#organization` },
+        inLanguage: "en-IN",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: { "@type": "EntryPoint", urlTemplate: `${canonicalBase}/products?q={search_term_string}` },
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ];
+    if (pathname === "/faq") {
+      graph.push({
+        "@type": "FAQPage",
+        "@id": `${pageUrl}#faq`,
+        url: pageUrl,
+        isPartOf: { "@id": `${canonicalBase}/#website` },
+      });
+    }
+    if (product?.name) {
+      graph.push({
+        "@type": "Product",
+        name: product.name,
+        description: product.description?.slice(0, 500) || page.description,
+        url: pageUrl,
+        brand: { "@type": "Brand", name: orgName },
+      });
+    }
+    ld.textContent = JSON.stringify({ "@context": "https://schema.org", "@graph": graph });
   }, [mode, cfg, pathname, product]);
 
   return null;

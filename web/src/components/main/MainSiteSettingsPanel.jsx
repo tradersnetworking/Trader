@@ -60,7 +60,13 @@ export default function MainSiteSettingsPanel() {
       const d = await mainApi("/admin/site-settings", { method: "PUT", body: payload });
       setForm(d.settings);
       if (d.contactPage) setContact(d.contactPage);
-      setMsg(d.ping ? `Saved. Sitemap pinged — ${d.ping.results?.filter((r) => r.ok).length || 0} search engine(s) notified.` : "Site settings saved.");
+      const pingOk = d.ping?.results?.filter((r) => r.ok).length || 0;
+      const indexOk = d.ping?.indexNow?.results?.filter((r) => r.ok).length || 0;
+      setMsg(
+        d.ping
+          ? `Saved. Sitemap submitted — ${pingOk} ping(s), ${indexOk} IndexNow endpoint(s), ${d.ping.urlCount || 0} URLs.`
+          : "Site settings saved."
+      );
       load();
     } catch (e2) {
       setErr(e2.message);
@@ -74,7 +80,9 @@ export default function MainSiteSettingsPanel() {
     setErr("");
     try {
       const d = await mainApi("/admin/site-settings/ping-sitemap", { method: "POST" });
-      setMsg(`Sitemap submitted: ${d.ping?.sitemapUrl}`);
+      const pingOk = d.ping?.results?.filter((r) => r.ok).length || 0;
+      const indexOk = d.ping?.indexNow?.results?.filter((r) => r.ok).length || 0;
+      setMsg(`Submitted ${d.ping?.urlCount || 0} URLs — ${d.ping?.sitemapUrl} (${pingOk} ping, ${indexOk} IndexNow OK)`);
       load();
     } catch (e2) {
       setErr(e2.message);
@@ -136,14 +144,21 @@ export default function MainSiteSettingsPanel() {
 
         <div className="flex flex-wrap gap-2 border-t border-border pt-4">
           <button type="submit" disabled={busy} className="btn-gold disabled:opacity-50">{busy ? "Saving…" : "Save settings"}</button>
-          <button type="button" disabled={busy} onClick={pingNow} className="btn-outline disabled:opacity-50">Submit sitemap to search engines</button>
+          <button type="button" disabled={busy} onClick={pingNow} className="btn-outline disabled:opacity-50">
+            Submit to Google, Bing, Yandex & IndexNow
+          </button>
         </div>
 
         {stats?.integrations && (
           <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
             <p><strong>Sitemap:</strong> <a href={stats.integrations.sitemapUrl} target="_blank" rel="noreferrer" className="text-primary underline">{stats.integrations.sitemapUrl}</a></p>
             <p className="mt-1"><strong>Robots:</strong> <a href={stats.integrations.robotsUrl} target="_blank" rel="noreferrer" className="text-primary underline">{stats.integrations.robotsUrl}</a></p>
-            <p className="mt-2">After saving verification codes, confirm ownership in <a href="https://search.google.com/search-console" target="_blank" rel="noreferrer" className="text-primary underline">Google Search Console</a> and <a href="https://www.bing.com/webmasters" target="_blank" rel="noreferrer" className="text-primary underline">Bing Webmaster Tools</a>.</p>
+            <p className="mt-2">
+              Indexing uses sitemap ping (Google, Bing, Yandex) plus IndexNow for faster global discovery. Add your site in{" "}
+              <a href="https://search.google.com/search-console" target="_blank" rel="noreferrer" className="text-primary underline">Google Search Console</a>,{" "}
+              <a href="https://www.bing.com/webmasters" target="_blank" rel="noreferrer" className="text-primary underline">Bing Webmaster</a> and{" "}
+              <a href="https://webmaster.yandex.com" target="_blank" rel="noreferrer" className="text-primary underline">Yandex Webmaster</a> with verification codes above.
+            </p>
           </div>
         )}
       </form>

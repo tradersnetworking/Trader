@@ -52,5 +52,18 @@ Array.isArray(gateways.data?.gateways) && gateways.data.gateways.length > 0
   ? pass(`Main gateways (${gateways.data.gateways.length})`)
   : fail("Main gateways");
 
+const sm = await fetch(`${MAIN}/sitemap.xml`);
+const smText = sm.ok ? await sm.text() : "";
+if (sm.ok && smText.includes("/privacy") && smText.includes("xhtml:link")) {
+  pass(`Production sitemap (${(smText.match(/<loc>/g) || []).length} URLs)`);
+} else fail("Production sitemap SEO");
+
+const rb = await fetch(`${MAIN}/robots.txt`);
+const rbText = rb.ok ? await rb.text() : "";
+rb.ok && rbText.includes("Sitemap:") ? pass("Production robots.txt") : fail("Production robots.txt");
+
+const siteCfg = await get(`${MAIN}/api/main/public/site-config`);
+siteCfg.data?.config?.robotsAllowIndex !== false ? pass("Production indexing allowed") : fail("Indexing disabled");
+
 console.log(failed ? `\nPRODUCTION AUDIT FAILED (${failed})` : "\nPRODUCTION AUDIT PASSED");
 process.exit(failed ? 1 : 0);
