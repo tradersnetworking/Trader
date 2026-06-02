@@ -188,10 +188,12 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
 
       <AgreementPdfViewDialog
         open={!!pdfView}
+        onClose={() => setPdfView(null)}
+        documentKey={pdfView?.id}
         agreementId={pdfView?.id}
         agreementUid={pdfView?.agreementUid}
         allowDownload={downloadEnabled}
-        onClose={() => setPdfView(null)}
+        fetchBlob={() => (pdfView?.id ? fetchAgreementPdfBlob(pdfView.id) : Promise.reject(new Error("No agreement selected")))}
       />
 
       <Modal open={!!sign} onClose={() => { setSign(null); setSignatureData(null); }} title={`Sign: ${sign?.title || "Agreement"}`} wide>
@@ -497,7 +499,15 @@ export function AdminAgreementsPanel({ isSuper }) {
         <button type="button" className="btn-gold mt-3 w-full" onClick={saveTemplate}>Save Template</button>
       </Modal>
 
-      <AgreementPdfViewDialog admin open={!!pdfView} agreementId={pdfView?.id} agreementUid={pdfView?.agreementUid} onClose={() => setPdfView(null)} />
+      <AgreementPdfViewDialog
+        admin
+        open={!!pdfView}
+        onClose={() => setPdfView(null)}
+        documentKey={pdfView?.id}
+        agreementId={pdfView?.id}
+        agreementUid={pdfView?.agreementUid}
+        fetchBlob={() => fetchAgreementPdfBlob(pdfView.id, { admin: true })}
+      />
     </div>
   );
 }

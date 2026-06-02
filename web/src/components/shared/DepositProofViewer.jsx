@@ -1,9 +1,6 @@
 import { Modal, Badge } from "../ui.jsx";
 import { inr, dateStr } from "../../lib/format.js";
-
-function isPdf(url) {
-  return /\.pdf(\?|$)/i.test(url || "");
-}
+import SecureUploadLink from "../invest/SecureUploadLink.jsx";
 
 function accountLabel(acct) {
   if (!acct) return "—";
@@ -13,7 +10,7 @@ function accountLabel(acct) {
 
 /** Admin popup to review deposit proof before approve/reject. */
 export default function DepositProofViewer({ open, deposit, onClose, onApprove, onReject, busy }) {
-  if (!open || !deposit) return null;
+  if (!deposit) return null;
   const proof = deposit.proofImage;
 
   return (
@@ -32,14 +29,10 @@ export default function DepositProofViewer({ open, deposit, onClose, onApprove, 
         <div className="rounded-lg border border-border p-3">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Payment proof</p>
           {!proof && <p className="text-sm text-rose-500">No proof uploaded.</p>}
-          {proof && isPdf(proof) && (
-            <iframe title="Deposit proof" src={proof} className="h-96 w-full rounded border border-border bg-muted/20" />
-          )}
-          {proof && !isPdf(proof) && (
-            <img src={proof} alt="Deposit proof" className="mx-auto max-h-[28rem] w-full rounded object-contain" />
-          )}
           {proof && (
-            <a href={proof} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-primary underline">Open in new tab</a>
+            <SecureUploadLink url={proof} previewTitle="Deposit payment proof" scope="invest" className="btn-gold text-sm">
+              View payment proof
+            </SecureUploadLink>
           )}
         </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 
@@ -232,6 +232,15 @@ export function Stat({ label, value, accent = "navy" }) {
 
 
 export function Modal({ open, onClose, title, children, wide }) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
@@ -252,8 +261,6 @@ export function Modal({ open, onClose, title, children, wide }) {
     document.body
   );
 }
-
-
 
 export function Alert({ type = "info", children }) {
 

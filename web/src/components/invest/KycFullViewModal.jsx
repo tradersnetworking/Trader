@@ -1,4 +1,5 @@
 import { Badge, Modal } from "../ui.jsx";
+import SecureUploadLink from "./SecureUploadLink.jsx";
 
 const DOC_FIELDS = [
   ["photo", "Passport Photo"],
@@ -48,12 +49,8 @@ const DETAIL_FIELDS = [
   ["Verified", (k) => (k.verifiedAt ? new Date(k.verifiedAt).toLocaleString("en-IN") : null)],
 ];
 
-function isPdf(url) {
-  return /\.pdf(\?|$)/i.test(url || "");
-}
-
 export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReject }) {
-  if (!open || !kyc) return null;
+  if (!kyc) return null;
 
   const title = kyc.fullName || kyc.investor?.name || "Investor";
   const docs = DOC_FIELDS.map(([field, label]) => ({ field, label, url: kyc[field] })).filter((d) => d.url);
@@ -88,18 +85,13 @@ export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReje
         <div>
           <h4 className="mb-3 text-sm font-bold text-foreground">Uploaded documents</h4>
           {docs.length === 0 && <p className="text-sm text-muted-foreground">No documents uploaded.</p>}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {docs.map(({ field, label, url }) => (
-              <div key={field} className="rounded-lg border border-border p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-                {isPdf(url) ? (
-                  <iframe title={label} src={url} className="h-64 w-full rounded border border-border bg-muted/20" />
-                ) : (
-                  <img src={url} alt={label} className="mx-auto max-h-64 w-full rounded object-contain" />
-                )}
-                <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-primary underline">
-                  Open in new tab
-                </a>
+              <div key={field} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
+                <SecureUploadLink url={url} previewTitle={label} scope="invest">
+                  View
+                </SecureUploadLink>
               </div>
             ))}
           </div>

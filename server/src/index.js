@@ -25,6 +25,7 @@ import { resolveHostKindSync, refreshDomainCache } from "./services/additionalDo
 import { resolveShareMeta, injectMetaIntoHtml } from "./services/shareMeta.js";
 import shareOg from "./routes/shareOg.js";
 import { paymentOrigin } from "./utils/paymentUrls.js";
+import { createSecureUploadRouter } from "./routes/secureUploads.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -84,11 +85,13 @@ app.get(/^\/([a-f0-9]{32})\.txt$/i, async (req, res, next) => {
 
 // MAIN DOMAIN (akshayaexim.com / .in) - marketplace
 app.use("/api/main/auth", mainAuth);
+app.use("/api/main", createSecureUploadRouter("main"));
 app.use("/api/main", marketplace);
 
 // INVEST SUBDOMAIN (invest.akshayaexim.com / .in)
 app.use("/api/invest/auth", investAuth);
 app.use("/api/invest/public", investPublic);
+app.use("/api/invest", createSecureUploadRouter("invest"));
 app.use("/api/invest", investInvestor);
 app.use("/api/invest/admin", investAdmin);
 app.use("/api/invest/security", investSecurity);

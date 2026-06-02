@@ -27,6 +27,7 @@ import {
 
 } from "../../lib/kyc-document-fields.js";
 import KycSignatureField from "./KycSignatureField.jsx";
+import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
 
@@ -1161,21 +1162,9 @@ function KycDocumentsList({ docs, compact }) {
 
           </div>
 
-          <a
-
-            href={d.url}
-
-            target="_blank"
-
-            rel="noreferrer"
-
-            className="btn-outline shrink-0 px-2 py-1 text-xs"
-
-          >
-
+          <SecureUploadLink url={d.url} previewTitle={d.label} scope="invest" className="btn-outline shrink-0 px-2 py-1 text-xs">
             View
-
-          </a>
+          </SecureUploadLink>
 
         </div>
 

@@ -66,7 +66,7 @@ export default function MainTradeKycPanel() {
       {msg && <Alert type="success">{msg}</Alert>}
       {err && <Alert type="error">{err}</Alert>}
 
-      <KycDocumentViewer open={Boolean(viewDocs)} kyc={viewDocs} onClose={() => setViewDocs(null)} title="Your submitted documents" />
+      <KycDocumentViewer open={Boolean(viewDocs)} kyc={viewDocs} onClose={() => setViewDocs(null)} title="Your submitted documents" scope="main" />
 
       <form onSubmit={submit} className="card space-y-4 p-5">
         <Field label="I am a">

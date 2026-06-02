@@ -24,7 +24,7 @@ export default function MainTradeKycAdminPanel() {
 
   return (
     <div className="space-y-4">
-      <KycDocumentViewer open={Boolean(viewDocs)} kyc={viewDocs} onClose={() => setViewDocs(null)} />
+      <KycDocumentViewer open={Boolean(viewDocs)} kyc={viewDocs} onClose={() => setViewDocs(null)} scope="main" />
       <p className="text-sm text-muted-foreground">Review KYC for purchasers and suppliers — India and international documents.</p>
       <div className="flex flex-wrap gap-2">
         {[["", "All"], ["PENDING", "Pending"], ["APPROVED", "Approved"], ["REJECTED", "Rejected"]].map(([v, l]) => (
