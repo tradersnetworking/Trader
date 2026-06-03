@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 
-import { getToken, investApi } from "../../lib/api.js";
+import { investApi, investApiForm } from "../../lib/api.js";
+import { validateUploadFiles } from "../../lib/upload-limits.js";
+import KycDocumentsList from "../shared/KycDocumentsList.jsx";
 
 import { Badge, Field, Alert } from "../ui.jsx";
 import PhoneInput from "../shared/PhoneInput.jsx";
@@ -309,35 +311,14 @@ export default function KycPanel({ kyc, onRefresh }) {
     Object.entries(files).forEach(([k, f]) => f && fd.append(k, f));
 
     try {
-
-      const res = await fetch("/api/invest/kyc", {
-
-        method: "POST",
-
-        headers: { Authorization: `Bearer ${getToken("invest")}` },
-
-        body: fd,
-
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error || "Submission failed");
-
+      await investApiForm("/kyc", fd);
       setMsg("KYC submitted for admin review. Our team will verify within 24–48 hours.");
-
       setFiles({});
-
       onRefresh?.();
-
     } catch (e) {
-
       setErr(e.message);
-
     } finally {
-
       setSubmitting(false);
-
     }
 
   };
@@ -442,7 +423,7 @@ export default function KycPanel({ kyc, onRefresh }) {
 
       {tab === "kyc" && submitted ? (
 
-        <KycStatusView kyc={kyc} docs={existingDocs} />
+        <KycStatusView kyc={kyc} />
 
       ) : tab === "kyc" && (
 
@@ -966,7 +947,7 @@ export default function KycPanel({ kyc, onRefresh }) {
 
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previously uploaded</p>
 
-              <KycDocumentsList docs={existingDocs} compact />
+              <KycDocumentsList kyc={kyc} compact scope="invest" />
 
             </div>
 
@@ -1036,7 +1017,7 @@ function Stepper({ step }) {
 
 
 
-function KycStatusView({ kyc, docs }) {
+function KycStatusView({ kyc }) {
 
   const verified = kyc.status === "APPROVED";
 
@@ -1108,7 +1089,7 @@ function KycStatusView({ kyc, docs }) {
 
         )}
 
-        <KycDocumentsList docs={docs} />
+        <KycDocumentsList kyc={kyc} scope="invest" locked={verified} />
 
       </div>
 
@@ -1129,46 +1110,6 @@ function InfoTile({ label, value }) {
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
 
       <p className="truncate text-sm font-medium">{value || "—"}</p>
-
-    </div>
-
-  );
-
-}
-
-
-
-function KycDocumentsList({ docs, compact }) {
-
-  if (!docs?.length) {
-
-    return <p className="py-3 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>;
-
-  }
-
-  return (
-
-    <div className={`divide-y divide-border rounded-lg border border-border bg-muted/30 ${compact ? "text-xs" : "text-sm"}`}>
-
-      {docs.map((d) => (
-
-        <div key={d.key} className={`flex items-center justify-between gap-3 ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}>
-
-          <div className="min-w-0 text-left">
-
-            <p className="truncate font-medium text-foreground">{d.label}</p>
-
-            <p className="truncate text-[11px] text-muted-foreground">{filenameFromUrl(d.url)}</p>
-
-          </div>
-
-          <SecureUploadLink url={d.url} previewTitle={d.label} scope="invest" className="btn-outline shrink-0 px-2 py-1 text-xs">
-            View
-          </SecureUploadLink>
-
-        </div>
-
-      ))}
 
     </div>
 

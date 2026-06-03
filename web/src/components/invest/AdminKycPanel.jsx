@@ -109,14 +109,9 @@ export default function AdminKycPanel({ onUpdated }) {
                       View
                     </button>
                     {k.status === "PENDING" && (
-                      <>
-                        <button type="button" className="btn-gold px-3 py-1 text-xs" onClick={() => decide(k.id, "APPROVED")}>
-                          Approve
-                        </button>
-                        <button type="button" className="btn-outline px-3 py-1 text-xs text-rose-600" onClick={() => decide(k.id, "REJECTED")}>
-                          Reject
-                        </button>
-                      </>
+                      <button type="button" className="btn-outline px-3 py-1 text-xs text-rose-600" onClick={() => decide(k.id, "REJECTED")}>
+                        Reject
+                      </button>
                     )}
                   </div>
                 </td>

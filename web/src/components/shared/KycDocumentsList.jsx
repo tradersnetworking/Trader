@@ -52,7 +52,7 @@ export default function KycDocumentsList({
 }) {
   if (!kyc) return null;
 
-  const rows = showMissing
+  let rows = showMissing
     ? fields.map((f) => ({
         key: f.key,
         label: f.label,
@@ -63,6 +63,11 @@ export default function KycDocumentsList({
         label: f.label,
         url: kyc[f.key],
       }));
+
+  if (kyc.signatureData && !rows.some((r) => r.key === "signature" && r.url)) {
+    const sigRow = { key: "signatureData", label: "Signature (drawn)", url: kyc.signatureData };
+    rows = showMissing ? [...rows, sigRow] : [...rows, sigRow];
+  }
 
   if (rows.length === 0) {
     return <p className="py-4 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>;

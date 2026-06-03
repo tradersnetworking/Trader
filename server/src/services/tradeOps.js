@@ -21,29 +21,41 @@ export async function getTradeKyc(userId) {
   return mainDb.tradeKyc.findUnique({ where: { userId }, include: { user: true } });
 }
 
-export async function upsertTradeKyc(userId, body) {
+const TRADE_DOC_FIELDS = [
+  "photo",
+  "panDocument",
+  "aadhaarFront",
+  "aadhaarBack",
+  "passportDocument",
+  "companyRegDoc",
+  "addressProof",
+  "bankProof",
+  "cancelledCheque",
+];
+
+export async function upsertTradeKyc(userId, body, existing = null) {
   const data = {
-    partnerType: body.partnerType || "BUYER",
-    country: body.country || "IN",
-    phoneCountryCode: body.phoneCountryCode || "+91",
-    fullName: body.fullName,
-    companyName: body.companyName,
-    phone: body.phone,
-    email: body.email,
-    address: body.address,
-    city: body.city,
-    state: body.state,
-    postalCode: body.postalCode,
-    panNumber: body.panNumber,
-    aadhaarNumber: body.aadhaarNumber,
-    gstNumber: body.gstNumber,
-    passportNumber: body.passportNumber,
-    taxId: body.taxId,
-    companyRegNo: body.companyRegNo,
-    bankName: body.bankName,
-    bankAccount: body.bankAccount,
-    ifscCode: body.ifscCode,
-    swiftCode: body.swiftCode,
+    partnerType: body.partnerType || existing?.partnerType || "BUYER",
+    country: body.country || existing?.country || "IN",
+    phoneCountryCode: body.phoneCountryCode || existing?.phoneCountryCode || "+91",
+    fullName: body.fullName ?? existing?.fullName,
+    companyName: body.companyName ?? existing?.companyName,
+    phone: body.phone ?? existing?.phone,
+    email: body.email ?? existing?.email,
+    address: body.address ?? existing?.address,
+    city: body.city ?? existing?.city,
+    state: body.state ?? existing?.state,
+    postalCode: body.postalCode ?? existing?.postalCode,
+    panNumber: body.panNumber ?? existing?.panNumber,
+    aadhaarNumber: body.aadhaarNumber ?? existing?.aadhaarNumber,
+    gstNumber: body.gstNumber ?? existing?.gstNumber,
+    passportNumber: body.passportNumber ?? existing?.passportNumber,
+    taxId: body.taxId ?? existing?.taxId,
+    companyRegNo: body.companyRegNo ?? existing?.companyRegNo,
+    bankName: body.bankName ?? existing?.bankName,
+    bankAccount: body.bankAccount ?? existing?.bankAccount,
+    ifscCode: body.ifscCode ?? existing?.ifscCode,
+    swiftCode: body.swiftCode ?? existing?.swiftCode,
     photo: body.photo,
     panDocument: body.panDocument,
     aadhaarFront: body.aadhaarFront,
@@ -54,7 +66,11 @@ export async function upsertTradeKyc(userId, body) {
     bankProof: body.bankProof,
     cancelledCheque: body.cancelledCheque,
     status: "PENDING",
+    remarks: null,
   };
+  for (const field of TRADE_DOC_FIELDS) {
+    if (!data[field] && existing?.[field]) data[field] = existing[field];
+  }
   return mainDb.tradeKyc.upsert({
     where: { userId },
     create: { userId, ...data },

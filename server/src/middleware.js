@@ -68,6 +68,15 @@ export function optionalAuth(req, _res, next) {
 
 export function errorHandler(err, _req, res, _next) {
   console.error(err);
+  if (err?.name === "MulterError") {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "File too large (maximum 10 MB per file)."
+        : err.code === "LIMIT_UNEXPECTED_FILE"
+          ? "Unexpected file field in upload."
+          : err.message || "Upload failed";
+    return res.status(400).json({ error: message, code: err.code });
+  }
   const status = err.status || 500;
   res.status(status).json({ error: err.message || "Server error" });
 }

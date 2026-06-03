@@ -15,7 +15,7 @@ import DataPortabilityPanel from "../../components/shared/DataPortabilityPanel.j
 import MainSiteSettingsPanel from "../../components/main/MainSiteSettingsPanel.jsx";
 import MainCommunicationPanel from "../../components/main/MainCommunicationPanel.jsx";
 import MainTradeKycAdminPanel from "../../components/main/MainTradeKycAdminPanel.jsx";
-import KycDocumentViewer from "../../components/shared/KycDocumentViewer.jsx";
+import TradeKycFullViewModal from "../../components/main/TradeKycFullViewModal.jsx";
 import MainTradePaymentsPanel from "../../components/main/MainTradePaymentsPanel.jsx";
 
 export default function AdminDashboard() {
@@ -350,9 +350,26 @@ function UsersAdmin({ isSuper }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", accountType: "B2B", companyName: "" });
   const [msg, setMsg] = useState(""); const [err, setErr] = useState("");
+  const [viewKyc, setViewKyc] = useState(null);
+  const [kycBusy, setKycBusy] = useState(false);
   const load = () => mainApi("/admin/users").then((d) => setUsers(d.users)).catch(() => {});
   useEffect(() => { load(); }, []);
   const update = async (id, body) => { await mainApi(`/admin/users/${id}`, { method: "PUT", body }); load(); };
+  const openTradeKyc = async (userId) => {
+    setKycBusy(true);
+    try {
+      const d = await mainApi(`/admin/users/${userId}/trade-kyc`);
+      if (!d.kyc) {
+        alert("This user has not submitted trade KYC yet.");
+        return;
+      }
+      setViewKyc(d.kyc);
+    } catch (e) {
+      alert(e.message || "Could not load KYC");
+    } finally {
+      setKycBusy(false);
+    }
+  };
   const createUser = async (e) => {
     e.preventDefault(); setErr(""); setMsg("");
     try {
@@ -365,11 +382,10 @@ function UsersAdmin({ isSuper }) {
   };
   return (
     <div>
-      <KycDocumentViewer
+      <TradeKycFullViewModal
         open={Boolean(viewKyc)}
         kyc={viewKyc}
         onClose={() => setViewKyc(null)}
-        scope="main"
         title={viewKyc ? `Trade KYC — ${viewKyc.fullName || viewKyc.user?.name || "User"}` : ""}
       />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -379,7 +395,7 @@ function UsersAdmin({ isSuper }) {
       {msg && <div className="mb-3"><Alert type="success">{msg}</Alert></div>}
       <div className="overflow-x-auto card">
       <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th></tr></thead>
+        <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th><th className="p-3 text-right">KYC</th></tr></thead>
         <tbody>
           {users.map((u) => (
             <tr key={u.id} className="border-t">
@@ -390,6 +406,11 @@ function UsersAdmin({ isSuper }) {
                 <select className="input min-w-[8rem] py-1 text-xs" value={u.role} onChange={(e) => update(u.id, { role: e.target.value })}>{["USER", "STAFF", "ADMIN", "SUPERADMIN"].map((r) => <option key={r} value={r}>{r}</option>)}</select>
               ) : <Badge status={u.role} />}</td>
               <td className="p-3">{isSuper ? <input type="checkbox" checked={u.isActive} onChange={(e) => update(u.id, { isActive: e.target.checked })} /> : (u.isActive ? "Yes" : "No")}</td>
+              <td className="p-3 text-right">
+                <button type="button" className="btn-outline px-2 py-1 text-xs" disabled={kycBusy} onClick={() => openTradeKyc(u.id)}>
+                  View KYC
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

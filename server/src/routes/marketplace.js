@@ -1077,11 +1077,12 @@ router.post(
   ]),
   asyncH(async (req, res) => {
     const { upsertTradeKyc } = await import("../services/tradeOps.js");
+    const existing = await mainDb.tradeKyc.findUnique({ where: { userId: req.user.id } });
     const body = { ...req.body };
     for (const [field, files] of Object.entries(req.files || {})) {
       if (files?.[0]) body[field] = fileUrl(files[0].filename);
     }
-    const kyc = await upsertTradeKyc(req.user.id, body);
+    const kyc = await upsertTradeKyc(req.user.id, body, existing);
     if (body.phoneCountryCode || body.phone) {
       await mainDb.user.update({
         where: { id: req.user.id },

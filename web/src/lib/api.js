@@ -1,4 +1,6 @@
 // Scope-aware API client. scope is "main" (marketplace) or "invest" (portal).
+import { networkErrorMessage } from "./upload-limits.js";
+
 const TOKEN_KEYS = { main: "aex_main_token", invest: "aex_invest_token" };
 
 export class ApiError extends Error {
@@ -35,11 +37,24 @@ export async function api(scope, path, { method = "GET", body, isForm } = {}) {
     method === "GET" && scope === "invest" && String(path).startsWith("/public/")
       ? "no-store"
       : undefined;
-  const res = await fetch(`/api/${scope}${path}`, { method, headers, body: payload, cache });
+  let res;
+  try {
+    res = await fetch(`/api/${scope}${path}`, { method, headers, body: payload, cache });
+  } catch (e) {
+    throw new ApiError(networkErrorMessage(e), { status: 0 });
+  }
   const ct = res.headers.get("content-type") || "";
-  const data = ct.includes("application/json") ? await res.json() : await res.text();
+  let data;
+  try {
+    data = ct.includes("application/json") ? await res.json() : await res.text();
+  } catch {
+    data = null;
+  }
   if (!res.ok) {
-    const message = (data && data.error) || `Request failed (${res.status})`;
+    const message =
+      (data && typeof data === "object" && data.error) ||
+      (typeof data === "string" && data.slice(0, 200)) ||
+      (res.status === 413 ? "Upload too large. Use smaller files (max 10 MB each)." : `Request failed (${res.status})`);
     throw new ApiError(message, { status: res.status, code: data?.code });
   }
   return data;
@@ -53,10 +68,25 @@ export async function mainApiForm(path, formData, method = "POST") {
   const headers = {};
   const token = getToken("main");
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/api/main${path}`, { method, headers, body: formData });
+  let res;
+  try {
+    res = await fetch(`/api/main${path}`, { method, headers, body: formData });
+  } catch (e) {
+    throw new ApiError(networkErrorMessage(e), { status: 0 });
+  }
   const ct = res.headers.get("content-type") || "";
-  const data = ct.includes("application/json") ? await res.json() : await res.text();
-  if (!res.ok) throw new ApiError((data && data.error) || `Request failed (${res.status})`, { status: res.status, code: data?.code });
+  let data;
+  try {
+    data = ct.includes("application/json") ? await res.json() : await res.text();
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    const message =
+      (data && typeof data === "object" && data.error) ||
+      (res.status === 413 ? "Upload too large. Use smaller files (max 10 MB each)." : `Request failed (${res.status})`);
+    throw new ApiError(message, { status: res.status, code: data?.code });
+  }
   return data;
 }
 
@@ -64,10 +94,25 @@ export async function investApiForm(path, formData, method = "POST") {
   const headers = {};
   const token = getToken("invest");
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/api/invest${path}`, { method, headers, body: formData });
+  let res;
+  try {
+    res = await fetch(`/api/invest${path}`, { method, headers, body: formData });
+  } catch (e) {
+    throw new ApiError(networkErrorMessage(e), { status: 0 });
+  }
   const ct = res.headers.get("content-type") || "";
-  const data = ct.includes("application/json") ? await res.json() : await res.text();
-  if (!res.ok) throw new ApiError((data && data.error) || `Request failed (${res.status})`, { status: res.status, code: data?.code });
+  let data;
+  try {
+    data = ct.includes("application/json") ? await res.json() : await res.text();
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    const message =
+      (data && typeof data === "object" && data.error) ||
+      (res.status === 413 ? "Upload too large. Use smaller files (max 10 MB each)." : `Request failed (${res.status})`);
+    throw new ApiError(message, { status: res.status, code: data?.code });
+  }
   return data;
 }
 
