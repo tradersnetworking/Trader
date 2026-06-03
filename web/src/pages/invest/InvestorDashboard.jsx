@@ -379,14 +379,16 @@ export default function InvestorDashboard() {
             onRefresh={fetchCore}
           />
         ) : (
-          <TabPanel>
-            <KycPanel
-              kyc={kyc}
-              pendingPayoutChange={pendingPayoutChange}
-              pendingKycRevision={pendingKycRevision}
-              onRefresh={fetchCore}
-            />
-          </TabPanel>
+          <div className="invest-kyc-tab-root">
+            <TabPanel>
+              <KycPanel
+                kyc={kyc}
+                pendingPayoutChange={pendingPayoutChange}
+                pendingKycRevision={pendingKycRevision}
+                onRefresh={fetchCore}
+              />
+            </TabPanel>
+          </div>
         ))}
       {dashboardUnlocked && tab === "agreements" && (
         <TabPanel>

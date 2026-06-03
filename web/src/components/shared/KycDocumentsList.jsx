@@ -82,9 +82,9 @@ export default function KycDocumentsList({
       {rows.map((row) => (
         <div
           key={row.key}
-          className={`flex items-center justify-between gap-3 ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}
+          className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}
         >
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-medium text-foreground">{row.label}</p>
             {row.url ? (
               <p className="truncate text-[11px] text-muted-foreground" title={filenameFromUrl(row.url)}>
@@ -98,7 +98,7 @@ export default function KycDocumentsList({
             )}
           </div>
           {row.url && (
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
               <SecureUploadLink url={row.url} previewTitle={row.label} scope={scope} className="btn-outline text-xs">
                 View
               </SecureUploadLink>

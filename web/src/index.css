@@ -535,6 +535,10 @@
     @apply mx-auto w-full min-w-0 max-w-7xl px-3 py-4 sm:px-4 sm:py-6 md:px-6 xl:max-w-[1400px];
     padding-bottom: calc(var(--invest-mobile-nav-h) + 1rem);
   }
+  /* KYC tab: extra space so step buttons are not covered by Share/Support floats + mobile nav */
+  .invest-kyc-tab-root {
+    @apply min-w-0 pb-28 md:pb-8;
+  }
   @media (min-width: 768px) {
     .invest-page-main { padding-bottom: 1.5rem; }
   }

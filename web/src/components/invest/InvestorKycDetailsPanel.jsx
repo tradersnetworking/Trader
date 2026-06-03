@@ -16,10 +16,10 @@ export default function InvestorKycDetailsPanel({ kyc, onEditKyc, phase = "pendi
   const isRejected = phase === "needs_fix" || kyc.status === "REJECTED";
 
   return (
-    <div className="page-stack mx-auto max-w-3xl">
+    <div className="page-stack mx-auto w-full max-w-3xl">
       <div className="card space-y-4 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <Badge status={kyc.status} />
             <h2 className="mt-2 text-lg font-bold text-foreground">Your KYC details</h2>
             {submittedAt && (
@@ -28,12 +28,12 @@ export default function InvestorKycDetailsPanel({ kyc, onEditKyc, phase = "pendi
               </p>
             )}
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <button type="button" className="btn-outline text-sm" onClick={() => setViewOpen(true)}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-[11rem] sm:shrink-0">
+            <button type="button" className="btn-outline w-full text-sm" onClick={() => setViewOpen(true)}>
               Full-screen view
             </button>
             {onEditKyc && (
-              <button type="button" className="btn-gold text-sm" onClick={onEditKyc}>
+              <button type="button" className="btn-gold w-full text-sm" onClick={onEditKyc}>
                 {isRejected ? "Update KYC" : "Edit while under review"}
               </button>
             )}
@@ -65,7 +65,7 @@ export default function InvestorKycDetailsPanel({ kyc, onEditKyc, phase = "pendi
           <p className="mb-3 text-xs text-muted-foreground">
             Tap View on each file to preview. Images include photo, ID, and signature.
           </p>
-          <KycDocumentsList kyc={kyc} scope="invest" showMissing />
+          <KycDocumentsList kyc={kyc} scope="invest" showMissing compact />
         </div>
       </div>
 

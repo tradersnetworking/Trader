@@ -5,7 +5,7 @@ import KycPanel from "./KycPanel.jsx";
 import InvestorKycDetailsPanel from "./InvestorKycDetailsPanel.jsx";
 
 /**
- * Pre-approval KYC tab: submitted → read-only details + documents; draft/rejected → form.
+ * Pre-approval KYC tab — one view at a time (summary OR form) to avoid stacked/overlapping UI.
  */
 export default function InvestorKycTabContent({
   kyc,
@@ -14,41 +14,58 @@ export default function InvestorKycTabContent({
   pendingKycRevision,
   onRefresh,
 }) {
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(kycPhase === "needs_fix");
   const hasSubmission = kyc && kyc.status && kyc.status !== "NOT_SUBMITTED";
 
   if (kycPhase === "needs_submit") {
     return (
-      <TabPanel>
-        <KycPanel
-          kyc={kyc}
-          pendingPayoutChange={pendingPayoutChange}
-          pendingKycRevision={pendingKycRevision}
-          onRefresh={onRefresh}
-        />
-      </TabPanel>
+      <div className="invest-kyc-tab-root">
+        <TabPanel>
+          <KycPanel
+            forced
+            kyc={kyc}
+            pendingPayoutChange={pendingPayoutChange}
+            pendingKycRevision={pendingKycRevision}
+            onRefresh={onRefresh}
+          />
+        </TabPanel>
+      </div>
     );
   }
 
-  const formBlock = showForm || kycPhase === "needs_fix" ? (
-    <TabPanel>
-      {showForm && kycPhase === "pending_review" && (
-        <Alert type="info" className="mb-4">
-          You can update your submission while it is under review. Changes may extend review time.
-        </Alert>
-      )}
-      <KycPanel
-        kyc={kyc}
-        pendingPayoutChange={pendingPayoutChange}
-        pendingKycRevision={pendingKycRevision}
-        onRefresh={onRefresh}
-      />
-    </TabPanel>
-  ) : null;
+  if (showForm) {
+    return (
+      <div className="invest-kyc-tab-root page-stack mx-auto w-full max-w-3xl">
+        {hasSubmission && (
+          <button
+            type="button"
+            className="btn-outline w-full text-sm sm:w-auto"
+            onClick={() => setShowForm(false)}
+          >
+            ← Back to KYC summary
+          </button>
+        )}
+        {kycPhase === "pending_review" && (
+          <Alert type="info">
+            You can update your submission while it is under review. Changes may extend review time.
+          </Alert>
+        )}
+        <TabPanel>
+          <KycPanel
+            forced
+            kyc={kyc}
+            pendingPayoutChange={pendingPayoutChange}
+            pendingKycRevision={pendingKycRevision}
+            onRefresh={onRefresh}
+          />
+        </TabPanel>
+      </div>
+    );
+  }
 
-  return (
-    <div className="space-y-6">
-      {hasSubmission && (
+  if (hasSubmission) {
+    return (
+      <div className="invest-kyc-tab-root">
         <InvestorKycDetailsPanel
           kyc={kyc}
           phase={kycPhase}
@@ -58,8 +75,21 @@ export default function InvestorKycTabContent({
               : undefined
           }
         />
-      )}
-      {formBlock}
+      </div>
+    );
+  }
+
+  return (
+    <div className="invest-kyc-tab-root">
+      <TabPanel>
+        <KycPanel
+          forced
+          kyc={kyc}
+          pendingPayoutChange={pendingPayoutChange}
+          pendingKycRevision={pendingKycRevision}
+          onRefresh={onRefresh}
+        />
+      </TabPanel>
     </div>
   );
 }

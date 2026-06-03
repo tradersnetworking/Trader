@@ -399,8 +399,8 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
       )}
 
       {!forced && (
-      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
-
+      <div className="flex flex-col gap-3 border-b border-border pb-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap gap-2">
         {[
 
           ["kyc", "KYC Details"],
@@ -434,13 +434,10 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
           </button>
 
         ))}
-
-        <div className="ml-auto">
-
-          <Badge status={kyc?.status || "NOT SUBMITTED"} />
-
         </div>
-
+          <span className="self-start sm:ml-auto">
+            <Badge status={kyc?.status || "NOT SUBMITTED"} />
+          </span>
       </div>
       )}
 
@@ -1092,19 +1089,19 @@ function Stepper({ step }) {
 
   return (
 
-    <div className="overflow-x-auto scrollbar-none -mx-1 px-1">
+    <div className="overflow-x-auto scrollbar-none -mx-1 px-1 pb-1">
 
-      <div className="relative flex min-w-[280px] justify-between px-2">
+      <div className="relative z-0 flex min-w-[280px] justify-between px-2">
 
-        <div className="absolute left-0 top-5 -z-10 h-0.5 w-full bg-border" />
+        <div className="absolute left-0 top-5 z-0 h-0.5 w-full bg-border" aria-hidden />
 
         {STEPS.map((s) => (
 
-          <div key={s.n} className="flex flex-col items-center gap-2 shrink-0">
+          <div key={s.n} className="relative z-[1] flex shrink-0 flex-col items-center gap-2 bg-card px-0.5">
 
             <div
 
-              className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold transition ${
+              className={`relative z-[1] flex h-10 w-10 items-center justify-center rounded-full border-2 bg-card text-sm font-bold transition ${
 
                 step >= s.n
 
