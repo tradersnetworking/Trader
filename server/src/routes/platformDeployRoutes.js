@@ -2,8 +2,12 @@ import { getDeployStatus, runPlatformDeploy } from "../services/platformDeploy.j
 
 /** Register super-admin platform update routes on invest or main admin router. */
 export function registerPlatformDeployRoutes(router, { authRequired, asyncH, superOnly, scope }) {
+  // Invest admin router is mounted at /api/invest/admin (paths omit /admin).
+  // Main marketplace router is mounted at /api/main (paths include /admin).
+  const base = scope === "invest" ? "/platform" : "/admin/platform";
+
   router.get(
-    "/admin/platform/deploy/status",
+    `${base}/deploy/status`,
     authRequired(scope),
     superOnly,
     asyncH(async (_req, res) => {
@@ -12,7 +16,7 @@ export function registerPlatformDeployRoutes(router, { authRequired, asyncH, sup
   );
 
   router.post(
-    "/admin/platform/deploy",
+    `${base}/deploy`,
     authRequired(scope),
     superOnly,
     asyncH(async (req, res) => {
