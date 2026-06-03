@@ -357,7 +357,8 @@
   .brand-akshaya-text { color: #fcd34d; }
   .brand-exim-text { color: #ffffff; }
   .hero-gradient .brand-exim-text,
-  .site-main-shell header .brand-exim-text {
+  .site-main-shell header .brand-exim-text,
+  .site-invest-shell header .brand-exim-text {
     color: #ffffff;
   }
 

@@ -1,13 +1,16 @@
 /** Shared brand strings for SEO, OG tags, and UI copy. */
 
 export const BRAND_MAIN = "AKSHAYA EXIM TRADERS";
+/** Wordmark line 1 / 2 (always uppercase in UI). */
+export const MAIN_SITE_TITLE_1 = "AKSHAYA";
+export const MAIN_SITE_TITLE_2 = "EXIM TRADERS";
 /** Tagline under logo + site title in main marketplace header and auth. */
 export const MAIN_SITE_TAGLINE = "Global Export & Import • B2B & B2C";
 /** Display name for the invest portal (all UI, SEO, agreements — not email addresses). */
 export const BRAND_INVEST = "AKSHYA INVESTMENTS";
-/** Header / beside-logo site title (title case). */
-export const INVEST_SITE_TITLE_1 = "Akshya";
-export const INVEST_SITE_TITLE_2 = "Investments";
+/** Header / beside-logo site title (uppercase). */
+export const INVEST_SITE_TITLE_1 = "AKSHAYA";
+export const INVEST_SITE_TITLE_2 = "INVESTMENTS";
 
 export const INVEST_HOME_TITLE = "Smart Investment • Secure Future • Grow Your Wealth";
 export const INVEST_HERO_SUBTITLE =

@@ -1,3 +1,5 @@
+import { MAIN_SITE_TITLE_1, MAIN_SITE_TITLE_2 } from "../lib/brand.js";
+
 const SIZE_CLASSES = {
   sm: "text-xs sm:text-sm",
   mobile: "text-sm leading-none sm:text-base",
@@ -7,7 +9,7 @@ const SIZE_CLASSES = {
   hero: "text-base leading-none sm:text-lg sm:leading-tight md:text-xl lg:text-2xl",
 };
 
-/** Akshaya (amber gold) + EXIM TRADERS (white) — main marketplace wordmark. */
+/** AKSHAYA (amber gold) + EXIM TRADERS (white) — main marketplace wordmark. */
 export default function MainSiteTitle({ className = "", size = "default" }) {
   const sizeClass = SIZE_CLASSES[size] || SIZE_CLASSES.default;
   const fillBar = size === "mobileBar";
@@ -15,8 +17,8 @@ export default function MainSiteTitle({ className = "", size = "default" }) {
     <span
       className={`whitespace-nowrap font-extrabold ${fillBar ? "block w-full leading-none" : "leading-tight"} ${sizeClass} ${className}`.trim()}
     >
-      <span className="brand-akshaya-text">Akshaya</span>{" "}
-      <span className="brand-exim-text">EXIM TRADERS</span>
+      <span className="brand-akshaya-text">{MAIN_SITE_TITLE_1}</span>{" "}
+      <span className="brand-exim-text">{MAIN_SITE_TITLE_2}</span>
     </span>
   );
 }

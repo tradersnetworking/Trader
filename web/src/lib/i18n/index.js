@@ -280,7 +280,7 @@ export const en = {
     staffLogin: "Staff / Admin Login",
     userLogin: "User Login",
     welcomeInvest: "Welcome back to AKSHYA INVESTMENTS",
-    welcomeMain: "Welcome back to Akshaya Exim",
+    welcomeMain: "Welcome back to AKSHAYA EXIM TRADERS",
     staffSubtitle: "Authorized personnel only",
     email: "Email",
     password: "Password",

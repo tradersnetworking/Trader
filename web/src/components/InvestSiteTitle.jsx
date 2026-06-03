@@ -10,7 +10,7 @@ const SIZE_CLASSES = {
   hero: "text-base leading-none sm:text-lg sm:leading-tight md:text-xl lg:text-2xl",
 };
 
-/** Akshaya (gold) + Investments (silver) — invest portal header title. */
+/** AKSHAYA (amber gold) + INVESTMENTS (white) — invest portal header title. */
 export default function InvestSiteTitle({ className = "", size = "default" }) {
   const sizeClass = SIZE_CLASSES[size] || SIZE_CLASSES.default;
   const fillBar = size === "mobileBar";
@@ -18,8 +18,8 @@ export default function InvestSiteTitle({ className = "", size = "default" }) {
     <span
       className={`whitespace-nowrap font-extrabold ${fillBar ? "block w-full leading-none" : "leading-tight"} ${sizeClass} ${className}`.trim()}
     >
-      <span className="gold-text">{INVEST_SITE_TITLE_1}</span>{" "}
-      <span className="silver-text">{INVEST_SITE_TITLE_2}</span>
+      <span className="brand-akshaya-text">{INVEST_SITE_TITLE_1}</span>{" "}
+      <span className="brand-exim-text">{INVEST_SITE_TITLE_2}</span>
     </span>
   );
 }

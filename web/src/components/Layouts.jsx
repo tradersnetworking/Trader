@@ -184,7 +184,7 @@ export function MarketplaceLayout({ children }) {
         homeTo="/"
         mainSiteHeader
         showLogoImage
-        brandLine1="Akshaya"
+        brandLine1="AKSHAYA"
         brandLine2="EXIM TRADERS"
         brandSub=""
         links={links}
