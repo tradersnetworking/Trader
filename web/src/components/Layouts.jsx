@@ -40,6 +40,7 @@ function Shell({
         titleBesideLogo: true,
       }
     : {
+        mainSiteTitle: mainSiteHeader,
         line1: brandLine1,
         line2: brandLine2,
         line1Silver,
@@ -49,9 +50,8 @@ function Shell({
         onDark: true,
         brand: "main",
         showLogoImage: mainSiteHeader && showLogoImage,
-        brandStacked: mainSiteHeader,
         fullLogo: false,
-        titleBesideLogo: false,
+        titleBesideLogo: true,
       };
 
   const mobileBrandBar = investSiteTitle || mainSiteHeader;
@@ -61,8 +61,8 @@ function Shell({
       {/* Mobile — invest: full logo or mark + title above nav icons */}
       {mobileBrandBar && (
         <div className="border-b border-white/10 md:hidden">
-          <div className="mx-auto flex w-full max-w-7xl justify-center px-3 py-2.5">
-            <BrandMark to={homeTo} brandSize="lg" {...brandProps} className="w-full max-w-full" />
+          <div className="mx-auto w-full max-w-7xl px-2 py-1.5">
+            <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full" />
           </div>
         </div>
       )}

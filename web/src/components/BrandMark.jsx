@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Logo } from "./ui.jsx";
 import InvestSiteTitle from "./InvestSiteTitle.jsx";
+import MainSiteTitle from "./MainSiteTitle.jsx";
 import { INVEST_SITE_TITLE_1, INVEST_SITE_TITLE_2 } from "../lib/brand.js";
 
 /**
@@ -19,6 +20,8 @@ export default function BrandMark({
   line2Silver = false,
   /** Use Akshaya + Investments with gold/silver styling beside the mark. */
   investSiteTitle = false,
+  /** Use Akshaya + EXIM TRADERS with silver/gold styling beside the mark. */
+  mainSiteTitle = false,
   /** Show full AKSHYA invest artwork (hero/footer only). */
   investFullLogo = false,
   /** Header: use full PNG beside site title (invest or main). */
@@ -194,6 +197,8 @@ export default function BrandMark({
       >
         {investSiteTitle ? (
           <InvestSiteTitle size={titleSize} />
+        ) : mainSiteTitle ? (
+          <MainSiteTitle size={titleSize} />
         ) : (
           <div
             className={`truncate font-extrabold leading-tight ${
