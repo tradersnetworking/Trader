@@ -4,6 +4,7 @@
  * otherwise category / keyword heuristics (India wholesale benchmarks).
  */
 
+import { categoryImagePath, productImagePath } from "../data/imageSlugs.js";
 import { buildWebPriceQueries, googleWebSearch } from "./marketplaceMedia.js";
 
 const priceCache = new Map();
@@ -262,8 +263,36 @@ function categoryContext(product) {
   return { categoryName: cat.name, subCategoryName: cat.name };
 }
 
+function parseImagesField(images) {
+  if (Array.isArray(images)) return images;
+  try {
+    const parsed = JSON.parse(images || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Prefer stored paths, then category-themed assets, then product slug file. */
+function normalizeProductImages(product) {
+  const imgs = parseImagesField(product.images);
+  const cat = product?.category;
+  const ordered = [];
+  const push = (u) => {
+    if (typeof u === "string" && u.startsWith("/") && !ordered.includes(u)) ordered.push(u);
+  };
+  imgs.forEach(push);
+  if (cat?.image) push(cat.image);
+  if (cat?.parent?.image) push(cat.parent.image);
+  if (cat?.parent?.name) push(categoryImagePath(cat.parent.name));
+  if (cat?.name) push(categoryImagePath(cat.name));
+  if (product?.name) push(productImagePath(product.name));
+  return ordered.length ? ordered : [categoryImagePath(cat?.parent?.name || cat?.name || "") || "/assets/categories/default-trade.webp"];
+}
+
 export function enrichProductForDisplay(product) {
   const p = { ...product };
+  p.images = normalizeProductImages(p);
   if (Number(p.basePrice) > 0) {
     p.priceEstimated = false;
     return p;

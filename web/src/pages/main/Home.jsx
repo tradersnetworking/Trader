@@ -16,10 +16,18 @@ export default function Home() {
   const [quote, setQuote] = useState(null);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    mainApi("/categories").then((d) => setCategories(d.categories)).catch(() => {});
-    mainApi("/products?take=8").then((d) => setProducts(d.products)).catch(() => {});
+    setLoading(true);
+    setLoadError("");
+    Promise.all([
+      mainApi("/categories").then((d) => setCategories(d.categories || [])),
+      mainApi("/products?take=8").then((d) => setProducts(d.products || [])),
+    ])
+      .catch((e) => setLoadError(e.message || "Could not load marketplace data"))
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredCategories = useMemo(() => {
@@ -125,6 +133,9 @@ export default function Home() {
           {catFilter && <button onClick={() => setCatFilter("")} className="btn-outline">Clear</button>}
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {loading && !filteredCategories.length && (
+            <p className="col-span-full text-sm text-slate-500">Loading categories…</p>
+          )}
           {filteredCategories.map((c) => (
             <div key={c.id} className="card overflow-hidden">
               <div className={`${IMAGE_SIZES.category} w-full overflow-hidden bg-muted`}>
@@ -152,6 +163,9 @@ export default function Home() {
             <Link to="/products" className="text-sm font-semibold text-navy hover:underline">View all →</Link>
           </div>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {loading && !products.length && (
+              <p className="col-span-full text-sm text-slate-500">Loading featured listings…</p>
+            )}
             {products.map((p) => (
               <div key={p.id} className="card flex flex-col overflow-hidden">
                 <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-muted">

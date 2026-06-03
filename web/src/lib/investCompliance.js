@@ -32,11 +32,11 @@ export function needsKycSetup(kyc) {
   return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
 }
 
-/** Sidebar items shown before KYC approval. */
-export const INVESTOR_KYC_NAV_TAB_IDS = ["overview", "kyc", "support"];
+/** Sidebar items shown before KYC approval (dashboard, KYC, profile, help). */
+export const INVESTOR_KYC_NAV_TAB_IDS = ["overview", "kyc", "profile", "support"];
 
-/** Routes allowed before approval (includes profile/security from overlay, not in sidebar). */
-export const INVESTOR_KYC_ALLOWED_TABS = ["overview", "kyc", "support", "profile", "account"];
+/** Routes allowed before full KYC approval (includes security from account menu). */
+export const INVESTOR_KYC_ALLOWED_TABS = ["overview", "kyc", "profile", "account", "support"];
 
 /** @deprecated use INVESTOR_KYC_ALLOWED_TABS */
 export const INVESTOR_KYC_RESTRICTED_TABS = INVESTOR_KYC_ALLOWED_TABS;
@@ -45,9 +45,10 @@ export const INVESTOR_KYC_RESTRICTED_TABS = INVESTOR_KYC_ALLOWED_TABS;
 export const INVESTOR_KYC_OVERLAY_UNLOCK_TABS = INVESTOR_KYC_ALLOWED_TABS;
 
 export const INVESTOR_KYC_RESTRICTED_NAV_LABELS = {
-  overview: "Home",
+  overview: "Dashboard",
   kyc: "KYC",
-  support: "Help",
+  profile: "Profile",
+  support: "Support",
 };
 
 export function isInvestorTabAllowedBeforeApproval(tab) {

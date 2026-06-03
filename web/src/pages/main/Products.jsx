@@ -11,7 +11,10 @@ export default function Products() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [quote, setQuote] = useState(null);
+  const [checkout, setCheckout] = useState(null);
   const [q, setQ] = useState(sp.get("q") || "");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const listingType = sp.get("listingType") || "";
   const categoryId = sp.get("categoryId") || "";
@@ -22,7 +25,15 @@ export default function Products() {
     if (listingType) params.set("listingType", listingType);
     if (categoryId) params.set("categoryId", categoryId);
     if (sp.get("q")) params.set("q", sp.get("q"));
-    mainApi(`/products?${params.toString()}`).then((d) => setProducts(d.products)).catch(() => {});
+    setLoading(true);
+    setLoadError("");
+    mainApi(`/products?${params.toString()}`)
+      .then((d) => setProducts(d.products || []))
+      .catch((e) => {
+        setProducts([]);
+        setLoadError(e.message || "Could not load products");
+      })
+      .finally(() => setLoading(false));
   }, [listingType, categoryId, sp]);
 
   const setParam = (k, v) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n); };
@@ -60,7 +71,15 @@ export default function Products() {
         </aside>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.length === 0 && <p className="text-slate-400">No products found.</p>}
+          {loading && <p className="text-slate-400 col-span-full">Loading products…</p>}
+          {loadError && !loading && (
+            <p className="col-span-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {loadError}
+            </p>
+          )}
+          {!loading && !loadError && products.length === 0 && (
+            <p className="text-slate-400 col-span-full">No products found.</p>
+          )}
           {products.map((p) => (
             <div key={p.id} className="card flex flex-col overflow-hidden transition hover:shadow-lg">
               <Link to={`/products/${p.slug}`} className="relative block aspect-square overflow-hidden bg-muted">

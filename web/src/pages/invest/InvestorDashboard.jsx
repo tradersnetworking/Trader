@@ -97,7 +97,7 @@ export default function InvestorDashboard() {
   const [kycViewOpen, setKycViewOpen] = useState(false);
 
   const previewInvestor = sp.get("preview") === "investor";
-  const kycUnlockedTabs = ["profile", "account", "support", "kyc"];
+  const kycUnlockedTabs = INVESTOR_KYC_OVERLAY_UNLOCK_TABS;
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
   const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
@@ -244,7 +244,7 @@ export default function InvestorDashboard() {
       refreshing={refreshing}
       kycOnlyMode={false}
       kycRestricted={kycRestricted}
-      dashboardLocked={kycPendingPreview && !kycUnlockedTabs.includes(tab)}
+      dashboardLocked={false}
       kycReview={{
         kyc,
         onRefresh: () => fetchCore({ soft: true }),
@@ -318,7 +318,7 @@ export default function InvestorDashboard() {
             kycStatus={kyc?.status}
             onNavigate={setTab}
             onOpenDetail={(id) => setSubDetail(id)}
-            dashboardPreview={kycRestricted}
+            dashboardPreview={false}
           />
         </div>
       )}

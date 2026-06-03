@@ -120,8 +120,8 @@ function productPath(name) {
 export function categoryImageUrl(category) {
   if (!category) return DEFAULT_CATEGORY_IMAGE;
   if (typeof category === "object") {
-    if (category.name) return categoryPath(category.name);
     if (category.image) return category.image;
+    if (category.name) return categoryPath(category.name);
     return DEFAULT_CATEGORY_IMAGE;
   }
   return categoryPath(category);
@@ -142,7 +142,7 @@ export function productImageUrl(product) {
   return DEFAULT_CATEGORY_IMAGE;
 }
 
-/** Ordered fallbacks for cards & featured sections. */
+/** Ordered fallbacks for cards & featured sections (category-related before generic name slug). */
 export function productImageCandidates(product) {
   const out = [];
   const push = (u) => {
@@ -152,11 +152,12 @@ export function productImageCandidates(product) {
   imgs.forEach((u) => {
     if (typeof u === "string" && u.startsWith("/")) push(u);
   });
+  const cat = product?.category;
+  if (cat?.image) push(cat.image);
+  if (cat?.parent?.image) push(cat.parent.image);
+  if (cat?.parent?.name) push(categoryPath(cat.parent.name));
+  if (cat?.name) push(categoryPath(cat.name));
   if (product?.name) push(productPath(product.name));
-  if (product?.category?.image) push(product.category.image);
-  if (product?.category?.name) push(categoryPath(product.category.name));
-  if (product?.category?.parent?.image) push(product.category.parent.image);
-  if (product?.category?.parent?.name) push(categoryPath(product.category.parent.name));
   push(DEFAULT_CATEGORY_IMAGE);
   return out;
 }

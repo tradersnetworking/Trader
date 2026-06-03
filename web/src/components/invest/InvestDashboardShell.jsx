@@ -511,7 +511,7 @@ export default function InvestDashboardShell({
       </div>
       </div>
 
-      {!kycRestricted && <InvestShareWidget />}
+      <InvestShareWidget />
       <SupportWidget />
 
       {!kycOnlyMode && (
