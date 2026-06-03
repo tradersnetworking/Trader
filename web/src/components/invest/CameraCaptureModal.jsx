@@ -134,6 +134,7 @@ export default function CameraCaptureModal({
 
   const facingLabel = facing === "user" ? "Front camera" : "Back camera";
   const flipLabel = facing === "user" ? "Use back camera" : "Use front camera";
+  const flipShort = "Flip camera";
 
   return (
     <Modal open={open} onClose={handleClose} title={title} wide>
@@ -168,36 +169,38 @@ export default function CameraCaptureModal({
                 </span>
                 <button
                   type="button"
-                  className="absolute bottom-3 right-3 rounded-lg bg-black/60 px-3 py-2 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/75"
+                  className="absolute bottom-3 left-1/2 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-lg bg-black/65 px-4 py-2 text-xs font-semibold text-white backdrop-blur-sm hover:bg-black/80 sm:left-auto sm:right-3 sm:translate-x-0"
                   onClick={flipCamera}
                   disabled={busy}
                   aria-label={flipLabel}
+                  title={flipLabel}
                 >
-                  {flipLabel}
+                  {flipShort}
                 </button>
               </>
             )}
           </div>
         )}
         <canvas ref={canvasRef} className="hidden" aria-hidden />
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between sm:items-center">
+        <div className="flex min-w-0 flex-col gap-2">
           {ready && !error && (
             <button
               type="button"
-              className="btn-outline w-full text-sm sm:w-auto"
+              className="btn-outline btn-block w-full text-sm"
               onClick={flipCamera}
               disabled={busy || flipping}
+              title={flipLabel}
             >
               {flipLabel}
             </button>
           )}
-          <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
-            <button type="button" className="btn-outline" onClick={handleClose} disabled={busy}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button type="button" className="btn-outline btn-block w-full sm:w-auto" onClick={handleClose} disabled={busy}>
               Cancel
             </button>
             <button
               type="button"
-              className="btn-gold"
+              className="btn-gold btn-block w-full sm:w-auto"
               onClick={handleCapture}
               disabled={!ready || busy || flipping || Boolean(error)}
             >

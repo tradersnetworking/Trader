@@ -7,7 +7,7 @@ import { KYC_ACCEPT_DOCS, validateKycFile } from "../../lib/kyc-document-fields.
 const SIGNATURE_MODES = [
   { id: "draw", label: "Draw signature", hint: "Use your finger or mouse on the pad below" },
   { id: "upload", label: "Upload file", hint: "Choose JPG, PNG, or PDF from your device" },
-  { id: "camera", label: "Open camera", hint: "Take a photo of your signature on white paper" },
+  { id: "camera", label: "Camera", hint: "Photo of signature on white paper" },
 ];
 
 /** KYC signature: draw, upload file, or capture with camera — one mode at a time. */
@@ -119,7 +119,7 @@ export default function KycSignatureField({
       )}
 
       {signatureMode === "upload" && (
-        <div role="tabpanel" className="rounded-lg border border-dashed border-border bg-muted/30 p-4 space-y-3">
+        <div role="tabpanel" className="min-w-0 rounded-lg border border-dashed border-border bg-muted/30 p-4 space-y-3">
           {previewUrl && (
             <img
               src={previewUrl}
@@ -169,7 +169,7 @@ export default function KycSignatureField({
       )}
 
       {signatureMode === "camera" && (
-        <div role="tabpanel" className="rounded-lg border border-dashed border-border bg-muted/30 p-4 space-y-3">
+        <div role="tabpanel" className="min-w-0 rounded-lg border border-dashed border-border bg-muted/30 p-4 space-y-3">
           {previewUrl && (
             <img
               src={previewUrl}
@@ -183,13 +183,18 @@ export default function KycSignatureField({
           {existingUrl && !signatureFile && (
             <p className="text-[11px] text-muted-foreground">Previously uploaded signature on file.</p>
           )}
-          <button type="button" className="btn-gold w-full text-sm sm:w-auto" onClick={() => setCameraOpen(true)}>
-            Open camera to capture signature
+          <button
+            type="button"
+            className="btn-gold btn-block w-full text-sm font-semibold shadow-sm"
+            onClick={() => setCameraOpen(true)}
+          >
+            Open camera
           </button>
+          <p className="text-center text-[10px] text-muted-foreground">Flip front/back camera inside the capture screen</p>
           {signatureFile && (
             <button
               type="button"
-              className="btn-outline w-full text-sm text-rose-600 sm:w-auto"
+              className="btn-outline btn-block w-full text-sm text-rose-600"
               onClick={() => {
                 setSignatureFile(null);
                 clearUploadPreview();

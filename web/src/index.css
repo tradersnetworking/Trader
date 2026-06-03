@@ -198,11 +198,16 @@
   .btn-outline:hover {
     background: hsl(var(--muted) / 0.8);
   }
-  /* Stacked multi-line button labels (overrides .btn row flex) */
-  .btn-wrap {
-    @apply flex w-full max-w-full flex-col items-center justify-center gap-0.5 whitespace-normal text-center leading-snug;
+  /* Stacked / full-width action buttons (overrides .btn nowrap on narrow screens) */
+  .btn-wrap,
+  .btn-block {
+    @apply flex w-full max-w-full min-h-[2.75rem] items-center justify-center whitespace-normal text-center leading-snug;
     height: auto;
-    min-height: 2.5rem;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+  .btn-wrap {
+    @apply flex-col gap-0.5;
   }
 
   .card {
