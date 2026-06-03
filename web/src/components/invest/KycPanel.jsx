@@ -30,6 +30,7 @@ import {
 
 } from "../../lib/kyc-document-fields.js";
 import KycSignatureField from "./KycSignatureField.jsx";
+import KycImageCaptureField from "./KycImageCaptureField.jsx";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
@@ -829,23 +830,21 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 />
 
-                <UploadField
+                <KycImageCaptureField
 
                   label="Selfie Verification"
 
-                  hint="Selfie holding your ID beside your face"
+                  hint="Upload a photo or use your camera — hold your ID beside your face"
 
                   name="selfie"
-
-                  accept={KYC_ACCEPT_IMAGE}
-
-                  imageOnly
 
                   files={files}
 
                   setFiles={setFiles}
 
                   existingUrl={kyc?.selfie}
+
+                  allowCamera
 
                 />
 
