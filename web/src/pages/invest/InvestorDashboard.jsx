@@ -46,15 +46,15 @@ import {
   investEligibility,
   canAccessInvestDashboard,
   getKycUiPhase,
-  isKycPendingPreview,
   isInvestorTabAllowedBeforeApproval,
   INVESTOR_KYC_RESTRICTED_NAV_LABELS,
 } from "../../lib/investCompliance.js";
 import { refreshInvestClientState } from "../../lib/browserStorage.js";
-import InvestorKycHomeBanner from "../../components/invest/InvestorKycHomeBanner.jsx";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.jsx";
-import KycRestrictedPanel from "../../components/invest/KycRestrictedPanel.jsx";
+import InvestorKycHomePanel from "../../components/invest/InvestorKycHomePanel.jsx";
+import InvestorKycTabContent from "../../components/invest/InvestorKycTabContent.jsx";
+import InvestorMyAccountPanel from "../../components/invest/InvestorMyAccountPanel.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -102,12 +102,10 @@ export default function InvestorDashboard() {
   const [kycLoadError, setKycLoadError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [kycViewOpen, setKycViewOpen] = useState(false);
-  const [pendingOverlayDismissed, setPendingOverlayDismissed] = useState(false);
 
   const previewInvestor = sp.get("preview") === "investor";
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
-  const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
   const kycRestricted = kycLoaded && !dashboardUnlocked;
   const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
   const shellNavItems = dashboardUnlocked ? INVESTOR_NAV : INVESTOR_KYC_NAV;
@@ -192,32 +190,12 @@ export default function InvestorDashboard() {
   }, [kycLoaded, dashboardUnlocked, kyc?.status]);
 
   useEffect(() => {
-    if (kyc?.status !== "PENDING") setPendingOverlayDismissed(false);
-  }, [kyc?.status]);
-
-  useEffect(() => {
     if (!kycLoaded || dashboardUnlocked) return;
     if (!isInvestorTabAllowedBeforeApproval(tab)) {
       const fallback = kycPhase === "needs_fix" ? "kyc" : "overview";
       setSp({ tab: fallback }, { replace: true });
     }
   }, [kycLoaded, dashboardUnlocked, tab, setSp, kycPhase]);
-
-  const closeRestrictedView = useCallback(() => {
-    setSp({ tab: "overview" }, { replace: true });
-  }, [setSp]);
-
-  const wrapRestricted = useCallback(
-    (title, subtitle, content) => {
-      if (!kycRestricted) return content;
-      return (
-        <KycRestrictedPanel title={title} subtitle={subtitle} onClose={closeRestrictedView}>
-          {content}
-        </KycRestrictedPanel>
-      );
-    },
-    [kycRestricted, closeRestrictedView]
-  );
 
   const displayName = kyc?.fullName || invest?.name || "Investor";
   const kycPageTitle =
@@ -254,35 +232,22 @@ export default function InvestorDashboard() {
             ? displayName
             : kycPageSubtitle
       }
-      walletBalance={dashboardUnlocked || kycPendingPreview ? wallet?.available : undefined}
-      notificationCount={dashboardUnlocked || kycPendingPreview ? notificationCount : 0}
+      walletBalance={dashboardUnlocked ? wallet?.available : undefined}
+      notificationCount={dashboardUnlocked ? notificationCount : 0}
       onNotificationsClick={dashboardUnlocked ? () => setTab("notifications") : undefined}
       onLogout={logoutInvest}
       onRefresh={handleRefresh}
       refreshing={refreshing}
       kycOnlyMode={false}
       kycRestricted={kycRestricted}
-      dashboardLocked={kycPendingPreview && tab === "overview" && !pendingOverlayDismissed}
+      dashboardLocked={false}
       kycReview={{
         kyc,
         onRefresh: () => fetchCore({ soft: true }),
-        onOpenProfile: () => {
-          setPendingOverlayDismissed(true);
-          setTab("profile");
-        },
-        onOpenAccount: () => {
-          setPendingOverlayDismissed(true);
-          setTab("account");
-        },
-        onOpenSupport: () => {
-          setPendingOverlayDismissed(true);
-          setTab("support");
-        },
-        onEditKyc: () => {
-          setPendingOverlayDismissed(true);
-          setTab("kyc");
-        },
-        onCloseOverlay: () => setPendingOverlayDismissed(true),
+        onOpenProfile: () => setTab("profile"),
+        onOpenAccount: () => setTab("account"),
+        onOpenSupport: () => setTab("support"),
+        onEditKyc: () => setTab("kyc"),
         onViewSubmission: kyc?.status && kyc.status !== "NOT_SUBMITTED" ? () => setKycViewOpen(true) : undefined,
         onLogout: () => {
           logoutInvest();
@@ -319,8 +284,10 @@ export default function InvestorDashboard() {
           </Alert>
         </div>
       )}
-      <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore({ soft: true }); emitInvestRefresh(); }} />
-      {!investEligibility(invest, kyc).canInvest && ["plans", "investments", "agreements"].includes(tab) && (
+      {dashboardUnlocked && (
+        <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore({ soft: true }); emitInvestRefresh(); }} />
+      )}
+      {dashboardUnlocked && !investEligibility(invest, kyc).canInvest && ["plans", "investments", "agreements"].includes(tab) && (
         <div className="mb-4">
           <Alert type="info">
             {investEligibility(invest, kyc).message} You can still add funds to your wallet.{" "}
@@ -330,16 +297,19 @@ export default function InvestorDashboard() {
           </Alert>
         </div>
       )}
-      {tab === "overview" && (
-        <div className="page-stack">
-          {kycRestricted && (
-            <InvestorKycHomeBanner
-              kyc={kyc}
-              kycLoadError={kycLoadError}
-              onGoKyc={() => setTab("kyc")}
-              onGoSupport={() => setTab("support")}
-            />
-          )}
+      {tab === "overview" &&
+        (kycRestricted ? (
+          <InvestorKycHomePanel
+            kyc={kyc}
+            kycLoadError={kycLoadError}
+            displayName={displayName}
+            investorEmail={invest?.email}
+            onGoKyc={() => setTab("kyc")}
+            onGoSupport={() => setTab("support")}
+            onGoProfile={() => setTab("profile")}
+            onGoSecurity={() => setTab("account")}
+          />
+        ) : (
           <InvestorOverviewPanel
             userName={displayName}
             profilePicture={invest?.profilePicture || kyc?.photo}
@@ -350,9 +320,8 @@ export default function InvestorDashboard() {
             onOpenDetail={(id) => setSubDetail(id)}
             dashboardPreview={false}
           />
-        </div>
-      )}
-      {tab === "plans" && (
+        ))}
+      {dashboardUnlocked && tab === "plans" && (
         <Plans
           wallet={wallet}
           pendingInvest={pendingInvest}
@@ -364,11 +333,13 @@ export default function InvestorDashboard() {
           onSignAgreement={(id) => { setPendingAgreementId(id); setTab("agreements"); }}
         />
       )}
-      {tab === "investments" && !subId && <Investments subs={subs} onNavigate={setTab} onOpenDetail={setSubDetail} />}
-      {tab === "investments" && subId && (
+      {dashboardUnlocked && tab === "investments" && !subId && (
+        <Investments subs={subs} onNavigate={setTab} onOpenDetail={setSubDetail} />
+      )}
+      {dashboardUnlocked && tab === "investments" && subId && (
         <TabPanel><InvestmentDetailPanel subscriptionId={subId} onBack={clearSubDetail} /></TabPanel>
       )}
-      {tab === "money" && (
+      {dashboardUnlocked && tab === "money" && (
         <TabPanel>
           <MoneyHubPanel
             wallet={wallet}
@@ -380,8 +351,8 @@ export default function InvestorDashboard() {
           />
         </TabPanel>
       )}
-      {tab === "transactions" && <TabPanel><TransactionsPanel /></TabPanel>}
-      {tab === "ledger" && (
+      {dashboardUnlocked && tab === "transactions" && <TabPanel><TransactionsPanel /></TabPanel>}
+      {dashboardUnlocked && tab === "ledger" && (
         <TabPanel>
           <LedgerTable
             title="My Ledger"
@@ -389,16 +360,25 @@ export default function InvestorDashboard() {
           />
         </TabPanel>
       )}
-      {tab === "referral" && <TabPanel><ReferralPanel /></TabPanel>}
-      {tab === "support" &&
-        wrapRestricted("Help", "Tickets, WhatsApp, and Telegram", <TabPanel><SupportPanel /></TabPanel>)}
-      {tab === "notifications" && (
+      {dashboardUnlocked && tab === "referral" && <TabPanel><ReferralPanel /></TabPanel>}
+      {tab === "support" && (
+        <TabPanel>
+          <SupportPanel />
+        </TabPanel>
+      )}
+      {dashboardUnlocked && tab === "notifications" && (
         <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
       )}
       {tab === "kyc" &&
-        wrapRestricted(
-          "KYC",
-          "Complete details and upload all required documents before submitting",
+        (kycRestricted ? (
+          <InvestorKycTabContent
+            kyc={kyc}
+            kycPhase={kycPhase}
+            pendingPayoutChange={pendingPayoutChange}
+            pendingKycRevision={pendingKycRevision}
+            onRefresh={fetchCore}
+          />
+        ) : (
           <TabPanel>
             <KycPanel
               kyc={kyc}
@@ -407,8 +387,8 @@ export default function InvestorDashboard() {
               onRefresh={fetchCore}
             />
           </TabPanel>
-        )}
-      {tab === "agreements" && (
+        ))}
+      {dashboardUnlocked && tab === "agreements" && (
         <TabPanel>
           <InvestorAgreementsPanel
             pendingAgreementId={pendingAgreementId}
@@ -417,21 +397,24 @@ export default function InvestorDashboard() {
         </TabPanel>
       )}
       {tab === "profile" &&
-        wrapRestricted(
-          "My Account",
-          "Profile and payout details — prefilled from your KYC where available",
+        (kycRestricted ? (
+          <InvestorMyAccountPanel kyc={kyc} investor={invest} />
+        ) : (
           <Profile kyc={kyc} investor={invest} />
-        )}
-      {tab === "account" &&
-        wrapRestricted(
-          "Security",
-          "Password, email, Google sign-in, and 2FA",
-          <div className="space-y-6">
-            <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>
-            <TabPanel><SecuritySettingsPanel /></TabPanel>
-            <TabPanel><PushNotificationsToggle /></TabPanel>
-          </div>
-        )}
+        ))}
+      {tab === "account" && (
+        <div className="space-y-6">
+          <TabPanel>
+            <AccountSecurityPanel portal="invest" />
+          </TabPanel>
+          <TabPanel>
+            <SecuritySettingsPanel />
+          </TabPanel>
+          <TabPanel>
+            <PushNotificationsToggle />
+          </TabPanel>
+        </div>
+      )}
       {!INVESTOR_TAB_IDS.includes(tab) && (
         <DashboardTabFallback title="Dashboard" onGoOverview={() => setTab("overview")} />
       )}

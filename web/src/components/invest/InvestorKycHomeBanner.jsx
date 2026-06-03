@@ -15,7 +15,7 @@ export default function InvestorKycHomeBanner({ kyc, kycLoadError, onGoKyc, onGo
         <p className="font-semibold text-foreground">KYC under review</p>
         <p className="mt-1 text-sm">
           Thank you for submitting your documents. Our team is verifying your details — usually within 24–48 hours.
-          Use <strong>Home</strong>, <strong>KYC</strong>, <strong>My Account</strong>, <strong>Security</strong>, or <strong>Help</strong> until approval. Your dashboard preview stays on Home while we review your application.
+          Use <strong>Home</strong> for status, <strong>KYC</strong> to view your submission, <strong>My Account</strong>, <strong>Security</strong>, or <strong>Help</strong> until approval.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className="btn-outline text-xs" onClick={onGoKyc}>

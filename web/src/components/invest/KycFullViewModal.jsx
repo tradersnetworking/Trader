@@ -1,39 +1,7 @@
 import { Badge, Modal } from "../ui.jsx";
 import KycDocumentsList from "../shared/KycDocumentsList.jsx";
 import KycAdminSectionReview from "./KycAdminSectionReview.jsx";
-
-const DETAIL_FIELDS = [
-  ["Full name", (k) => k.fullName],
-  ["Guardian", (k) => (k.guardianType && k.guardianName ? `${k.guardianType}: ${k.guardianName}` : null)],
-  ["Father's name", (k) => k.fatherName],
-  ["Email", (k) => k.investor?.email],
-  ["Phone", (k) => k.phone],
-  ["WhatsApp", (k) => (k.whatsappNumber ? `${k.whatsappCountryCode || "+91"} ${k.whatsappNumber}` : null)],
-  ["Date of birth", (k) => k.dob],
-  ["House no.", (k) => k.houseNo],
-  ["Street", (k) => k.street],
-  ["Landmark", (k) => k.landmark],
-  ["Area", (k) => k.area],
-  ["District", (k) => k.district],
-  ["Pincode", (k) => k.pincode],
-  ["Country", (k) => k.country],
-  ["State", (k) => k.state],
-  ["City", (k) => k.city],
-  ["Address", (k) => k.address],
-  ["Bank proof", (k) => k.bankProofType],
-  ["ID type", (k) => k.idType],
-  ["ID number", (k) => k.idNumber],
-  ["PAN", (k) => k.panNumber],
-  ["Aadhaar", (k) => k.aadhaarNumber],
-  ["Tax ID", (k) => k.taxId],
-  ["Bank", (k) => k.bankName],
-  ["Account", (k) => k.bankAccount],
-  ["IFSC", (k) => k.ifscCode],
-  ["Branch", (k) => k.branchName],
-  ["UPI", (k) => k.upiId],
-  ["Submitted", (k) => (k.createdAt ? new Date(k.createdAt).toLocaleString("en-IN") : null)],
-  ["Verified", (k) => (k.verifiedAt ? new Date(k.verifiedAt).toLocaleString("en-IN") : null)],
-];
+import { KYC_DETAIL_FIELDS } from "../../lib/kyc-detail-display.js";
 
 export default function KycFullViewModal({
   open,
@@ -62,7 +30,7 @@ export default function KycFullViewModal({
         </div>
 
         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          {DETAIL_FIELDS.map(([label, get]) => {
+          {KYC_DETAIL_FIELDS.map(([label, get]) => {
             const v = get(kyc);
             if (!v) return null;
             return (
