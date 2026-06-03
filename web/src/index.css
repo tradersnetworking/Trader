@@ -198,6 +198,12 @@
   .btn-outline:hover {
     background: hsl(var(--muted) / 0.8);
   }
+  /* Stacked multi-line button labels (overrides .btn row flex) */
+  .btn-wrap {
+    @apply flex w-full max-w-full flex-col items-center justify-center gap-0.5 whitespace-normal text-center leading-snug;
+    height: auto;
+    min-height: 2.5rem;
+  }
 
   .card {
     @apply rounded-xl shadow-sm;

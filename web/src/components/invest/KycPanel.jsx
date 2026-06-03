@@ -34,7 +34,7 @@ import KycSignatureField from "./KycSignatureField.jsx";
 import KycImageCaptureField from "./KycImageCaptureField.jsx";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
-import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
+import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, ID_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
 import KycSectionOverview from "./KycSectionOverview.jsx";
 import {
   canEditSection,
@@ -57,14 +57,6 @@ const STEPS = [
 
   { n: 3, title: "Review" },
 
-];
-
-
-
-/** Additional government ID (PAN + Aadhaar are always required separately). */
-const PRIMARY_ID_TYPES = [
-  { value: "PASSPORT", label: "Passport" },
-  { value: "DRIVERS_LICENSE", label: "Driving Licence" },
 ];
 
 
@@ -377,14 +369,19 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
     Object.entries(files).forEach(([k, f]) => f && fd.append(k, f));
 
+    const isRevision = revisionMode && kyc?.status === "APPROVED";
     try {
-      await investApiForm("/kyc", fd);
+      const res = await investApiForm(isRevision ? "/kyc/revision" : "/kyc", fd);
       setMsg(
-        needsPartialResubmit(kyc)
-          ? "Updated sections submitted. Other approved sections were kept unchanged. Please visit again after review."
-          : "KYC submitted successfully. Uploads must be clear (not blurry) and PDFs unlocked. It is under review — please visit again after some time (usually 24–48 hours). You will see the full dashboard once fully approved."
+        res?.message ||
+          (isRevision
+            ? "KYC update submitted for team approval. Your current approved KYC remains active until then."
+            : needsPartialResubmit(kyc)
+              ? "Updated sections submitted. Other approved sections were kept unchanged. Please visit again after review."
+              : "KYC submitted successfully. Uploads must be clear (not blurry) and PDFs unlocked. It is under review — please visit again after some time (usually 24–48 hours). You will see the full dashboard once fully approved.")
       );
       setFiles({});
+      if (isRevision) setRevisionMode(false);
       onRefresh?.();
     } catch (e) {
       setErr(e.message);
@@ -543,7 +540,27 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
       ) : (forced || tab === "kyc") && (
 
-        <div className="card p-5 sm:p-6">
+        <div className="card min-w-0 overflow-x-clip p-5 sm:p-6">
+
+          {revisionMode && kyc?.status === "APPROVED" && (
+            <div className="mb-4 space-y-2">
+              <Alert type="info">
+                Upload only the documents you need to change. Your current approved KYC stays active until the team approves this update.
+              </Alert>
+              <button
+                type="button"
+                className="btn-outline btn-wrap text-sm"
+                onClick={() => {
+                  setRevisionMode(false);
+                  setStep(0);
+                  setErr("");
+                  setMsg("");
+                }}
+              >
+                ← Back to KYC summary
+              </button>
+            </div>
+          )}
 
           {kyc?.status === "REJECTED" && kyc.remarks && (
 
@@ -1053,12 +1070,18 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
               <button
                 type="button"
-                className="btn-gold flex-1 xs:flex-none disabled:cursor-not-allowed disabled:opacity-50"
+                className={`btn-gold flex-1 xs:flex-none disabled:cursor-not-allowed disabled:opacity-50 ${
+                  revisionMode && kyc?.status === "APPROVED" ? "btn-wrap" : ""
+                }`}
                 disabled={submitting || !submitReadiness.ready}
                 title={!submitReadiness.ready ? submitReadiness.blockers[0] : undefined}
                 onClick={submit}
               >
-                {submitting ? "Submitting…" : "Submit Application"}
+                {submitting
+                  ? "Submitting…"
+                  : revisionMode && kyc?.status === "APPROVED"
+                    ? "Submit update for approval"
+                    : "Submit Application"}
               </button>
 
             )}
@@ -1163,7 +1186,7 @@ function KycStatusView({ kyc, onRequestChanges, pendingKycRevision }) {
 
   return (
 
-    <div className="card space-y-4 p-5 sm:p-6 text-center sm:text-left">
+    <div className="card min-w-0 space-y-4 overflow-x-clip p-5 sm:p-6 text-center sm:text-left">
 
       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
 
@@ -1218,8 +1241,9 @@ function KycStatusView({ kyc, onRequestChanges, pendingKycRevision }) {
       )}
 
       {verified && !pendingKycRevision && onRequestChanges && (
-        <button type="button" className="btn-outline text-sm" onClick={onRequestChanges}>
-          Request KYC document update (requires approval)
+        <button type="button" className="btn-outline btn-wrap text-sm" onClick={onRequestChanges}>
+          <span>Request KYC document update</span>
+          <span className="text-xs font-normal text-muted-foreground">Requires team approval</span>
         </button>
       )}
 

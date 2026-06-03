@@ -10,6 +10,12 @@ export const BANK_PROOF_TYPES = [
   { value: "STATEMENT", label: "Bank statement (no password lock)" },
 ];
 
+/** Additional government ID (PAN + Aadhaar are always required separately). */
+export const ID_TYPES = [
+  { value: "PASSPORT", label: "Passport" },
+  { value: "DRIVERS_LICENSE", label: "Driving Licence" },
+];
+
 export function initKycForm(kyc) {
   return {
     fullName: kyc?.fullName || "",
