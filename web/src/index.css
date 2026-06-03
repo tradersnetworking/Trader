@@ -353,6 +353,13 @@
   .dark .gold-text { color: #FFD700; }
   .silver-text { color: #C0C0C0; }
   .dark .silver-text { color: #E2E8F0; }
+  /* Main marketplace wordmark — matches tagline badge amber */
+  .brand-akshaya-text { color: #fcd34d; }
+  .brand-exim-text { color: #ffffff; }
+  .hero-gradient .brand-exim-text,
+  .site-main-shell header .brand-exim-text {
+    color: #ffffff;
+  }
 
   .hero-title {
     font-size: clamp(1.25rem, 2.8vw + 0.65rem, 3rem);

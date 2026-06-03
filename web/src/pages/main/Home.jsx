@@ -53,10 +53,7 @@ export default function Home() {
             <div>
               <BrandMark
                 to="/"
-                line1="Akshaya"
-                line2="EXIM TRADERS"
-                line1Silver
-                line2Gold
+                mainSiteTitle
                 brand="main"
                 brandStacked
                 showLogoImage

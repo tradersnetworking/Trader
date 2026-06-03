@@ -20,7 +20,7 @@ export default function BrandMark({
   line2Silver = false,
   /** Use Akshaya + Investments with gold/silver styling beside the mark. */
   investSiteTitle = false,
-  /** Use Akshaya + EXIM TRADERS with silver/gold styling beside the mark. */
+  /** Use Akshaya (amber) + EXIM TRADERS (white) beside the mark. */
   mainSiteTitle = false,
   /** Show full AKSHYA invest artwork (hero/footer only). */
   investFullLogo = false,
@@ -113,7 +113,7 @@ export default function BrandMark({
   const taglineEl =
     showSubtitle &&
     (subtitleGold ? (
-      <span className="badge max-w-full truncate border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 sm:text-xs">
+      <span className="badge brand-akshaya-text max-w-full truncate border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide sm:text-xs">
         {subtitle}
       </span>
     ) : (
@@ -133,6 +133,8 @@ export default function BrandMark({
       <Logo brand={logoBrand} variant="full" className={stackedLogoClass} />
       {investSiteTitle ? (
         <InvestSiteTitle size={titleSize} className="text-center" />
+      ) : mainSiteTitle ? (
+        <MainSiteTitle size={titleSize} className="text-center" />
       ) : (
         <div className={`${stackedTitleClass} max-w-full`}>
           <span className={gold1 ? "gold-text" : silver1 ? "silver-text" : onDark ? "text-white" : "text-foreground"}>

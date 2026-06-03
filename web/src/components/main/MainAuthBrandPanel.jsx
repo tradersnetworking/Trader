@@ -42,10 +42,7 @@ export function MainAuthMobileBrand() {
     <div className="mb-4 flex justify-center md:hidden">
       <BrandMark
         to="/"
-        line1="Akshaya"
-        line2="EXIM TRADERS"
-        line1Silver
-        line2Gold
+        mainSiteTitle
         showLogoImage
         brand="main"
         brandStacked

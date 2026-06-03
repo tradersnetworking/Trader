@@ -7,7 +7,7 @@ const SIZE_CLASSES = {
   hero: "text-base leading-none sm:text-lg sm:leading-tight md:text-xl lg:text-2xl",
 };
 
-/** Akshaya (silver) + EXIM TRADERS (gold) — main marketplace header title. */
+/** Akshaya (amber gold) + EXIM TRADERS (white) — main marketplace wordmark. */
 export default function MainSiteTitle({ className = "", size = "default" }) {
   const sizeClass = SIZE_CLASSES[size] || SIZE_CLASSES.default;
   const fillBar = size === "mobileBar";
@@ -15,8 +15,8 @@ export default function MainSiteTitle({ className = "", size = "default" }) {
     <span
       className={`whitespace-nowrap font-extrabold ${fillBar ? "block w-full leading-none" : "leading-tight"} ${sizeClass} ${className}`.trim()}
     >
-      <span className="silver-text">Akshaya</span>{" "}
-      <span className="gold-text">EXIM TRADERS</span>
+      <span className="brand-akshaya-text">Akshaya</span>{" "}
+      <span className="brand-exim-text">EXIM TRADERS</span>
     </span>
   );
 }

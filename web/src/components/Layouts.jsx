@@ -43,8 +43,6 @@ function Shell({
         mainSiteTitle: mainSiteHeader,
         line1: brandLine1,
         line2: brandLine2,
-        line1Silver,
-        line2Gold: true,
         subtitle: brandSub,
         subtitleGold: Boolean(brandSub),
         onDark: true,
@@ -189,7 +187,6 @@ export function MarketplaceLayout({ children }) {
         brandLine1="Akshaya"
         brandLine2="EXIM TRADERS"
         brandSub=""
-        line1Silver
         links={links}
         actions={actions}
       />
