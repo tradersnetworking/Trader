@@ -156,46 +156,30 @@ export function getNavLabel(nav, tab) {
 
 /** Resolve nav label with i18n — falls back to static label from invest-nav. */
 
-export function translateNavLabel(t, nav, tab) {
-
-  const item = nav.find((n) => n.id === tab);
-
-  if (!item) return t("nav.overview") !== "nav.overview" ? t("nav.overview") : "Dashboard";
-
-  const key = `nav.${item.id}`;
-
-  const translated = t(key);
-
-  return translated !== key ? translated : item.label;
-
+function adminKycI18nKey(item, prefix = "nav") {
+  return item?.adminNav && item?.id === "kyc" ? `${prefix}.kycReview` : `${prefix}.${item?.id}`;
 }
 
-
+export function translateNavLabel(t, nav, tab) {
+  const item = nav.find((n) => n.id === tab);
+  if (!item) return t("nav.overview") !== "nav.overview" ? t("nav.overview") : "Dashboard";
+  const key = adminKycI18nKey(item, "nav");
+  const translated = t(key);
+  return translated !== key ? translated : item.label;
+}
 
 export function translateNavItem(t, item) {
-
   if (!item?.id) return item?.label || "";
-
-  const key = `nav.${item.id}`;
-
+  const key = adminKycI18nKey(item, "nav");
   const translated = t(key);
-
   return translated !== key ? translated : item.label;
-
 }
 
-
-
 export function translateNavShort(t, item) {
-
-  const key = `navShort.${item.id}`;
-
+  const key = adminKycI18nKey(item, "navShort");
   const translated = t(key);
-
   if (translated !== key) return translated;
-
   return navShortLabel(translateNavItem(t, item));
-
 }
 
 
