@@ -102,6 +102,7 @@ export default function InvestorDashboard() {
   const [kycLoadError, setKycLoadError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [kycViewOpen, setKycViewOpen] = useState(false);
+  const [pendingOverlayDismissed, setPendingOverlayDismissed] = useState(false);
 
   const previewInvestor = sp.get("preview") === "investor";
 
@@ -191,6 +192,10 @@ export default function InvestorDashboard() {
   }, [kycLoaded, dashboardUnlocked, kyc?.status]);
 
   useEffect(() => {
+    if (kyc?.status !== "PENDING") setPendingOverlayDismissed(false);
+  }, [kyc?.status]);
+
+  useEffect(() => {
     if (!kycLoaded || dashboardUnlocked) return;
     if (!isInvestorTabAllowedBeforeApproval(tab)) {
       const fallback = kycPhase === "needs_fix" ? "kyc" : "overview";
@@ -257,14 +262,27 @@ export default function InvestorDashboard() {
       refreshing={refreshing}
       kycOnlyMode={false}
       kycRestricted={kycRestricted}
-      dashboardLocked={kycPendingPreview && tab === "overview"}
+      dashboardLocked={kycPendingPreview && tab === "overview" && !pendingOverlayDismissed}
       kycReview={{
         kyc,
         onRefresh: () => fetchCore({ soft: true }),
-        onOpenProfile: () => setTab("profile"),
-        onOpenAccount: () => setTab("account"),
-        onOpenSupport: () => setTab("support"),
-        onEditKyc: () => setTab("kyc"),
+        onOpenProfile: () => {
+          setPendingOverlayDismissed(true);
+          setTab("profile");
+        },
+        onOpenAccount: () => {
+          setPendingOverlayDismissed(true);
+          setTab("account");
+        },
+        onOpenSupport: () => {
+          setPendingOverlayDismissed(true);
+          setTab("support");
+        },
+        onEditKyc: () => {
+          setPendingOverlayDismissed(true);
+          setTab("kyc");
+        },
+        onCloseOverlay: () => setPendingOverlayDismissed(true),
         onViewSubmission: kyc?.status && kyc.status !== "NOT_SUBMITTED" ? () => setKycViewOpen(true) : undefined,
         onLogout: () => {
           logoutInvest();

@@ -77,7 +77,40 @@ function initForm(kyc) {
   return initKycForm(kyc);
 }
 
+/** Wraps a KYC step section with sectional review status (approved / rejected / editable). */
+function SectionFieldset({ section, kyc, children }) {
+  const editable = !kyc || canEditSection(kyc, section);
+  const rejected = kyc && isSectionRejected(kyc, section);
+  const approved = kyc && isSectionApproved(kyc, section);
+  const remarks = parseSectionReviews(kyc)?.[section]?.remarks;
 
+  return (
+    <fieldset
+      className={`min-w-0 space-y-3 rounded-xl border p-4 ${
+        rejected
+          ? "border-rose-500/40 bg-rose-500/5"
+          : approved
+            ? "border-emerald-500/30 bg-emerald-500/5"
+            : "border-border"
+      }`}
+    >
+      <legend className="px-1 text-sm font-bold text-foreground">
+        {KYC_SECTION_LABELS[section]}
+        {approved && (
+          <span className="ml-2 text-xs font-normal text-emerald-700 dark:text-emerald-400">Approved</span>
+        )}
+        {rejected && (
+          <span className="ml-2 text-xs font-normal text-rose-700 dark:text-rose-400">Needs correction</span>
+        )}
+      </legend>
+      {rejected && remarks && <Alert type="error">{remarks}</Alert>}
+      {approved && !editable && (
+        <p className="text-xs text-muted-foreground">This section is approved — no changes needed.</p>
+      )}
+      <div className={!editable ? "pointer-events-none opacity-80" : undefined}>{children}</div>
+    </fieldset>
+  );
+}
 
 export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingKycRevision, forced = false }) {
 

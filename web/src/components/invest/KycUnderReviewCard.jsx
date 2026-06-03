@@ -14,6 +14,7 @@ export default function KycUnderReviewCard({
   onEditKyc,
   onViewSubmission,
   onLogout,
+  onClose,
 }) {
   const [viewOpen, setViewOpen] = useState(false);
   const submittedAt = kyc?.createdAt || kyc?.updatedAt;
@@ -26,13 +27,26 @@ export default function KycUnderReviewCard({
   return (
     <>
       <div
-        className={`card mx-auto w-full space-y-4 shadow-2xl ring-2 ring-amber-500/30 ${
+        className={`card relative mx-auto w-full space-y-4 shadow-2xl ring-2 ring-amber-500/30 ${
           compact ? "p-5 sm:p-6" : "p-6 sm:p-8"
         }`}
         role="dialog"
         aria-labelledby="kyc-review-title"
         aria-describedby="kyc-review-desc"
       >
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn icon-btn-md absolute right-3 top-3 border border-border bg-muted/50 hover:bg-muted"
+            aria-label="Close and view Home"
+            title="Close"
+          >
+            <span className="text-lg leading-none" aria-hidden>
+              ×
+            </span>
+          </button>
+        )}
         <div className="text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-500/40 bg-amber-500/10">
             <span className="text-2xl">⏳</span>

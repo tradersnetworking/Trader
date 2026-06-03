@@ -37,6 +37,14 @@ if (invDash.includes(riskyConst)) {
   pass("InvestorDashboard has no stale KYC overlay reference");
 }
 
+const kycPanelPath = join(root, "web/src/components/invest/KycPanel.jsx");
+const kycPanel = readFileSync(kycPanelPath, "utf8");
+if (kycPanel.includes("<SectionFieldset") && !kycPanel.includes("function SectionFieldset")) {
+  fail("KycPanel uses SectionFieldset without defining it");
+} else {
+  pass("KycPanel defines SectionFieldset");
+}
+
 // — Static: API list guards
 const guardFiles = [
   ["web/src/pages/main/Products.jsx", /setCategories\(d\.categories\)\)/],

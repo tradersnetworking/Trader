@@ -502,7 +502,7 @@ export default function InvestDashboardShell({
           aria-hidden={dashboardLocked ? true : undefined}
         >
           <div className="invest-page-main">
-            <ErrorBoundary>{children}</ErrorBoundary>
+            <ErrorBoundary key={activeTab}>{children}</ErrorBoundary>
           </div>
           <footer className="hidden border-t border-border px-4 py-3 text-center text-[10px] text-muted-foreground md:block">
             © {new Date().getFullYear()} AKSHYA INVESTMENTS ·{" "}
@@ -574,6 +574,7 @@ export default function InvestDashboardShell({
               onEditKyc={kycReview.onEditKyc}
               onViewSubmission={kycReview.onViewSubmission}
               onLogout={kycReview.onLogout}
+              onClose={kycReview.onCloseOverlay}
               compact
             />
           </div>
