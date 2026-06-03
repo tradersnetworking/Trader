@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
+import { Alert } from "../ui.jsx";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge, Copyable } from "../ui.jsx";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
@@ -83,12 +85,22 @@ export function MainMyQuotesPanel() {
 }
 
 export function MainMyOrdersPanel({ onGenerateInvoice }) {
+  const [sp, setSp] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [busy, setBusy] = useState(null);
+  const paymentBanner = sp.get("status") === "success" ? "Payment completed successfully." : sp.get("status") === "failed" ? "Payment was not completed. You can pay from this list." : null;
 
   const load = () => mainApi("/orders/mine").then((d) => setOrders(d.orders)).catch(() => {});
 
   useEffect(() => { load(); }, []);
+
+  const dismissBanner = () => {
+    const next = new URLSearchParams(sp);
+    next.delete("status");
+    next.delete("orderId");
+    next.delete("kind");
+    setSp(next, { replace: true });
+  };
 
   const genInvoice = async (orderId) => {
     setBusy(orderId);
@@ -118,7 +130,18 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
   };
 
   return (
-    <div className="overflow-x-auto card">
+    <div className="space-y-3">
+      {paymentBanner && (
+        <Alert type={sp.get("status") === "success" ? "success" : "info"}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>{paymentBanner}</span>
+            <button type="button" className="text-xs font-semibold underline" onClick={dismissBanner}>
+              Dismiss
+            </button>
+          </div>
+        </Alert>
+      )}
+      <div className="overflow-x-auto card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>
@@ -149,7 +172,7 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
               <td className="p-3 text-right whitespace-nowrap">
                 {o.paymentStatus !== "PAID" && (
                   <button type="button" className="mr-2 text-xs font-semibold text-emerald-600" disabled={busy === o.id} onClick={() => payOrder(o.id)}>
-                    {busy === o.id ? "…" : o.paymentStatus === "PARTIAL" ? "Pay balance" : "Pay online"}
+                    {busy === o.id ? "…" : o.paymentStatus === "PARTIAL" ? "Pay balance" : "Proceed to payment"}
                   </button>
                 )}
                 <button type="button" className="text-xs font-semibold text-primary" disabled={busy === o.id} onClick={() => genInvoice(o.id)}>
@@ -163,6 +186,7 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

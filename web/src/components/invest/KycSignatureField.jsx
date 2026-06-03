@@ -133,10 +133,10 @@ export default function KycSignatureField({
           {existingUrl && !signatureFile && (
             <p className="text-[11px] text-muted-foreground">Previously uploaded signature on file.</p>
           )}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="flex flex-col gap-2">
             <button
               type="button"
-              className="btn-outline w-full text-sm sm:w-auto"
+              className="btn-gold btn-block w-full text-sm font-semibold shadow-sm"
               onClick={() => uploadRef.current?.click()}
             >
               Choose file from device

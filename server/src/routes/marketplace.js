@@ -499,11 +499,13 @@ router.post(
   "/orders",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const { items, gateway, payAmount, quoteId, paymentNote } = req.body;
+    const { items, gateway, payAmount, quoteId, paymentNote, startPayment } = req.body;
     const total = (items || []).reduce((s, it) => s + Number(it.price) * Number(it.qty), 0);
     if (total <= 0) return res.status(400).json({ error: "Invalid order amount" });
     const charge = payAmount != null ? Math.min(Number(payAmount), total) : total;
-    if (charge <= 0) return res.status(400).json({ error: "Payment amount must be positive" });
+    if (startPayment !== false && charge <= 0) {
+      return res.status(400).json({ error: "Payment amount must be positive" });
+    }
     const order = await mainDb.order.create({
       data: {
         orderNumber: "AEX-" + nanoid(8).toUpperCase(),
@@ -513,8 +515,19 @@ router.post(
         paymentGateway: gateway || null,
         quoteId: quoteId || null,
         paymentNote: paymentNote || null,
+        paymentStatus: "UNPAID",
+        paidAmount: 0,
       },
     });
+
+    if (startPayment === false) {
+      return res.json({
+        order: { ...order, items: JSON.parse(order.items || "[]") },
+        payment: null,
+        payAmountDue: charge,
+      });
+    }
+
     const payment = await createOrder(gateway || "razorpay", {
       amount: charge,
       currency: "INR",
@@ -530,7 +543,11 @@ router.post(
       await mainDb.order.update({ where: { id: order.id }, data: { paymentRef: String(gatewayRef) } });
       order.paymentRef = String(gatewayRef);
     }
-    res.json({ order, payment });
+    res.json({
+      order: { ...order, items: JSON.parse(order.items || "[]") },
+      payment,
+      payAmountDue: charge,
+    });
   })
 );
 
