@@ -64,7 +64,10 @@ export function parseKycBody(b, existing = {}) {
     state: b.state?.trim() || null,
     pincode: b.pincode?.trim() || null,
     address: address || b.address?.trim() || null,
-    idType: b.idType || "PAN",
+    idType: (() => {
+      const t = String(b.idType ?? existing.idType ?? "").toUpperCase();
+      return ["PAN", "AADHAAR", "PASSPORT", "DRIVERS_LICENSE"].includes(t) ? t : null;
+    })(),
     idNumber: b.idNumber || null,
     panNumber: b.panNumber ? String(b.panNumber).trim().toUpperCase() : null,
     aadhaarNumber: b.aadhaarNumber ? String(b.aadhaarNumber).replace(/\s/g, "") : null,

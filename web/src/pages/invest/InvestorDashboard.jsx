@@ -55,6 +55,7 @@ import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.j
 import InvestorKycHomePanel from "../../components/invest/InvestorKycHomePanel.jsx";
 import InvestorKycTabContent from "../../components/invest/InvestorKycTabContent.jsx";
 import InvestorMyAccountPanel from "../../components/invest/InvestorMyAccountPanel.jsx";
+import InvestorApprovedViewButtons from "../../components/invest/InvestorApprovedViewButtons.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -383,6 +384,7 @@ export default function InvestorDashboard() {
             <TabPanel>
               <KycPanel
                 kyc={kyc}
+                investor={invest}
                 pendingPayoutChange={pendingPayoutChange}
                 pendingKycRevision={pendingKycRevision}
                 onRefresh={fetchCore}
@@ -635,6 +637,7 @@ function Profile({ kyc, investor: investorProp }) {
   const { invest, refreshInvest } = useAuth();
   const investor = investorProp || invest;
   const fromKyc = kyc && kyc.status && kyc.status !== "NOT_SUBMITTED";
+  const kycApproved = kyc?.status === "APPROVED";
   const [form, setForm] = useState(() => profileFormFromSources(investor, kyc));
   const [msg, setMsg] = useState("");
   const isStaff = ["ADMIN", "SUPERADMIN"].includes(invest?.role);
@@ -651,7 +654,16 @@ function Profile({ kyc, investor: investorProp }) {
   };
   return (
     <div className="card max-w-xl p-4 sm:p-6">
-      {fromKyc && (
+      {kycApproved && (
+        <div className="mb-4 space-y-2">
+          <h3 className="text-sm font-bold text-foreground">Approved KYC on file</h3>
+          <p className="text-xs text-muted-foreground">
+            Open a popup to review your verified KYC, bank account, and uploaded documents.
+          </p>
+          <InvestorApprovedViewButtons kyc={kyc} investor={investor} />
+        </div>
+      )}
+      {fromKyc && !kycApproved && (
         <div className="mb-4">
           <Alert type="info">
             Bank and contact fields are filled from your KYC submission. After KYC is approved, changes here may require admin approval.

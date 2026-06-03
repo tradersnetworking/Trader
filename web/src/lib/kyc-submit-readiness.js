@@ -53,13 +53,19 @@ export function kycSubmitReadiness({
         if (!aadhaarOk) blockers.push("Aadhaar front & back (or single Aadhaar file) upload is required");
         if (!hasDoc("selfie")) blockers.push("Selfie verification photo is required");
         if (!hasDoc("addressProof")) blockers.push("Address proof upload is required");
-        if (form.idType === "PASSPORT") {
+        const idType = String(form.idType || "").toUpperCase();
+        if (!idType) {
+          blockers.push("Select your primary ID document (PAN, Aadhaar, Passport, or Driving Licence)");
+        } else if (idType === "PASSPORT") {
           if (!String(form.idNumber || "").trim()) blockers.push("Passport number is required");
           if (!hasDoc("passportDocument")) blockers.push("Passport document upload is required");
-        }
-        if (form.idType === "DRIVERS_LICENSE") {
+        } else if (idType === "DRIVERS_LICENSE") {
           if (!String(form.idNumber || "").trim()) blockers.push("Driving licence number is required");
           if (!hasDoc("driversLicenseDocument")) blockers.push("Driving licence document upload is required");
+        } else if (idType === "PAN" && !isValidPan(form.panNumber)) {
+          blockers.push("Valid PAN number is required when PAN Card is your primary ID");
+        } else if (idType === "AADHAAR" && !isValidAadhaar(form.aadhaarNumber)) {
+          blockers.push("Valid Aadhaar number is required when Aadhaar is your primary ID");
         }
       }
 

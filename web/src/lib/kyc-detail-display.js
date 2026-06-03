@@ -1,3 +1,5 @@
+import { primaryIdTypeLabel } from "./kycForm.js";
+
 /** Read-only KYC field rows for investor/admin detail views. */
 export const KYC_DETAIL_FIELDS = [
   ["Full name", (k) => k.fullName],
@@ -18,7 +20,7 @@ export const KYC_DETAIL_FIELDS = [
   ["City", (k) => k.city],
   ["Address", (k) => k.address],
   ["Bank proof", (k) => k.bankProofType],
-  ["ID type", (k) => k.idType],
+  ["Primary ID", (k) => (k.idType ? primaryIdTypeLabel(k.idType) : null)],
   ["ID number", (k) => k.idNumber],
   ["PAN", (k) => k.panNumber],
   ["Aadhaar", (k) => k.aadhaarNumber],

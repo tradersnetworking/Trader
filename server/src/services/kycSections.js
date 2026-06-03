@@ -161,13 +161,24 @@ export function validateKycSections(data, files, existing, requiredSections) {
     }
     if (!data.selfie) return { error: "Selfie verification photo is required" };
     if (!data.addressProof) return { error: "Address proof document is required" };
-    const idType = String(data.idType || "PASSPORT").toUpperCase();
+    const idType = String(data.idType || "").toUpperCase();
+    if (!["PAN", "AADHAAR", "PASSPORT", "DRIVERS_LICENSE"].includes(idType)) {
+      return { error: "Select your primary ID document (PAN, Aadhaar, Passport, or Driving Licence)" };
+    }
     if (idType === "PASSPORT") {
       if (!String(data.idNumber || "").trim()) return { error: "Passport number is required" };
       if (!data.passportDocument) return { error: "Passport document upload is required" };
     } else if (idType === "DRIVERS_LICENSE") {
       if (!String(data.idNumber || "").trim()) return { error: "Driving licence number is required" };
       if (!data.driversLicenseDocument) return { error: "Driving licence document upload is required" };
+    } else if (idType === "PAN") {
+      if (!String(data.idNumber || panNumber || "").trim()) {
+        return { error: "PAN number is required when PAN Card is your primary ID" };
+      }
+    } else if (idType === "AADHAAR") {
+      if (!String(data.idNumber || aadhaarNumber || "").trim()) {
+        return { error: "Aadhaar number is required when Aadhaar is your primary ID" };
+      }
     }
   }
 

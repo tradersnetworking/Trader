@@ -128,6 +128,12 @@ export default function KycImageCaptureField({
         onClose={() => setCameraOpen(false)}
         onCapture={applyFile}
         title={label || "Take photo"}
+        defaultFacing={name === "selfie" ? "user" : "environment"}
+        hint={
+          name === "selfie"
+            ? "Use front camera with your ID beside your face, or flip to the back camera if needed."
+            : "Flip between front and back camera to capture a clear photo of your document."
+        }
       />
     </div>
   );

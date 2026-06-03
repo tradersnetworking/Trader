@@ -10,13 +10,21 @@ export const BANK_PROOF_TYPES = [
   { value: "STATEMENT", label: "Bank statement (no password lock)" },
 ];
 
-/** Additional government ID (PAN + Aadhaar are always required separately). */
-export const ID_TYPES = [
+/** Primary government ID — PAN & Aadhaar uploads are always compulsory regardless of selection. */
+export const PRIMARY_ID_TYPES = [
+  { value: "PAN", label: "PAN Card" },
+  { value: "AADHAAR", label: "Aadhaar" },
   { value: "PASSPORT", label: "Passport" },
   { value: "DRIVERS_LICENSE", label: "Driving Licence" },
 ];
 
+export const VALID_PRIMARY_ID_TYPES = PRIMARY_ID_TYPES.map((t) => t.value);
+
+/** @deprecated Use PRIMARY_ID_TYPES */
+export const ID_TYPES = PRIMARY_ID_TYPES;
+
 export function initKycForm(kyc) {
+  const idType = String(kyc?.idType || "").toUpperCase();
   return {
     fullName: kyc?.fullName || "",
     guardianType: kyc?.guardianType || "FATHER",
@@ -37,7 +45,7 @@ export function initKycForm(kyc) {
     pincode: kyc?.pincode || "",
     country: kyc?.country || "India",
     address: kyc?.address || "",
-    idType: ["PASSPORT", "DRIVERS_LICENSE"].includes(kyc?.idType) ? kyc.idType : "PASSPORT",
+    idType: VALID_PRIMARY_ID_TYPES.includes(idType) ? idType : "",
     idNumber: kyc?.idNumber || "",
     panNumber: kyc?.panNumber || "",
     aadhaarNumber: kyc?.aadhaarNumber || "",
@@ -53,4 +61,16 @@ export function initKycForm(kyc) {
 
 export function guardianFieldLabel(type) {
   return GUARDIAN_TYPES.find((g) => g.value === type)?.label || "Guardian name";
+}
+
+/** ID number stored on KYC record for the selected primary document type. */
+export function resolvePrimaryIdNumber(form, { normalizePan, normalizeAadhaar }) {
+  const idType = String(form?.idType || "").toUpperCase();
+  if (idType === "PAN") return normalizePan(form.panNumber);
+  if (idType === "AADHAAR") return normalizeAadhaar(form.aadhaarNumber);
+  return String(form?.idNumber || "").trim();
+}
+
+export function primaryIdTypeLabel(value) {
+  return PRIMARY_ID_TYPES.find((t) => t.value === value)?.label || value || "—";
 }

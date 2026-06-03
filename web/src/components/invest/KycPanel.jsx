@@ -34,8 +34,17 @@ import KycSignatureField from "./KycSignatureField.jsx";
 import KycImageCaptureField from "./KycImageCaptureField.jsx";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
-import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, ID_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
+import {
+  initKycForm,
+  GUARDIAN_TYPES,
+  BANK_PROOF_TYPES,
+  PRIMARY_ID_TYPES,
+  resolvePrimaryIdNumber,
+  primaryIdTypeLabel,
+  guardianFieldLabel,
+} from "../../lib/kycForm.js";
 import KycSectionOverview from "./KycSectionOverview.jsx";
+import InvestorApprovedViewButtons from "./InvestorApprovedViewButtons.jsx";
 import {
   canEditSection,
   isSectionApproved,
@@ -100,7 +109,7 @@ function SectionFieldset({ section, kyc, children }) {
   );
 }
 
-export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingKycRevision, forced = false }) {
+export default function KycPanel({ kyc, investor, onRefresh, pendingPayoutChange, pendingKycRevision, forced = false }) {
 
   const [tab, setTab] = useState("kyc");
   const [revisionMode, setRevisionMode] = useState(false);
@@ -126,7 +135,16 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-
+  const onIdTypeChange = (nextType) => {
+    set("idType", nextType);
+    set("idNumber", "");
+    setFiles((prev) => {
+      const next = { ...prev };
+      delete next.passportDocument;
+      delete next.driversLicenseDocument;
+      return next;
+    });
+  };
 
   const submitted =
     kyc?.status === "APPROVED" || (kyc?.status === "PENDING" && isKycFullySubmitted(kyc));
@@ -237,6 +255,16 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
         if (!aadhaarOk) return "Upload Aadhaar front & back, or a single Aadhaar PDF/image";
         if (!hasDoc("selfie")) return "Selfie verification photo is required";
         if (!hasDoc("addressProof")) return "Address proof upload is required";
+        const idType = String(form.idType || "").toUpperCase();
+        if (!idType) return "Select your primary ID document (PAN, Aadhaar, Passport, or Driving Licence)";
+        if (idType === "PASSPORT") {
+          if (!String(form.idNumber || "").trim()) return "Passport number is required";
+          if (!hasDoc("passportDocument")) return "Upload your passport document";
+        }
+        if (idType === "DRIVERS_LICENSE") {
+          if (!String(form.idNumber || "").trim()) return "Driving licence number is required";
+          if (!hasDoc("driversLicenseDocument")) return "Upload your driving licence document";
+        }
       }
 
       if (editSignature) {
@@ -349,7 +377,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
       ...form,
       panNumber: normalizePan(form.panNumber),
       aadhaarNumber: normalizeAadhaar(form.aadhaarNumber),
-      idNumber: form.idNumber || normalizePan(form.panNumber) || normalizeAadhaar(form.aadhaarNumber),
+      idNumber: resolvePrimaryIdNumber(form, { normalizePan, normalizeAadhaar }),
       whatsappNumber: form.sameWhatsapp ? form.phone : form.whatsappNumber,
       fatherName: form.guardianName,
     };
@@ -536,7 +564,12 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
       {(forced || tab === "kyc") && submitted && !revisionMode && !canEdit ? (
 
-        <KycStatusView kyc={kyc} onRequestChanges={() => { setRevisionMode(true); setStep(0); }} pendingKycRevision={pendingKycRevision} />
+        <KycStatusView
+          kyc={kyc}
+          investor={investor}
+          onRequestChanges={() => { setRevisionMode(true); setStep(0); }}
+          pendingKycRevision={pendingKycRevision}
+        />
 
       ) : (forced || tab === "kyc") && (
 
@@ -657,72 +690,65 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
               </div>
 
               <SectionFieldset section="identity" kyc={kyc}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Alert type="info">
+                <strong>PAN Card</strong> and <strong>Aadhaar</strong> are compulsory for every investor (number + upload
+                below). Also select which document is your <strong>primary ID</strong> from the list.
+              </Alert>
 
-                <Field label="PAN Number *">
-
-                  <input
-
-                    className="input uppercase"
-
-                    value={form.panNumber}
-
-                    onChange={(e) => set("panNumber", e.target.value.toUpperCase())}
-
-                    placeholder="ABCDE1234F"
-
-                    maxLength={10}
-
-                  />
-
-                </Field>
-
-                <Field label="Aadhaar Number *">
-
-                  <input
-
-                    className="input"
-
-                    value={form.aadhaarNumber}
-
-                    onChange={(e) => set("aadhaarNumber", e.target.value.replace(/\D/g, "").slice(0, 12))}
-
-                    placeholder="12-digit Aadhaar"
-
-                    inputMode="numeric"
-
-                  />
-
-                </Field>
-
-              </div>
-
-
-
-              <Field label="Primary ID Type">
-
-                <select className="input" value={form.idType} onChange={(e) => set("idType", e.target.value)}>
-
-                  {ID_TYPES.map((t) => (
-
+              <Field label="Primary ID document *">
+                <select
+                  className="input"
+                  value={form.idType}
+                  onChange={(e) => onIdTypeChange(e.target.value)}
+                >
+                  <option value="">— Select primary ID —</option>
+                  {PRIMARY_ID_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>{t.label}</option>
-
                   ))}
-
                 </select>
-
+                {form.idType && (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Primary ID: {primaryIdTypeLabel(form.idType)}
+                    {form.idType === "PAN" || form.idType === "AADHAAR"
+                      ? " — uses your PAN / Aadhaar number and upload below."
+                      : " — enter number and upload the matching document below."}
+                  </p>
+                )}
               </Field>
 
+              <p className="text-xs font-semibold text-muted-foreground">Compulsory documents (always required)</p>
 
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="PAN number *">
+                  <input
+                    className="input uppercase"
+                    value={form.panNumber}
+                    onChange={(e) => set("panNumber", e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    maxLength={10}
+                  />
+                </Field>
+                <Field label="Aadhaar number *">
+                  <input
+                    className="input"
+                    value={form.aadhaarNumber}
+                    onChange={(e) => set("aadhaarNumber", e.target.value.replace(/\D/g, "").slice(0, 12))}
+                    placeholder="12-digit Aadhaar"
+                    inputMode="numeric"
+                  />
+                </Field>
+              </div>
 
               {form.idType === "PASSPORT" && (
-
-                <Field label="Passport Number">
-
+                <Field label="Passport number *">
                   <input className="input" value={form.idNumber} onChange={(e) => set("idNumber", e.target.value)} />
-
                 </Field>
+              )}
 
+              {form.idType === "DRIVERS_LICENSE" && (
+                <Field label="Driving licence number *">
+                  <input className="input" value={form.idNumber} onChange={(e) => set("idNumber", e.target.value)} />
+                </Field>
               )}
 
 
@@ -787,8 +813,8 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 {form.idType === "PASSPORT" && (
                   <KycImageCaptureField
-                    label="Passport Document *"
-                    hint="Upload the photo page of your passport"
+                    label="Passport document *"
+                    hint="Required — passport is your primary ID (photo page, image or PDF)"
                     name="passportDocument"
                     required
                     files={files}
@@ -800,8 +826,8 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 {form.idType === "DRIVERS_LICENSE" && (
                   <KycImageCaptureField
-                    label="Driving Licence Document *"
-                    hint="Upload front and back of your driving licence (image or PDF)"
+                    label="Driving licence document *"
+                    hint="Required — driving licence is your primary ID (front and back, image or PDF)"
                     name="driversLicenseDocument"
                     required
                     files={files}
@@ -1180,7 +1206,7 @@ function Stepper({ step, onStepClick }) {
 
 
 
-function KycStatusView({ kyc, onRequestChanges, pendingKycRevision }) {
+function KycStatusView({ kyc, investor, onRequestChanges, pendingKycRevision }) {
 
   const verified = kyc.status === "APPROVED";
 
@@ -1249,23 +1275,21 @@ function KycStatusView({ kyc, onRequestChanges, pendingKycRevision }) {
 
 
 
-      <div>
-
-        <h3 className="mb-2 text-sm font-semibold text-foreground">Uploaded Documents</h3>
-
-        {verified && (
-
-          <p className="mb-2 text-[11px] text-muted-foreground">
-
-            Approved documents are locked. Contact support to request changes.
-
+      {verified ? (
+        <div className="space-y-3 border-t border-border pt-4">
+          <h3 className="text-sm font-semibold text-foreground">Your approved records</h3>
+          <p className="text-xs text-muted-foreground">
+            View KYC details, bank account, and uploaded files in a popup. Documents are locked — use the button
+            below to request changes.
           </p>
-
-        )}
-
-        <KycDocumentsList kyc={kyc} scope="invest" locked={verified} />
-
-      </div>
+          <InvestorApprovedViewButtons kyc={kyc} investor={investor} />
+        </div>
+      ) : (
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-foreground">Uploaded Documents</h3>
+          <KycDocumentsList kyc={kyc} scope="invest" locked={false} />
+        </div>
+      )}
 
     </div>
 

@@ -8,11 +8,17 @@ export function isKycFullySubmitted(kyc) {
   const bankProof =
     kyc.cancelledCheque || kyc.passbookDocument || kyc.bankStatementDocument;
   const hasSig = kyc.signature || kyc.signatureData;
-  const idType = String(kyc.idType || "PASSPORT").toUpperCase();
+  const idType = String(kyc.idType || "").toUpperCase();
   const primaryIdOk =
-    idType === "DRIVERS_LICENSE"
-      ? Boolean(kyc.idNumber?.trim() && kyc.driversLicenseDocument)
-      : Boolean(kyc.idNumber?.trim() && kyc.passportDocument);
+    idType === "PAN"
+      ? Boolean(kyc.panNumber?.trim() && kyc.panDocument)
+      : idType === "AADHAAR"
+        ? Boolean(kyc.aadhaarNumber?.trim() && hasAadhaar)
+        : idType === "DRIVERS_LICENSE"
+          ? Boolean(kyc.idNumber?.trim() && kyc.driversLicenseDocument)
+          : idType === "PASSPORT"
+            ? Boolean(kyc.idNumber?.trim() && kyc.passportDocument)
+            : false;
 
   return Boolean(
     kyc.fullName?.trim() &&
