@@ -284,11 +284,11 @@ export function RegisterScreen({ scope }) {
   useEffect(() => {
     const ref = sp.get("ref");
     if (ref) {
-      try { localStorage.setItem("invest_ref", ref); } catch {}
+      try { sessionStorage.setItem("invest_ref", ref); } catch {}
       setForm((f) => ({ ...f, referralCode: ref }));
     } else {
       try {
-        const stored = localStorage.getItem("invest_ref");
+        const stored = sessionStorage.getItem("invest_ref");
         if (stored) setForm((f) => ({ ...f, referralCode: stored }));
       } catch {}
     }

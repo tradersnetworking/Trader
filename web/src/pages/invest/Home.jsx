@@ -67,7 +67,7 @@ export default function InvestHome() {
     if (ref) {
       const code = ref.trim().toUpperCase();
       try {
-        localStorage.setItem("invest_ref", code);
+        sessionStorage.setItem("invest_ref", code);
       } catch {}
       fetch("/api/invest/public/referral/track", {
         method: "POST",

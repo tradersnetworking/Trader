@@ -93,6 +93,22 @@ export default function InvestorOverviewPanel({
 
   const pl = data?.periodLabel || "All time";
 
+  if (dashboardPreview) {
+    return (
+      <div className="page-stack">
+        <WelcomeBanner
+          name={userName}
+          profilePicture={profilePicture}
+          subtitle={new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        />
+        <p className="text-sm text-muted-foreground">
+          Portfolio charts, investments, and wallet actions unlock after your KYC is approved. Use{" "}
+          <strong className="text-foreground">KYC</strong> or <strong className="text-foreground">Help</strong> in the menu meanwhile.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="page-stack">
       <WelcomeBanner
@@ -101,9 +117,7 @@ export default function InvestorOverviewPanel({
         subtitle={new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
       />
 
-      {!dashboardPreview && (
-        <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
-      )}
+      <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
 
       <OverviewActionBar
         onDeposit={() => onNavigate("money", { moneyTab: "deposit" })}

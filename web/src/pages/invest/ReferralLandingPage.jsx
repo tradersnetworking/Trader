@@ -8,7 +8,7 @@ export default function ReferralLandingPage() {
 
   useEffect(() => {
     if (code) {
-      localStorage.setItem("invest_ref", code.trim().toUpperCase());
+      sessionStorage.setItem("invest_ref", code.trim().toUpperCase());
       fetch("/api/invest/public/referral/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

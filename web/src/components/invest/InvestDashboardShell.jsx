@@ -4,7 +4,8 @@ import { Logo, Badge, UserAvatar } from "../ui.jsx";
 import BrandMark from "../BrandMark.jsx";
 import { ThemeToggle } from "../../lib/theme.jsx";
 import { getAdminNav, getNavLabel, navShortLabel, navIconBg, navIconFg, translateNavItem, translateNavShort } from "../../lib/invest-nav.js";
-import { INVESTOR_KYC_RESTRICTED_NAV_LABELS } from "../../lib/investCompliance.js";
+import { INVESTOR_KYC_NAV_TAB_IDS, INVESTOR_KYC_RESTRICTED_NAV_LABELS } from "../../lib/investCompliance.js";
+import { sessionGet, sessionSet } from "../../lib/browserStorage.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { NavIcon } from "./NavIcons.jsx";
 import { inr } from "../../lib/format.js";
@@ -42,7 +43,7 @@ export default function InvestDashboardShell({
 }) {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("invest-sidebar-collapsed") === "1");
+  const [collapsed, setCollapsed] = useState(() => sessionGet("invest-sidebar-collapsed") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const desktopSidebarNavRef = useRef(null);
@@ -73,7 +74,7 @@ export default function InvestDashboardShell({
   }, [activeTab]);
 
   useEffect(() => {
-    localStorage.setItem("invest-sidebar-collapsed", collapsed ? "1" : "0");
+    sessionSet("invest-sidebar-collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
   useEffect(() => {
@@ -84,7 +85,7 @@ export default function InvestDashboardShell({
   const mobilePrimary = role === "admin"
     ? links.filter((n) => ["overview", "pending-payments", "deposits", "kyc"].includes(n.id))
     : kycRestricted
-      ? links.filter((n) => ["overview", "kyc", "profile", "account", "support"].includes(n.id))
+      ? links.filter((n) => INVESTOR_KYC_NAV_TAB_IDS.includes(n.id))
       : links.filter((n) => ["overview", "money", "investments", "referral", "plans"].includes(n.id));
 
   const sectionLabel = (section) => {
@@ -510,7 +511,7 @@ export default function InvestDashboardShell({
       </div>
       </div>
 
-      <InvestShareWidget />
+      {!kycRestricted && <InvestShareWidget />}
       <SupportWidget />
 
       {!kycOnlyMode && (

@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { applySiteRootClass, getAppSiteMode } from "./lib/site.js";
 import { loadPortalConfig } from "./lib/portalConfig.js";
 import { configurePortalPwa } from "./lib/pwa.js";
+import { syncBrowserStorageSchema } from "./lib/browserStorage.js";
 import App from "./App.jsx";
 import { AuthProvider } from "./lib/store.jsx";
 import { ThemeProvider } from "./lib/theme.jsx";
@@ -13,6 +14,7 @@ import ScreenshotProtection from "./components/invest/ScreenshotProtection.jsx";
 
 async function bootstrap() {
   await (window.__aexSwCleanup || Promise.resolve());
+  syncBrowserStorageSchema();
   await loadPortalConfig();
   const initialPath = typeof window !== "undefined" ? window.location.pathname : "/";
   const initialMode = getAppSiteMode(initialPath);

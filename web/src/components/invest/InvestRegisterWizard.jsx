@@ -38,7 +38,7 @@ export default function InvestRegisterWizard() {
   useEffect(() => {
     loadCaptcha();
     try {
-      const ref = new URLSearchParams(window.location.search).get("ref") || localStorage.getItem("invest_ref");
+      const ref = new URLSearchParams(window.location.search).get("ref") || sessionStorage.getItem("invest_ref");
       if (ref) setForm((f) => ({ ...f, referralCode: ref }));
     } catch {}
   }, []);

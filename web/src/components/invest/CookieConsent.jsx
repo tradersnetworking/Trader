@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { investPath } from "../../lib/site.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
+import { sessionGet, sessionSet } from "../../lib/browserStorage.js";
 
 const STORAGE_KEY = "aex_cookie_consent";
 
@@ -11,7 +12,7 @@ export default function CookieConsent() {
 
   useEffect(() => {
     try {
-      if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
+      if (!sessionGet(STORAGE_KEY)) setVisible(true);
     } catch {
       setVisible(true);
     }
@@ -19,7 +20,7 @@ export default function CookieConsent() {
 
   const accept = () => {
     try {
-      localStorage.setItem(STORAGE_KEY, "1");
+      sessionSet(STORAGE_KEY, "1");
     } catch {}
     setVisible(false);
   };

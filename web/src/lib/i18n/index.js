@@ -180,7 +180,7 @@ export const en = {
     back: "Back",
   },
   cookie: {
-    message: "We use essential cookies and local storage to keep you signed in and remember your preferences.",
+    message: "We use essential cookies and session storage for sign-in. Only your login token is kept in site data until you log out.",
     learnMore: "Cookie Policy",
     accept: "Accept",
   },

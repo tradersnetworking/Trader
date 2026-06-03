@@ -3,6 +3,7 @@ import {
   canAccessInvestDashboard,
   getKycUiPhase,
   kycStubFromInvestor,
+  INVESTOR_KYC_ALLOWED_TABS,
 } from "../../lib/investCompliance.js";
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 import KycPanel from "./KycPanel.jsx";
@@ -37,7 +38,7 @@ function KycLoadError({ message, onRetry, investor }) {
   );
 }
 
-const LIMITED_TABS = new Set(["overview", "profile", "account", "support", "kyc"]);
+const LIMITED_TABS = new Set(INVESTOR_KYC_ALLOWED_TABS);
 
 function KycTabContent({ kyc, phase, pendingPayoutChange, pendingKycRevision, onRefresh, onCloseRestricted }) {
   const body = (

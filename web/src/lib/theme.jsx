@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useSiteMode } from "./site.js";
+import { sessionGet, sessionSet } from "./browserStorage.js";
 
 const ThemeContext = createContext(null);
 
@@ -45,22 +46,22 @@ function AutoIcon({ className = "h-4 w-4" }) {
 export function ThemeProvider({ children }) {
   const site = useSiteMode();
   const key = themeKey(site);
-  const [mode, setMode] = useState(() => localStorage.getItem(key) || "auto");
+  const [mode, setMode] = useState(() => sessionGet(key) || "auto");
 
   useEffect(() => {
-    const stored = localStorage.getItem(key) || "auto";
+    const stored = sessionGet(key) || "auto";
     setMode(stored);
   }, [key]);
 
   useEffect(() => {
     apply(mode);
-    localStorage.setItem(key, mode);
+    sessionSet(key, mode);
   }, [mode, key]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      if ((localStorage.getItem(key) || "auto") === "auto") apply("auto");
+      if ((sessionGet(key) || "auto") === "auto") apply("auto");
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

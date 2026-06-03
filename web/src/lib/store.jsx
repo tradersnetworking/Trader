@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { api, getToken, setToken, isAuthError, logoutScope } from "./api.js";
+import { refreshInvestClientState } from "./browserStorage.js";
 import { getHostKind, useSiteMode } from "./site.js";
 
 const AuthContext = createContext(null);
@@ -92,6 +93,7 @@ export function AuthProvider({ children }) {
       },
       loginInvest: (token, user) => {
         authEpoch.invest += 1;
+        refreshInvestClientState();
         setToken("invest", token);
         setInvest({ user, loading: false });
       },

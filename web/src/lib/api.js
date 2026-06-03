@@ -1,5 +1,6 @@
 // Scope-aware API client. scope is "main" (marketplace) or "invest" (portal).
 import { networkErrorMessage } from "./upload-limits.js";
+import { pruneLocalStorageToCredentials, purgeOnLogout as purgeAllBrowserStorage } from "./browserStorage.js";
 
 const TOKEN_KEYS = { main: "aex_main_token", invest: "aex_invest_token" };
 
@@ -34,7 +35,7 @@ export async function api(scope, path, { method = "GET", body, isForm } = {}) {
     payload = JSON.stringify(body);
   }
   const cache =
-    method === "GET" && scope === "invest" && String(path).startsWith("/public/")
+    method === "GET" && (scope === "invest" || String(path).startsWith("/public/"))
       ? "no-store"
       : undefined;
   let res;
@@ -148,5 +149,5 @@ export async function logoutScope(scope) {
   } catch {
     /* still clear local token */
   }
-  setToken(scope, "");
+  purgeAllBrowserStorage();
 }

@@ -48,7 +48,9 @@ import {
   getKycUiPhase,
   isKycPendingPreview,
   isInvestorTabAllowedBeforeApproval,
+  INVESTOR_KYC_OVERLAY_UNLOCK_TABS,
 } from "../../lib/investCompliance.js";
+import { refreshInvestClientState } from "../../lib/browserStorage.js";
 import InvestorKycHomeBanner from "../../components/invest/InvestorKycHomeBanner.jsx";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.jsx";
@@ -173,9 +175,15 @@ export default function InvestorDashboard() {
   }, [fetchCore, refreshing]);
 
   useEffect(() => {
+    if (invest?.role === "INVESTOR") refreshInvestClientState();
     fetchCore({ soft: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount; refresh uses handleRefresh
   }, []);
+
+  useEffect(() => {
+    if (!kycLoaded || dashboardUnlocked) return;
+    refreshInvestClientState();
+  }, [kycLoaded, dashboardUnlocked, kyc?.status]);
 
   useEffect(() => {
     if (!kycLoaded || dashboardUnlocked) return;

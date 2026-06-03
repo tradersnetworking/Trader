@@ -1,16 +1,17 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { INDIAN_LOCALES, getMessages, t as translate } from "./index.js";
+import { sessionGet, sessionSet } from "../browserStorage.js";
 
 const I18nContext = createContext({ locale: "en", setLocale: () => {}, t: (k) => k, rtl: false });
 
 export function I18nProvider({ children, userLocale }) {
-  const [locale, setLocaleState] = useState(() => userLocale || localStorage.getItem("aex-locale") || "en");
+  const [locale, setLocaleState] = useState(() => userLocale || sessionGet("aex-locale") || "en");
   const messages = useMemo(() => getMessages(locale), [locale]);
   const meta = INDIAN_LOCALES.find((l) => l.code === locale) || INDIAN_LOCALES[0];
 
   const setLocale = (code) => {
     setLocaleState(code);
-    localStorage.setItem("aex-locale", code);
+    sessionSet("aex-locale", code);
     document.documentElement.lang = code;
     document.documentElement.dir = meta.rtl ? "rtl" : "ltr";
   };
