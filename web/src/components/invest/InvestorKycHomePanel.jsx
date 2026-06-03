@@ -1,8 +1,8 @@
 import { Badge } from "../ui.jsx";
-import InvestorKycHomeBanner from "./InvestorKycHomeBanner.jsx";
+import InvestorKycStatusHero from "./InvestorKycStatusHero.jsx";
 import { getKycUiPhase } from "../../lib/investCompliance.js";
 
-/** Pre-approval Home — KYC status only, not the full investment dashboard. */
+/** Pre-approval Home — KYC status hero + quick links (not the full investment dashboard). */
 export default function InvestorKycHomePanel({
   kyc,
   kycLoadError,
@@ -16,16 +16,9 @@ export default function InvestorKycHomePanel({
   const phase = getKycUiPhase(kyc, { loaded: true, loadError: kycLoadError });
   const status = kyc?.status || "NOT_SUBMITTED";
 
-  const phaseHint = {
-    needs_submit: "Complete and submit KYC to unlock plans, wallet, and investments.",
-    pending_review: "We are reviewing your documents. You will get full dashboard access after approval.",
-    needs_fix: "Update the sections marked for correction and resubmit.",
-    approved: "Your account is fully active.",
-  };
-
   return (
     <div className="page-stack mx-auto max-w-2xl">
-      <InvestorKycHomeBanner
+      <InvestorKycStatusHero
         kyc={kyc}
         kycLoadError={kycLoadError}
         onGoKyc={onGoKyc}
@@ -36,17 +29,18 @@ export default function InvestorKycHomePanel({
         <div className="flex flex-wrap items-center gap-3">
           <Badge status={status} />
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-foreground">{displayName}</h2>
+            <h2 className="text-base font-bold text-foreground">{displayName}</h2>
             {investorEmail && <p className="text-sm text-muted-foreground">{investorEmail}</p>}
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">{phaseHint[phase] || phaseHint.needs_submit}</p>
+        <p className="text-xs text-muted-foreground">
+          Until KYC is approved, use <strong className="text-foreground">KYC</strong>,{" "}
+          <strong className="text-foreground">My Account</strong>, <strong className="text-foreground">Security</strong>, and{" "}
+          <strong className="text-foreground">Help</strong> from the menu. Plans, wallet, and investments unlock after approval.
+        </p>
 
         <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" className="btn-gold text-sm" onClick={onGoKyc}>
-            {phase === "needs_submit" ? "Start KYC" : "View KYC & documents"}
-          </button>
           {onGoProfile && (
             <button type="button" className="btn-outline text-sm" onClick={onGoProfile}>
               My Account
@@ -57,16 +51,12 @@ export default function InvestorKycHomePanel({
               Security
             </button>
           )}
-          {onGoSupport && (
-            <button type="button" className="btn-outline text-sm" onClick={onGoSupport}>
-              Help & support
+          {phase !== "needs_submit" && (
+            <button type="button" className="btn-outline text-sm sm:col-span-2" onClick={onGoKyc}>
+              Open KYC tab
             </button>
           )}
         </div>
-
-        <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-          Investment plans, Money Hub, referrals, and portfolio charts appear here after KYC is approved.
-        </p>
       </div>
     </div>
   );

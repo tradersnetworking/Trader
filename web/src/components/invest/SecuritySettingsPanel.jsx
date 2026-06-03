@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { investSecurityApi } from "../../lib/api.js";
 import { Alert, Field } from "../ui.jsx";
+import TotpSetupPanel from "./TotpSetupPanel.jsx";
 
 export default function SecuritySettingsPanel() {
   const [status, setStatus] = useState({ enabled: false, passkeys: [] });
@@ -19,12 +20,18 @@ export default function SecuritySettingsPanel() {
 
   const enable = async () => {
     setErr("");
+    setEnabling(true);
     try {
       const r = await investSecurityApi("/2fa/enable", { method: "POST", body: { secret: setup.secret, token } });
-      setMsg(`2FA enabled. Backup codes: ${r.backupCodes?.join(", ")}`);
+      setMsg(`2FA enabled. Save these backup codes: ${r.backupCodes?.join(", ")}`);
       setSetup(null);
+      setToken("");
       load();
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setEnabling(false);
+    }
   };
 
   const disable = async () => {
@@ -58,11 +65,13 @@ export default function SecuritySettingsPanel() {
         <p className="text-xs text-muted-foreground">Status: {status.enabled ? "Enabled" : "Not enabled"}</p>
         {!status.enabled && !setup && <button type="button" className="btn-outline text-sm" onClick={startSetup}>Set up 2FA</button>}
         {setup && (
-          <div className="space-y-2">
-            <p className="text-xs break-all font-mono">{setup.uri}</p>
-            <Field label="Verification code"><input className="input" value={token} onChange={(e) => setToken(e.target.value)} /></Field>
-            <button type="button" className="btn-gold w-full text-sm" onClick={enable}>Enable</button>
-          </div>
+          <TotpSetupPanel
+            setup={setup}
+            token={token}
+            onTokenChange={setToken}
+            onEnable={enable}
+            enabling={enabling}
+          />
         )}
         {status.enabled && (
           <div className="space-y-2">

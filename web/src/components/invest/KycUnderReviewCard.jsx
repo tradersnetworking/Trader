@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, Badge } from "../ui.jsx";
+import { KYC_REVIEW_TIME_PENDING } from "../../lib/kyc-review-copy.js";
 import InvestorKycSubmissionPanel from "./InvestorKycSubmissionPanel.jsx";
 import InvestorKycViewModal from "./InvestorKycViewModal.jsx";
 
@@ -56,8 +57,8 @@ export default function KycUnderReviewCard({
             KYC under review
           </h2>
           <p id="kyc-review-desc" className="mt-2 text-sm text-muted-foreground">
-            Your application was submitted. Plans and investments unlock after approval — usually 24–48 hours.
-            You can view or update your KYC, contact support, or sign out below.
+            Your application was submitted. Plans and investments unlock after approval. {KYC_REVIEW_TIME_PENDING} You
+            can view or update your KYC, contact support, or sign out below.
           </p>
           {submittedAt && (
             <p className="mt-2 text-xs text-muted-foreground">

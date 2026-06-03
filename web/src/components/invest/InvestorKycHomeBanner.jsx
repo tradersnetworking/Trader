@@ -1,5 +1,6 @@
 import { Alert } from "../ui.jsx";
 import { getKycUiPhase } from "../../lib/investCompliance.js";
+import { KYC_REVIEW_TIME_PENDING } from "../../lib/kyc-review-copy.js";
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 
 export default function InvestorKycHomeBanner({ kyc, kycLoadError, onGoKyc, onGoSupport }) {
@@ -13,10 +14,7 @@ export default function InvestorKycHomeBanner({ kyc, kycLoadError, onGoKyc, onGo
     return (
       <Alert type="info">
         <p className="font-semibold text-foreground">KYC under review</p>
-        <p className="mt-1 text-sm">
-          Thank you for submitting your documents. Our team is verifying your details — usually within 24–48 hours.
-          Use <strong>Home</strong> for status, <strong>KYC</strong> to view your submission, <strong>My Account</strong>, <strong>Security</strong>, or <strong>Help</strong> until approval.
-        </p>
+        <p className="mt-1 text-sm">{KYC_REVIEW_TIME_PENDING}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className="btn-outline text-xs" onClick={onGoKyc}>
             View submitted KYC
