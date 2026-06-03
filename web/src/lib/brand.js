@@ -1,6 +1,8 @@
 /** Shared brand strings for SEO, OG tags, and UI copy. */
 
 export const BRAND_MAIN = "AKSHAYA EXIM TRADERS";
+/** Tagline under logo + site title in main marketplace header and auth. */
+export const MAIN_SITE_TAGLINE = "Global Export & Import • B2B & B2C";
 /** Display name for the invest portal (all UI, SEO, agreements — not email addresses). */
 export const BRAND_INVEST = "AKSHYA INVESTMENTS";
 /** Header / beside-logo site title (title case). */

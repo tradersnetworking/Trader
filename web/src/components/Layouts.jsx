@@ -14,6 +14,7 @@ import MainSupportWidget from "./main/MainSupportWidget.jsx";
 import MainShareWidget from "./main/MainShareWidget.jsx";
 import { MAIN_SUPPORT_PHONE, MAIN_SUPPORT_PHONE_TEL } from "../lib/mainContact.js";
 import { investHash, investPath } from "../lib/site.js";
+import { MAIN_SITE_TAGLINE } from "../lib/brand.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
 function Shell({
@@ -59,7 +60,7 @@ function Shell({
       {/* Mobile — invest: full logo or mark + title above nav icons */}
       {mobileBrandBar && (
         <div className="border-b border-white/10 md:hidden">
-          <div className="mx-auto w-full max-w-7xl px-2 py-1.5">
+          <div className="mx-auto w-full max-w-7xl px-2 py-2">
             <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full" />
           </div>
         </div>
@@ -186,7 +187,7 @@ export function MarketplaceLayout({ children }) {
         showLogoImage
         brandLine1="Akshaya"
         brandLine2="EXIM TRADERS"
-        brandSub=""
+        brandSub={MAIN_SITE_TAGLINE}
         line1Silver
         links={links}
         actions={actions}

@@ -37,6 +37,7 @@ function paths(scope) {
 }
 
 function Shell({ scope, title, subtitle, children }) {
+  const p = paths(scope);
   const mobileBrand = scope === "invest" ? <AuthMobileBrand /> : <MainAuthMobileBrand />;
   const brandPanel = scope === "invest" ? <AuthBrandPanel /> : <MainAuthBrandPanel />;
 
@@ -44,6 +45,9 @@ function Shell({ scope, title, subtitle, children }) {
     <AuthPageLayout brandPanel={brandPanel}>
       <div className={AUTH_CARD}>
         {mobileBrand}
+        <Link to={p.home} className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-amber-600">
+          ← Back to home
+        </Link>
         <h1 className="text-center text-2xl font-bold sm:text-3xl">{title}</h1>
         {subtitle && <p className={`mb-6 mt-1 text-center text-sm ${AUTH_MUTED}`}>{subtitle}</p>}
         {children}
@@ -190,11 +194,6 @@ export function LoginScreen({ scope, staff }) {
     <Shell scope={scope}
       title={staff ? tx("staffLogin", "Staff / Admin Login") : (scope === "invest" ? tx("investorLogin", "Investor Login") : tx("userLogin", "User Login"))}
       subtitle={staff ? tx("staffSubtitle", "Authorized personnel only") : (scope === "invest" ? tx("welcomeInvest", "Welcome back to AKSHYA INVESTMENTS") : tx("welcomeMain", "Welcome back to Akshaya Exim"))}>
-      {scope === "invest" && (
-        <Link to={investPath("")} className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-amber-600">
-          {tx("backToHome", "← Back to home")}
-        </Link>
-      )}
       {needsLoginOtp ? (
         <form onSubmit={verifyLoginOtp} className="space-y-4">
           <Alert type="info">We sent a 6-digit code to your email. Google and passkey sign-in skip this step.</Alert>

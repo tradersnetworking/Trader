@@ -65,6 +65,9 @@ export default function BrandMark({
   const logoBrand = investFullLogo || investSiteTitle ? "invest" : brand;
   const useBeside = !investFullLogo && (titleBesideLogo || !fullLogo);
   const showSubtitle = subtitle && !(compact && !mobileFill);
+  const taglineClass = `truncate text-[8px] uppercase tracking-[0.14em] sm:text-[9px] ${
+    onDark ? "text-slate-300" : "text-muted-foreground"
+  }`;
   const fullLogoClass = investFullLogo
     ? mobileFill
       ? "max-h-10 w-auto max-w-[min(100%,11rem)] object-contain"
@@ -106,14 +109,21 @@ export default function BrandMark({
     </div>
   ) : (
     <div
-      className={`flex items-center ${
+      className={`${
+        mobileFill ? "flex w-full max-w-full min-w-0 flex-col gap-0.5 px-0.5" : "flex items-center"
+      } ${
         mobileFill
-          ? "h-9 w-full max-w-full min-w-0 items-center gap-1.5 px-0.5"
+          ? ""
           : `w-max max-w-full shrink-0 ${
               scale === "lg" ? "gap-1.5" : scale === "hero" ? "gap-2 sm:gap-3 md:gap-4" : "gap-2 sm:gap-2.5"
             }`
       } ${className}`}
     >
+      <div
+        className={`flex items-center ${
+          mobileFill ? "h-9 w-full min-w-0 gap-1.5" : "min-w-0"
+        }`}
+      >
       {useLogoImage ? (
         <Logo
           brand={logoBrand}
@@ -161,16 +171,11 @@ export default function BrandMark({
             )}
           </div>
         )}
-        {showSubtitle && (
-          <div
-            className={`truncate text-[8px] uppercase tracking-[0.14em] sm:text-[9px] ${
-              onDark ? "text-slate-300" : "text-muted-foreground"
-            }`}
-          >
-            {subtitle}
-          </div>
-        )}
+        {showSubtitle && !mobileFill && <div className={taglineClass}>{subtitle}</div>}
       </div>
+      {showSubtitle && mobileFill && (
+        <div className={`w-full text-center ${taglineClass}`}>{subtitle}</div>
+      )}
     </div>
   );
 

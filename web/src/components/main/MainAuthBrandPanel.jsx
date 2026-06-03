@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import BrandMark from "../BrandMark.jsx";
 import { Logo } from "../ui.jsx";
+import { MAIN_SITE_TAGLINE } from "../../lib/brand.js";
 
 /** Left brand panel for main marketplace auth pages (desktop). */
 export default function MainAuthBrandPanel() {
@@ -43,10 +44,13 @@ export function MainAuthMobileBrand() {
         to="/"
         line1="Akshaya"
         line2="EXIM TRADERS"
+        line1Silver
         showLogoImage
         brand="main"
         brandSize="lg"
         titleBesideLogo
+        subtitle={MAIN_SITE_TAGLINE}
+        onDark
       />
     </div>
   );
