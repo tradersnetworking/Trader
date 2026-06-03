@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr, daysLeft } from "../../lib/format.js";
@@ -42,13 +42,18 @@ import {
   canAffordPending,
 } from "../../lib/pendingInvest.js";
 import { emitInvestRefresh, useInvestRefresh } from "../../lib/investRefresh.js";
-import { investEligibility } from "../../lib/investCompliance.js";
+import {
+  investEligibility,
+  canAccessInvestDashboard,
+  getKycUiPhase,
+} from "../../lib/investCompliance.js";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
 export default function InvestorDashboard() {
   const { invest, logoutInvest, refreshInvest } = useAuth();
+  const nav = useNavigate();
   const { t } = useI18n();
   const [sp, setSp] = useSearchParams();
   const rawTab = sp.get("tab") || "overview";
@@ -77,7 +82,19 @@ export default function InvestorDashboard() {
   const [notificationCount, setNotificationCount] = useState(0);
   const [pendingAgreementId, setPendingAgreementId] = useState(null);
   const [pendingInvest, setPendingInvest] = useState(() => loadPendingInvest());
+  const [pendingPayoutChange, setPendingPayoutChange] = useState(null);
+  const [pendingKycRevision, setPendingKycRevision] = useState(null);
+  const [kycLoaded, setKycLoaded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const dashboardUnlocked = canAccessInvestDashboard(kyc);
+  const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded });
+
+  useEffect(() => {
+    if (invest && ["ADMIN", "SUPERADMIN"].includes(invest.role)) {
+      nav(investPath("/admin"), { replace: true });
+    }
+  }, [invest, nav]);
 
   const syncPendingInvest = useCallback(() => {
     setPendingInvest(loadPendingInvest());
@@ -95,22 +112,28 @@ export default function InvestorDashboard() {
   }, [setTab]);
 
   const fetchCore = useCallback(async () => {
+    setKycLoaded(false);
     refreshInvest();
-    await Promise.all([
-      investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {}),
-      investApi("/subscriptions").then((d) => setSubs(d.subscriptions)).catch(() => {}),
-      investApi("/kyc").then((d) => {
-        setKyc(d.kyc);
-        setPendingPayoutChange(d.pendingPayoutChange || null);
-        setPendingKycRevision(d.pendingKycRevision || null);
-      }).catch(() => {}),
-      investApi("/maturity-choices").then((d) => setMaturityChoices(d.subscriptions || [])).catch(() => {}),
-      Promise.all([
-        investApi("/notifications").catch(() => ({ count: 0 })),
-        investApi("/notifications/list").catch(() => ({ unreadCount: 0 })),
-      ]).then(([maturity, inbox]) => setNotificationCount((maturity.count || 0) + (inbox.unreadCount || 0))),
-    ]);
-    syncPendingInvest();
+    try {
+      const kycRes = await investApi("/kyc").catch(() => ({}));
+      setKyc(kycRes.kyc ?? null);
+      setPendingPayoutChange(kycRes.pendingPayoutChange || null);
+      setPendingKycRevision(kycRes.pendingKycRevision || null);
+      if (kycRes.kyc?.status === "APPROVED") refreshInvest();
+
+      await Promise.all([
+        investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {}),
+        investApi("/subscriptions").then((d) => setSubs(d.subscriptions)).catch(() => {}),
+        investApi("/maturity-choices").then((d) => setMaturityChoices(d.subscriptions || [])).catch(() => {}),
+        Promise.all([
+          investApi("/notifications").catch(() => ({ count: 0 })),
+          investApi("/notifications/list").catch(() => ({ unreadCount: 0 })),
+        ]).then(([maturity, inbox]) => setNotificationCount((maturity.count || 0) + (inbox.unreadCount || 0))),
+      ]);
+      syncPendingInvest();
+    } finally {
+      setKycLoaded(true);
+    }
   }, [refreshInvest, syncPendingInvest]);
 
   const handleRefresh = useCallback(async () => {
@@ -126,6 +149,29 @@ export default function InvestorDashboard() {
 
   useEffect(() => { fetchCore(); }, [fetchCore]);
 
+  useEffect(() => {
+    if (!kycLoaded || dashboardUnlocked) return;
+    if (tab !== "overview") setSp({ tab: "overview" }, { replace: true });
+  }, [kycLoaded, dashboardUnlocked, tab, setSp]);
+
+  const displayName = kyc?.fullName || invest?.name || "Investor";
+  const kycPageTitle =
+    kycPhase === "pending_review"
+      ? "KYC under review"
+      : kycPhase === "needs_fix"
+        ? "Update KYC"
+        : kycPhase === "needs_submit"
+          ? "Complete KYC"
+          : translateNavLabel(t, INVESTOR_NAV, tab);
+  const kycPageSubtitle =
+    kycPhase === "pending_review"
+      ? "Please visit again after some time — we will notify you once approved."
+      : kycPhase === "needs_fix"
+        ? `${displayName} • Correct rejected sections and resubmit`
+        : kycPhase === "needs_submit"
+          ? `${displayName} • Submit details and documents to unlock the dashboard`
+          : `${displayName} • KYC: ${kyc?.status || "APPROVED"}`;
+
   return (
     <InvestDashboardShell
       user={invest}
@@ -133,19 +179,22 @@ export default function InvestorDashboard() {
       navItems={INVESTOR_NAV}
       activeTab={tab}
       onTabChange={setTab}
-      pageTitle={translateNavLabel(t, INVESTOR_NAV, tab)}
-      pageSubtitle={`${invest?.name} • KYC: ${kyc?.status || "PENDING"}`}
-      walletBalance={wallet?.available}
-      notificationCount={notificationCount}
-      onNotificationsClick={() => setTab("notifications")}
+      pageTitle={dashboardUnlocked ? translateNavLabel(t, INVESTOR_NAV, tab) : kycPageTitle}
+      pageSubtitle={dashboardUnlocked ? `${displayName} • KYC: ${kyc?.status || "APPROVED"}` : kycPageSubtitle}
+      walletBalance={dashboardUnlocked ? wallet?.available : undefined}
+      notificationCount={dashboardUnlocked ? notificationCount : 0}
+      onNotificationsClick={dashboardUnlocked ? () => setTab("notifications") : undefined}
       onLogout={logoutInvest}
       onRefresh={handleRefresh}
       refreshing={refreshing}
+      kycOnlyMode={!dashboardUnlocked}
       headerActions={
-        <>
-          <WalletQuickActions compact layout="inline" onDeposit={() => setTab("money", { moneyTab: "deposit" })} onWithdraw={() => setTab("money", { moneyTab: "withdraw" })} />
-          <MobileAppDownload compact />
-        </>
+        dashboardUnlocked ? (
+          <>
+            <WalletQuickActions compact layout="inline" onDeposit={() => setTab("money", { moneyTab: "deposit" })} onWithdraw={() => setTab("money", { moneyTab: "withdraw" })} />
+            <MobileAppDownload compact />
+          </>
+        ) : null
       }
     >
       <InvestKycGate
@@ -167,8 +216,8 @@ export default function InvestorDashboard() {
       )}
       {tab === "overview" && (
         <InvestorOverviewPanel
-          userName={invest?.name}
-          profilePicture={invest?.profilePicture}
+          userName={displayName}
+          profilePicture={invest?.profilePicture || kyc?.photo}
           investor={invest}
           kyc={kyc}
           kycStatus={kyc?.status}
@@ -238,7 +287,7 @@ export default function InvestorDashboard() {
       )}
       {tab === "profile" && (
         <div className="mt-6">
-          <Profile />
+          <Profile kyc={kyc} />
         </div>
       )}
       {tab === "account" && (
@@ -445,12 +494,37 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
   );
 }
 
-function Profile() {
+function Profile({ kyc }) {
   const { invest, refreshInvest } = useAuth();
-  const [form, setForm] = useState({ name: invest?.name || "", phone: invest?.phone || "", upiId: invest?.upiId || "", bankName: invest?.bankName || "", accountNumber: invest?.accountNumber || "", ifsc: invest?.ifsc || "" });
+  const seedFromKyc = kyc?.status === "APPROVED";
+  const [form, setForm] = useState({
+    name: (seedFromKyc && kyc?.fullName) || invest?.name || "",
+    phone: (seedFromKyc && kyc?.phone) || invest?.phone || "",
+    upiId: (seedFromKyc && kyc?.upiId) || invest?.upiId || "",
+    bankName: (seedFromKyc && kyc?.bankName) || invest?.bankName || "",
+    accountNumber: (seedFromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
+    ifsc: (seedFromKyc && kyc?.ifscCode) || invest?.ifsc || "",
+  });
   const [msg, setMsg] = useState("");
   const isStaff = ["ADMIN", "SUPERADMIN"].includes(invest?.role);
-  const submit = async (e) => { e.preventDefault(); await investApi("/profile", { method: "PUT", body: form }); setMsg("Saved."); refreshInvest(); };
+
+  useEffect(() => {
+    setForm({
+      name: (seedFromKyc && kyc?.fullName) || invest?.name || "",
+      phone: (seedFromKyc && kyc?.phone) || invest?.phone || "",
+      upiId: (seedFromKyc && kyc?.upiId) || invest?.upiId || "",
+      bankName: (seedFromKyc && kyc?.bankName) || invest?.bankName || "",
+      accountNumber: (seedFromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
+      ifsc: (seedFromKyc && kyc?.ifscCode) || invest?.ifsc || "",
+    });
+  }, [invest, kyc, seedFromKyc]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    await investApi("/profile", { method: "PUT", body: form });
+    setMsg("Saved.");
+    refreshInvest();
+  };
   return (
     <div className="max-w-xl card p-6">
       <h3 className="mb-3 font-bold text-navy">Profile & Payout Details</h3>

@@ -103,8 +103,8 @@ export function LoginScreen({ scope, staff }) {
       applyStaffSiblingLogin(res, auth);
     });
     if (scope === "invest" && !["ADMIN", "SUPERADMIN"].includes(user.role)) {
-      if (res.needsKycSetup || kycTab) {
-        nav(investPath("/dashboard?tab=kyc"));
+      if (!res.canAccessDashboard || res.needsKycSetup || kycTab) {
+        nav(investPath("/dashboard"));
         return;
       }
     }

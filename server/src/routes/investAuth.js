@@ -50,7 +50,22 @@ async function jsonInvestLogin(res, investor, payload, req) {
 }
 const SCOPE = "invest";
 
-const userInclude = { kyc: { select: { photo: true, selfie: true } } };
+const userInclude = {
+  kyc: {
+    select: {
+      status: true,
+      photo: true,
+      selfie: true,
+      fullName: true,
+      phone: true,
+      phoneCountryCode: true,
+      upiId: true,
+      bankName: true,
+      bankAccount: true,
+      ifscCode: true,
+    },
+  },
+};
 
 router.get(
   "/webauthn/available",
@@ -309,10 +324,8 @@ router.post(
       });
       await investDb.wallet.create({ data: { investorId: investor.id } });
     }
-    const kyc = await investDb.kyc.findUnique({ where: { investorId: investor.id } });
-    const needsKycSetup = !kyc || ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-    res.json({ token, user: publicInvestor(investor), needsKycSetup });
+    await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
   })
 );
 

@@ -317,13 +317,28 @@ router.get(
     ]);
     const { investEligibility, withdrawEligibility } = await import("../utils/investCompliance.js");
     const { canAccessInvestDashboard, needsKycSetup } = await import("../services/investProfileApprovals.js");
+    const { syncApprovedPayoutFromKyc } = await import("../services/investProfileApprovals.js");
+    const { ensureSectionReviewsOnRecord } = await import("../services/kycSections.js");
+    const { publicInvestor } = await import("../utils/investorUser.js");
+
+    let investorOut = investor;
+    if (kyc?.status === "APPROVED") {
+      await syncApprovedPayoutFromKyc(req.user.id, kyc);
+      investorOut = await investDb.investor.findUnique({
+        where: { id: req.user.id },
+        include: { kyc: { select: { status: true, photo: true, selfie: true, fullName: true, phone: true, phoneCountryCode: true, upiId: true, bankName: true, bankAccount: true, ifscCode: true } } },
+      });
+    }
+
+    const kycOut = ensureSectionReviewsOnRecord(kyc);
     res.json({
-      kyc,
+      kyc: kycOut,
+      investor: publicInvestor(investorOut),
       pendingPayoutChange,
       pendingKycRevision,
       dashboardAccess: { canAccess: canAccessInvestDashboard(kyc), needsKycSetup: needsKycSetup(kyc) },
-      eligibility: investEligibility(investor, kyc),
-      withdrawEligibility: withdrawEligibility(investor, kyc),
+      eligibility: investEligibility(investorOut, kyc),
+      withdrawEligibility: withdrawEligibility(investorOut, kyc),
     });
   })
 );
@@ -353,36 +368,29 @@ router.post(
     const { validateSignatureBase64 } = await import("../utils/signatureQuality.js");
     const { parseKycBody } = await import("../utils/kycFields.js");
 
-    const panNumber = b.panNumber ? String(b.panNumber).trim().toUpperCase() : "";
-    const aadhaarNumber = b.aadhaarNumber ? String(b.aadhaarNumber).replace(/\s/g, "") : "";
+    const {
+      sectionsRequiredForSubmit,
+      validateKycSections,
+      mergeApprovedSectionData,
+      initSectionReviewsPending,
+      resetSectionsForResubmit,
+      serializeSectionReviews,
+      parseSectionReviews,
+      docFieldsForSections,
+      attachSectionReviews,
+    } = await import("../services/kycSections.js");
 
-    if (panNumber && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) {
-      return res.status(400).json({ error: "Invalid PAN format (e.g. ABCDE1234F)" });
-    }
-    if (aadhaarNumber && !/^\d{12}$/.test(aadhaarNumber)) {
-      return res.status(400).json({ error: "Aadhaar must be a 12-digit number" });
-    }
-    if (!b.fullName?.trim()) return res.status(400).json({ error: "Full name is required" });
-    if (!b.houseNo?.trim() && !b.address?.trim()) {
-      return res.status(400).json({ error: "House number / flat and address details are required" });
-    }
-    if (!b.district?.trim() || !b.state?.trim() || !b.pincode?.trim()) {
-      return res.status(400).json({ error: "District, state and PIN code are required" });
-    }
-    if (!/^\d{6}$/.test(String(b.pincode || "").trim())) {
-      return res.status(400).json({ error: "PIN code must be 6 digits" });
-    }
-    if (!b.guardianName?.trim() && !b.fatherName?.trim()) {
-      return res.status(400).json({ error: "Father / Mother / Husband name is required" });
-    }
-    if (!b.dob) return res.status(400).json({ error: "Date of birth is required" });
+    const requiredSections = sectionsRequiredForSubmit(existing);
 
-    const data = {
-      ...parseKycBody(b, existing),
-      idNumber: b.idNumber || panNumber || aadhaarNumber || null,
-      status: "PENDING",
-      remarks: null,
-    };
+    const data = mergeApprovedSectionData(
+      {
+        ...parseKycBody(b, existing),
+        idNumber: b.idNumber || b.panNumber || b.aadhaarNumber || null,
+        status: "PENDING",
+        remarks: null,
+      },
+      existing
+    );
 
     const fileMap = {
       panDocument: "panDocument",
@@ -403,21 +411,8 @@ router.post(
       else if (existing?.[key]) data[key] = existing[key];
     }
 
-    const docChecks = [
-      ["photo", data.photo],
-      ["panDocument", data.panDocument],
-      ["aadhaarFront", data.aadhaarFront],
-      ["aadhaarBack", data.aadhaarBack],
-      ["aadhaarDocument", data.aadhaarDocument],
-      ["selfie", data.selfie],
-      ["addressProof", data.addressProof],
-      ["passportDocument", data.passportDocument],
-      ["cancelledCheque", data.cancelledCheque],
-      ["passbookDocument", data.passbookDocument],
-      ["bankStatementDocument", data.bankStatementDocument],
-      ["signature", data.signature],
-    ];
-    for (const [field, stored] of docChecks) {
+    const docCheckFields = new Set(docFieldsForSections(requiredSections));
+    for (const field of docCheckFields) {
       const upload = files[field]?.[0];
       if (upload) {
         const check = await validateMulterFile(upload, KYC_DOC_LABELS[field] || field);
@@ -427,7 +422,7 @@ router.post(
 
     const signatureData = b.signatureData?.trim() || existing?.signatureData || null;
     const signatureMethod = b.signatureMethod || (files.signature?.[0] ? "upload" : signatureData ? "draw" : existing?.signatureMethod);
-    if (b.signatureData) {
+    if (b.signatureData && requiredSections.includes("signature")) {
       const sigCheck = validateSignatureBase64(b.signatureData);
       if (!sigCheck.ok) return res.status(400).json({ error: sigCheck.message, code: "SIGNATURE_UNCLEAR" });
       data.signatureData = b.signatureData;
@@ -438,46 +433,19 @@ router.post(
     }
     if (signatureMethod) data.signatureMethod = signatureMethod;
 
-    const hasSignature = data.signatureData || data.signature;
-    if (!hasSignature) {
-      return res.status(400).json({
-        error: "A clear signature is required. Draw on the signature pad or upload a sharp signature image (JPG/PNG/PDF).",
-        code: "SIGNATURE_REQUIRED",
-      });
-    }
+    data.panNumber = data.panNumber ? String(data.panNumber).trim().toUpperCase() : "";
+    data.aadhaarNumber = data.aadhaarNumber ? String(data.aadhaarNumber).replace(/\s/g, "") : "";
 
-    const hasPhoto = data.photo;
-    const hasPanDoc = data.panDocument;
-    const hasAadhaarDoc =
-      (data.aadhaarFront && data.aadhaarBack) || data.aadhaarDocument;
+    const sectionErr = validateKycSections(data, files, existing, requiredSections);
+    if (sectionErr) return res.status(400).json(sectionErr);
 
-    if (!hasPhoto) return res.status(400).json({ error: "Passport size photo is required" });
-    if (!panNumber) return res.status(400).json({ error: "PAN number is required" });
-    if (!hasPanDoc) return res.status(400).json({ error: "PAN card photocopy is required" });
-    if (!aadhaarNumber) return res.status(400).json({ error: "Aadhaar number is required" });
-    if (!hasAadhaarDoc) {
-      return res.status(400).json({ error: "Upload Aadhaar front & back, or a single Aadhaar PDF/image" });
+    let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
+    if (existing?.status === "REJECTED") {
+      reviews = resetSectionsForResubmit(reviews, requiredSections);
+    } else {
+      reviews = initSectionReviewsPending();
     }
-    if (!String(b.bankName || "").trim()) return res.status(400).json({ error: "Bank name is required" });
-    if (!String(b.bankAccount || "").trim()) return res.status(400).json({ error: "Bank account number is required" });
-    if (!String(b.ifscCode || "").trim()) return res.status(400).json({ error: "IFSC code is required" });
-
-    const bankProofType = String(b.bankProofType || data.bankProofType || "CHEQUE").toUpperCase();
-    data.bankProofType = bankProofType;
-    const bankProofOk =
-      (bankProofType === "CHEQUE" && data.cancelledCheque) ||
-      (bankProofType === "PASSBOOK" && data.passbookDocument) ||
-      (bankProofType === "STATEMENT" && data.bankStatementDocument);
-    if (!bankProofOk) {
-      return res.status(400).json({
-        error:
-          bankProofType === "PASSBOOK"
-            ? "Upload a clear passbook copy (image or unlocked PDF)."
-            : bankProofType === "STATEMENT"
-              ? "Upload a clear bank statement (image or unlocked PDF — password-protected files are not accepted)."
-              : "Upload a clear cancelled cheque copy (image or PDF).",
-      });
-    }
+    data.sectionReviews = serializeSectionReviews(reviews);
 
     const kyc = await investDb.kyc.upsert({
       where: { investorId: req.user.id },
@@ -498,7 +466,8 @@ router.post(
     }
     const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
     notifyKycSubmitted(investor);
-    res.json({ kyc, message: "KYC submitted for team review." });
+    const { ensureSectionReviewsOnRecord } = await import("../services/kycSections.js");
+    res.json({ kyc: ensureSectionReviewsOnRecord(kyc), message: "KYC submitted for team review." });
   })
 );
 

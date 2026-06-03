@@ -1,18 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { investApi } from "../../lib/api.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
+import { parseSectionReviews } from "../../lib/kyc-sections.js";
 
 export default function AdminKycPanel({ onUpdated }) {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("");
   const [viewKyc, setViewKyc] = useState(null);
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const load = () =>
     investApi(`/admin/kyc${filter ? `?status=${filter}` : ""}`)
       .then((d) => {
         setItems(d.kyc);
         onUpdated?.(d.kyc);
+        if (viewKyc) {
+          const fresh = d.kyc.find((k) => k.id === viewKyc.id);
+          if (fresh) setViewKyc(fresh);
+        }
       })
       .catch(() => {});
 
@@ -26,18 +32,48 @@ export default function AdminKycPanel({ onUpdated }) {
     rejected: items.filter((k) => k.status === "REJECTED").length,
   };
 
-  const decide = async (id, status) => {
-    let remarks;
-    if (status === "REJECTED") {
-      const preset = window.prompt(
-        "Rejection reason (shown to investor):\n\nExamples:\n- Document blurry — upload clear JPG/PNG/PDF\n- Signature unclear — redraw or upload sharp signature\n- PAN/Aadhaar mismatch\n- Other (type your reason)"
-      );
-      remarks = preset || "";
-      if (!remarks.trim()) return;
+  const withBusy = useCallback(async (fn) => {
+    setReviewBusy(true);
+    try {
+      await fn();
+      await load();
+    } finally {
+      setReviewBusy(false);
     }
-    await investApi(`/admin/kyc/${id}/decision`, { method: "POST", body: { status, remarks } });
+  }, []);
+
+  const decideSection = (id, section, status, remarks) =>
+    withBusy(() =>
+      investApi(`/admin/kyc/${id}/section`, { method: "POST", body: { section, status, remarks } })
+    );
+
+  const decideFinal = (id, status, remarks) =>
+    withBusy(() =>
+      investApi(`/admin/kyc/${id}/final`, { method: "POST", body: { status, remarks } })
+    );
+
+  const handleFinalApprove = (k) => {
+    if (!window.confirm("Final approve this KYC? Investor gets full dashboard access.")) return;
+    decideFinal(k.id, "APPROVED");
     setViewKyc(null);
-    load();
+  };
+
+  const handleFinalReject = (k) => {
+    const remarks = window.prompt(
+      "Final rejection reason (shown to investor):\n\nUse when the entire application must be redone or is fraudulent."
+    );
+    if (!remarks?.trim()) return;
+    decideFinal(k.id, "REJECTED", remarks.trim());
+    setViewKyc(null);
+  };
+
+  const sectionSummary = (k) => {
+    const r = parseSectionReviews(k);
+    if (!r) return "—";
+    const parts = [];
+    if (Object.values(r).some((s) => s.status === "REJECTED")) parts.push("needs fix");
+    if (Object.values(r).every((s) => s.status === "APPROVED")) parts.push("sections OK");
+    return parts.join(", ") || "review";
   };
 
   return (
@@ -46,8 +82,10 @@ export default function AdminKycPanel({ onUpdated }) {
         open={Boolean(viewKyc)}
         kyc={viewKyc}
         onClose={() => setViewKyc(null)}
-        onApprove={(k) => decide(k.id, "APPROVED")}
-        onReject={(k) => decide(k.id, "REJECTED")}
+        reviewBusy={reviewBusy}
+        onSectionDecision={decideSection}
+        onFinalApprove={handleFinalApprove}
+        onFinalReject={handleFinalReject}
       />
 
       <div className="grid grid-cols-3 gap-3 sm:max-w-md">
@@ -85,6 +123,7 @@ export default function AdminKycPanel({ onUpdated }) {
               <th className="p-3">Investor</th>
               <th className="p-3">PAN / Aadhaar</th>
               <th className="p-3">Status</th>
+              <th className="p-3">Sections</th>
               <th className="p-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -103,16 +142,12 @@ export default function AdminKycPanel({ onUpdated }) {
                 <td className="p-3">
                   <Badge status={k.status} />
                 </td>
+                <td className="p-3 text-xs text-muted-foreground">{sectionSummary(k)}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap justify-end gap-2">
                     <button type="button" className="btn-outline px-3 py-1 text-xs" onClick={() => setViewKyc(k)}>
-                      View
+                      Review KYC
                     </button>
-                    {k.status === "PENDING" && (
-                      <button type="button" className="btn-outline px-3 py-1 text-xs text-rose-600" onClick={() => decide(k.id, "REJECTED")}>
-                        Reject
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>

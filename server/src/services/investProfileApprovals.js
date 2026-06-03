@@ -73,5 +73,9 @@ export function needsKycSetup(kyc) {
 }
 
 export function canAccessInvestDashboard(kyc) {
-  return kyc && ["PENDING", "APPROVED"].includes(kyc.status);
+  return kyc?.status === "APPROVED";
+}
+
+export function isKycPendingReview(kyc) {
+  return kyc?.status === "PENDING";
 }

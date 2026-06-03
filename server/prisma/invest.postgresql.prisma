@@ -227,6 +227,7 @@ model Kyc {
   bankStatementDocument String?
   // status: NOT_SUBMITTED, PENDING, APPROVED, REJECTED
   status        String   @default("PENDING")
+  sectionReviews String?
   remarks       String?
   verifiedAt    DateTime?
   createdAt     DateTime @default(now())

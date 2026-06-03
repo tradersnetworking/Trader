@@ -1,5 +1,6 @@
 import { Badge, Modal } from "../ui.jsx";
 import KycDocumentsList from "../shared/KycDocumentsList.jsx";
+import KycAdminSectionReview from "./KycAdminSectionReview.jsx";
 
 const DETAIL_FIELDS = [
   ["Full name", (k) => k.fullName],
@@ -34,7 +35,17 @@ const DETAIL_FIELDS = [
   ["Verified", (k) => (k.verifiedAt ? new Date(k.verifiedAt).toLocaleString("en-IN") : null)],
 ];
 
-export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReject }) {
+export default function KycFullViewModal({
+  open,
+  onClose,
+  kyc,
+  onSectionDecision,
+  onFinalApprove,
+  onFinalReject,
+  onApprove,
+  onReject,
+  reviewBusy = false,
+}) {
   if (!kyc) return null;
 
   const title = kyc.fullName || kyc.investor?.name || "Investor";
@@ -68,24 +79,30 @@ export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReje
 
         <div>
           <h4 className="mb-3 text-sm font-bold text-foreground">Uploaded documents</h4>
-          <KycDocumentsList
-            kyc={kyc}
-            showMissing
-            scope="invest"
-            locked={kyc.status === "APPROVED"}
-          />
+          <p className="mb-2 text-xs text-muted-foreground">
+            Check each document is clear (not blurry). Reject the related section if unreadable or password-protected PDF.
+          </p>
+          <KycDocumentsList kyc={kyc} showMissing scope="invest" locked={kyc.status === "APPROVED"} />
         </div>
 
-        {kyc.status === "PENDING" && (onApprove || onReject) && (
+        {["PENDING", "REJECTED"].includes(kyc.status) && onSectionDecision && (
+          <KycAdminSectionReview
+            kyc={kyc}
+            busy={reviewBusy}
+            onSectionDecision={onSectionDecision}
+            onFinalApprove={onFinalApprove}
+            onFinalReject={onFinalReject}
+          />
+        )}
+
+        {kyc.status === "PENDING" && onApprove && !onSectionDecision && (
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
-            {onApprove && (
-              <button type="button" className="btn-gold text-sm" onClick={() => onApprove(kyc)}>
-                Approve KYC
-              </button>
-            )}
+            <button type="button" className="btn-gold text-sm" onClick={() => onApprove(kyc)}>
+              Approve update
+            </button>
             {onReject && (
               <button type="button" className="btn-outline text-sm text-rose-600" onClick={() => onReject(kyc)}>
-                Reject KYC
+                Reject update
               </button>
             )}
           </div>

@@ -672,8 +672,107 @@ router.get(
   adminOnly,
   asyncH(async (req, res) => {
     const where = req.query.status ? { status: String(req.query.status) } : {};
-    const kyc = await investDb.kyc.findMany({ where, include: { investor: true }, orderBy: { createdAt: "desc" } });
-    res.json({ kyc });
+    const rows = await investDb.kyc.findMany({ where, include: { investor: true }, orderBy: { createdAt: "desc" } });
+    const { attachSectionReviews } = await import("../services/kycSections.js");
+    res.json({ kyc: rows.map(attachSectionReviews) });
+  })
+);
+
+router.post(
+  "/kyc/:id/section",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("review_kyc"),
+  asyncH(async (req, res) => {
+    const { section, status, remarks } = req.body;
+    const {
+      KYC_SECTIONS,
+      parseSectionReviews,
+      serializeSectionReviews,
+      setSectionDecision,
+      deriveKycStatusAfterSectionReview,
+      attachSectionReviews,
+      initSectionReviewsPending,
+    } = await import("../services/kycSections.js");
+    if (!KYC_SECTIONS.includes(section)) {
+      return res.status(400).json({ error: "Invalid section" });
+    }
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return res.status(400).json({ error: "Status must be APPROVED or REJECTED" });
+    }
+    if (status === "REJECTED" && !String(remarks || "").trim()) {
+      return res.status(400).json({ error: "Rejection reason is required for this section" });
+    }
+    const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!["PENDING", "REJECTED"].includes(existing.status)) {
+      return res.status(400).json({ error: "KYC is not open for section review" });
+    }
+    let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
+    reviews = setSectionDecision(reviews, section, status, remarks);
+    const nextStatus = deriveKycStatusAfterSectionReview(reviews);
+    const kyc = await investDb.kyc.update({
+      where: { id: existing.id },
+      data: {
+        sectionReviews: serializeSectionReviews(reviews),
+        status: nextStatus,
+        remarks: nextStatus === "REJECTED" ? String(remarks || "").trim() : existing.remarks,
+        verifiedAt: null,
+      },
+    });
+    if (existing.investor && status === "REJECTED") {
+      const { notifyKycDecision } = await import("../services/investNotifications.js");
+      await notifyKycDecision(existing.investor, { ...kyc, status: "REJECTED", remarks });
+    }
+    res.json({ kyc: attachSectionReviews(kyc) });
+  })
+);
+
+router.post(
+  "/kyc/:id/final",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("review_kyc"),
+  asyncH(async (req, res) => {
+    const { status, remarks } = req.body;
+    const { allSectionsApproved, attachSectionReviews } = await import("../services/kycSections.js");
+    const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (existing.status === "APPROVED") return res.status(400).json({ error: "Already approved" });
+    if (status === "APPROVED") {
+      if (!allSectionsApproved(existing)) {
+        return res.status(400).json({
+          error: "Approve or reject each section first. All four sections must be approved before final approval.",
+        });
+      }
+      const { assertKycHasSignature } = await import("../services/kycSignature.js");
+      const sigOk = assertKycHasSignature(existing);
+      if (!sigOk.ok) return res.status(400).json({ error: sigOk.message });
+    } else if (!String(remarks || "").trim()) {
+      return res.status(400).json({ error: "Final rejection reason is required" });
+    }
+    const kyc = await investDb.kyc.update({
+      where: { id: existing.id },
+      data: {
+        status: status === "APPROVED" ? "APPROVED" : "REJECTED",
+        remarks: remarks || null,
+        verifiedAt: status === "APPROVED" ? new Date() : null,
+      },
+    });
+    if (status === "APPROVED" && existing.investorId) {
+      const { syncApprovedPayoutFromKyc } = await import("../services/investProfileApprovals.js");
+      await syncApprovedPayoutFromKyc(existing.investorId, kyc);
+      const { autoSignPendingAgreementsForInvestor } = await import("../services/agreements.js");
+      await autoSignPendingAgreementsForInvestor(existing.investorId, {
+        ipAddress: "kyc-approval",
+        userAgent: "admin-kyc",
+      }).catch(() => {});
+    }
+    if (existing.investor) {
+      const { notifyKycDecision } = await import("../services/investNotifications.js");
+      await notifyKycDecision(existing.investor, kyc);
+    }
+    res.json({ kyc: attachSectionReviews(kyc) });
   })
 );
 

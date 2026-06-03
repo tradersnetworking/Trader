@@ -32,6 +32,15 @@ import KycSignatureField from "./KycSignatureField.jsx";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import { initKycForm, GUARDIAN_TYPES, BANK_PROOF_TYPES, guardianFieldLabel } from "../../lib/kycForm.js";
+import KycSectionOverview from "./KycSectionOverview.jsx";
+import {
+  canEditSection,
+  isSectionApproved,
+  isSectionRejected,
+  parseSectionReviews,
+  KYC_SECTION_LABELS,
+  needsPartialResubmit,
+} from "../../lib/kyc-sections.js";
 
 
 
@@ -161,6 +170,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
   const validateStep = (s) => {
 
     if (s === 0) {
+      if (kyc && !canEditSection(kyc, "personal")) return null;
       if (!form.fullName.trim()) return "Full name is required";
       if (!form.guardianName.trim()) return `${guardianFieldLabel(form.guardianType)} is required`;
       if (!form.dob) return "Date of birth is required";
@@ -175,41 +185,37 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
     }
 
     if (s === 1) {
+      const editIdentity = !kyc || canEditSection(kyc, "identity");
+      const editSignature = !kyc || canEditSection(kyc, "signature");
+      if (!editIdentity && !editSignature) return null;
 
-      if (!isValidPan(form.panNumber)) return "Enter a valid PAN (e.g. ABCDE1234F)";
+      if (editIdentity) {
+        if (!isValidPan(form.panNumber)) return "Enter a valid PAN (e.g. ABCDE1234F)";
+        if (!isValidAadhaar(form.aadhaarNumber)) return "Enter a valid 12-digit Aadhaar number";
+        if (!hasDoc("photo")) return "Passport size photo is required";
+        if (!hasDoc("panDocument")) return "PAN card photocopy is required";
+        const aadhaarOk = (hasDoc("aadhaarFront") && hasDoc("aadhaarBack")) || hasDoc("aadhaarDocument");
+        if (!aadhaarOk) return "Upload Aadhaar front & back, or a single Aadhaar PDF/image";
+      }
 
-      if (!isValidAadhaar(form.aadhaarNumber)) return "Enter a valid 12-digit Aadhaar number";
-
-      if (!hasDoc("photo")) return "Passport size photo is required";
-
-      if (!hasDoc("panDocument")) return "PAN card photocopy is required";
-
-      const aadhaarOk =
-
-        (hasDoc("aadhaarFront") && hasDoc("aadhaarBack")) || hasDoc("aadhaarDocument");
-
-      if (!aadhaarOk) return "Upload Aadhaar front & back, or a single Aadhaar PDF/image";
-
-      const hasSig = signatureData || signatureFile || kyc?.signature || kyc?.signatureData;
-      if (!hasSig) return "Signature is required — draw on the pad or upload a clear signature image/PDF";
-      if (signatureData) {
-        const sigErr = validateSignatureBase64(signatureData);
-        if (sigErr) return sigErr;
+      if (editSignature) {
+        const hasSig = signatureData || signatureFile || kyc?.signature || kyc?.signatureData;
+        if (!hasSig) return "Signature is required — draw on the pad or upload a clear signature image/PDF";
+        if (signatureData) {
+          const sigErr = validateSignatureBase64(signatureData);
+          if (sigErr) return sigErr;
+        }
       }
 
       for (const [key, file] of Object.entries(files)) {
-
         const def = KYC_DOCUMENT_FIELDS.find((d) => d.key === key);
-
         const fileErr = validateKycFile(file, { imageOnly: def?.imageOnly });
-
         if (fileErr) return `${def?.label || key}: ${fileErr}`;
-
       }
-
     }
 
     if (s === 2) {
+      if (kyc && !canEditSection(kyc, "banking")) return null;
       if (!form.bankName.trim()) return "Bank name is required";
       if (!form.bankAccount.trim()) return "Account number is required";
       if (!form.ifscCode.trim()) return "IFSC code is required";
@@ -314,7 +320,11 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
     try {
       await investApiForm("/kyc", fd);
-      setMsg("KYC submitted for admin review. Our team will verify within 24–48 hours.");
+      setMsg(
+        needsPartialResubmit(kyc)
+          ? "Updated sections submitted. Other approved sections were kept unchanged. Please visit again after review."
+          : "KYC submitted successfully. Uploads must be clear (not blurry) and PDFs unlocked. It is under review — please visit again after some time (usually 24–48 hours). You will see the full dashboard once fully approved."
+      );
       setFiles({});
       onRefresh?.();
     } catch (e) {
@@ -336,6 +346,12 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
           {pendingKycRevision && "KYC update pending team approval — your current approved KYC remains in use. "}
           {pendingPayoutChange && "Bank/UPI change pending team approval — withdrawals still use your current approved details."}
         </Alert>
+      )}
+
+      {forced && (
+        <p className="text-sm text-muted-foreground">
+          Complete all four steps: personal details, identity documents (with uploads), bank details (with proof), then review and submit.
+        </p>
       )}
 
       {!forced && (
@@ -492,7 +508,9 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
           {step === 0 && (
-            <div className="mt-4 space-y-3">
+            <SectionFieldset section="personal" kyc={kyc}>
+            <div className="space-y-3">
+              <Alert type="info">Step 2 will ask you to upload passport photo, PAN, Aadhaar, and bank proof. Use clear, sharp images or unlocked PDFs only (blurry or password-protected files are rejected).</Alert>
               <Field label="Full legal name *">
                 <input className="input" required value={form.fullName} onChange={(e) => set("fullName", e.target.value)} placeholder="As per PAN / Aadhaar" />
               </Field>
@@ -550,6 +568,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                 <Field label="Country"><input className="input" value={form.country} onChange={(e) => set("country", e.target.value)} /></Field>
               </div>
             </div>
+            </SectionFieldset>
           )}
 
 
@@ -559,13 +578,10 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
             <div className="mt-4 space-y-4">
 
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-
-                For Indian investors: PAN number, Aadhaar number, passport-size photo, and photocopies of PAN & Aadhaar are required. Upload images (JPG, PNG) or PDF up to 10 MB.
-
+                Upload clear, sharp photos or unlocked PDFs only. Blurry images and password-protected PDFs are rejected automatically.
               </div>
 
-
-
+              <SectionFieldset section="identity" kyc={kyc}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 
                 <Field label="PAN Number *">
@@ -792,6 +808,10 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 />
 
+              </div>
+              </SectionFieldset>
+
+              <SectionFieldset section="signature" kyc={kyc}>
                 <KycSignatureField
                   signatureMode={signatureMode}
                   setSignatureMode={setSignatureMode}
@@ -801,8 +821,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                   setSignatureFile={setSignatureFile}
                   existingUrl={kyc?.signature}
                 />
-
-              </div>
+              </SectionFieldset>
 
             </div>
 
@@ -811,7 +830,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
           {step === 2 && (
-
+            <SectionFieldset section="banking" kyc={kyc}>
             <div className="mt-4 space-y-3">
 
               <Field label="Bank Name *">
@@ -872,6 +891,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                 <UploadField label="Bank statement *" hint="Recent statement — unlocked PDF or image only" name="bankStatementDocument" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.bankStatementDocument} />
               )}
             </div>
+            </SectionFieldset>
           )}
 
 

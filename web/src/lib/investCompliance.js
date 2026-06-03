@@ -13,13 +13,34 @@ export function isKycApproved(kyc) {
   return kyc?.status === "APPROVED";
 }
 
-/** Dashboard allowed after first KYC submit (PENDING) or when approved; blocked when rejected or not submitted. */
+/** Full dashboard (sidebar, plans, wallet, etc.) only after admin approves KYC. */
 export function canAccessInvestDashboard(kyc) {
-  return kyc && ["PENDING", "APPROVED"].includes(kyc.status);
+  return kyc?.status === "APPROVED";
+}
+
+export function isKycPendingReview(kyc) {
+  return kyc?.status === "PENDING";
 }
 
 export function needsKycSetup(kyc) {
-  return !kyc || ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+  if (!kyc) return true;
+  return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+}
+
+/**
+ * UI routing for investor dashboard shell + KYC gate.
+ * loading — KYC fetch in progress (avoid blank flash)
+ * approved — full dashboard
+ * pending_review — submitted, awaiting admin
+ * needs_fix — rejected (whole or sectional)
+ * needs_submit — no submission yet
+ */
+export function getKycUiPhase(kyc, { loaded = true } = {}) {
+  if (!loaded) return "loading";
+  if (canAccessInvestDashboard(kyc)) return "approved";
+  if (isKycPendingReview(kyc)) return "pending_review";
+  if (kyc?.status === "REJECTED") return "needs_fix";
+  return "needs_submit";
 }
 
 function buildEligibility(investor, kyc, { forWithdraw = false } = {}) {

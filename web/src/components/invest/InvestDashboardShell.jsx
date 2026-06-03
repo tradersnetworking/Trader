@@ -32,6 +32,7 @@ export default function InvestDashboardShell({
   onRefresh,
   refreshing = false,
   headerActions,
+  kycOnlyMode = false,
   children,
 }) {
   const { t } = useI18n();
@@ -284,7 +285,8 @@ export default function InvestDashboardShell({
     );
 
   return (
-    <div className="invest-shell flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background">
+    <div className={`invest-shell flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background ${kycOnlyMode ? "invest-shell-kyc-only" : ""}`}>
+      {!kycOnlyMode && (
       <aside
         className={`invest-sidebar hidden h-full min-h-0 shrink-0 flex-col overflow-hidden border-r shadow-sm backdrop-blur-xl md:flex ${
           collapsed ? "w-[4.75rem]" : "w-64 lg:w-72"
@@ -292,8 +294,9 @@ export default function InvestDashboardShell({
       >
         {renderSidebarInner(false, null, desktopSidebarNavRef)}
       </aside>
+      )}
 
-      {mobileOpen && (
+      {!kycOnlyMode && mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <aside className="invest-sidebar absolute bottom-0 left-0 top-0 flex h-full w-[min(20rem,88vw)] flex-col overflow-hidden shadow-2xl">
@@ -315,6 +318,7 @@ export default function InvestDashboardShell({
             />
           </div>
           <div className="flex min-w-0 items-center gap-1 px-2 py-1.5 sm:gap-2 sm:px-4 sm:py-2.5">
+            {!kycOnlyMode && (
             <button
               type="button"
               className="icon-btn icon-btn-sm shrink-0 md:hidden"
@@ -323,6 +327,7 @@ export default function InvestDashboardShell({
             >
               ☰
             </button>
+            )}
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
@@ -342,7 +347,7 @@ export default function InvestDashboardShell({
               {headerActions && role === "investor" && (
                 <div className="hidden xs:flex items-center gap-1 sm:flex">{headerActions}</div>
               )}
-              {walletBalance != null && role === "investor" && (
+              {walletBalance != null && role === "investor" && !kycOnlyMode && (
                 <div className="hidden rounded-xl bg-gradient-to-r from-emerald-500/15 to-teal-500/10 px-2 py-1 text-right sm:block sm:px-3 sm:py-1.5 ring-1 ring-emerald-500/20">
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("dashboard.balance")}</div>
                   <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 sm:text-sm">{inr(walletBalance)}</div>
@@ -380,6 +385,7 @@ export default function InvestDashboardShell({
                   />
                 </button>
               )}
+              {onNotificationsClick && !kycOnlyMode && (
               <button
                 type="button"
                 onClick={onNotificationsClick}
@@ -393,6 +399,7 @@ export default function InvestDashboardShell({
                   </span>
                 )}
               </button>
+              )}
               <ThemeToggle compact className="md:hidden" />
               <ThemeToggle className="hidden md:inline-flex" />
               <span className="hidden min-[480px]:inline-flex">
@@ -421,6 +428,7 @@ export default function InvestDashboardShell({
       <InvestShareWidget />
       <SupportWidget />
 
+      {!kycOnlyMode && (
       <nav className="invest-mobile-nav fixed bottom-0 left-0 right-0 z-40 flex border-t backdrop-blur-xl md:hidden">
         {mobilePrimary.map((item) => {
           const active = activeTab === item.id;
@@ -455,6 +463,7 @@ export default function InvestDashboardShell({
           <span>{t("nav.more")}</span>
         </button>
       </nav>
+      )}
     </div>
   );
 }

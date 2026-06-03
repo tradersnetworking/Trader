@@ -1,0 +1,121 @@
+import { useState } from "react";
+import { Alert } from "../ui.jsx";
+import {
+  KYC_SECTIONS,
+  KYC_SECTION_LABELS,
+  parseSectionReviews,
+} from "../../lib/kyc-sections.js";
+
+const SECTION_HINTS = {
+  personal: "Name, DOB, contact, full address",
+  identity: "PAN, Aadhaar, photo, ID document uploads",
+  banking: "Bank name, account, IFSC, cancelled cheque / passbook / statement",
+  signature: "Drawn or uploaded signature — must be clear",
+};
+
+export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalApprove, onFinalReject, busy }) {
+  const reviews = parseSectionReviews(kyc) || {};
+  const [openSection, setOpenSection] = useState(null);
+  const canReview = ["PENDING", "REJECTED"].includes(kyc?.status);
+
+  const act = async (section, status) => {
+    let remarks;
+    if (status === "REJECTED") {
+      remarks = window.prompt(
+        `Rejection reason for "${KYC_SECTION_LABELS[section]}" (shown to investor):\n\nExamples:\n- Document blurry — upload clear JPG/PNG or unlocked PDF\n- Details mismatch with PAN/Aadhaar\n- Bank proof unclear`
+      );
+      if (!remarks?.trim()) return;
+    }
+    await onSectionDecision?.(kyc.id, section, status, remarks?.trim());
+    setOpenSection(null);
+  };
+
+  const allApproved = KYC_SECTIONS.every((id) => reviews[id]?.status === "APPROVED");
+
+  return (
+    <div className="space-y-4 border-t border-border pt-4">
+      <h4 className="text-sm font-bold text-foreground">Section review</h4>
+      <p className="text-xs text-muted-foreground">
+        Approve or reject each part separately. When all four are approved, use final approval. Reject a section with a clear reason so the investor can fix only that part.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {KYC_SECTIONS.map((id) => {
+          const r = reviews[id] || { status: "PENDING" };
+          const status = r.status || "PENDING";
+          return (
+            <div key={id} className="rounded-xl border border-border bg-muted/20 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{KYC_SECTION_LABELS[id]}</div>
+                  <div className="text-[10px] text-muted-foreground">{SECTION_HINTS[id]}</div>
+                </div>
+                <span
+                  className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    status === "APPROVED"
+                      ? "bg-emerald-500/15 text-emerald-600"
+                      : status === "REJECTED"
+                        ? "bg-rose-500/15 text-rose-600"
+                        : "bg-amber-500/15 text-amber-700"
+                  }`}
+                >
+                  {status}
+                </span>
+              </div>
+              {r.remarks && status === "REJECTED" && (
+                <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">Reason: {r.remarks}</p>
+              )}
+              {canReview && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="btn-outline px-2 py-1 text-xs text-emerald-600"
+                    onClick={() => act(id, "APPROVED")}
+                  >
+                    Approve section
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="btn-outline px-2 py-1 text-xs text-rose-600"
+                    onClick={() => act(id, "REJECTED")}
+                  >
+                    Reject section
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {canReview && (
+        <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3">
+          <p className="text-xs font-semibold text-foreground">Final decision</p>
+          {!allApproved && (
+            <Alert type="info">Approve all four sections before final approval.</Alert>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || !allApproved}
+              className="btn-gold text-sm disabled:opacity-50"
+              onClick={() => onFinalApprove?.(kyc)}
+            >
+              Final approve KYC
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="btn-outline text-sm text-rose-600"
+              onClick={() => onFinalReject?.(kyc)}
+            >
+              Final reject (entire application)
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
