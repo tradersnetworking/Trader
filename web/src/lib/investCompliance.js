@@ -13,6 +13,15 @@ export function isKycApproved(kyc) {
   return kyc?.status === "APPROVED";
 }
 
+/** Dashboard allowed after first KYC submit (PENDING) or when approved; blocked when rejected or not submitted. */
+export function canAccessInvestDashboard(kyc) {
+  return kyc && ["PENDING", "APPROVED"].includes(kyc.status);
+}
+
+export function needsKycSetup(kyc) {
+  return !kyc || ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+}
+
 function buildEligibility(investor, kyc, { forWithdraw = false } = {}) {
   const missing = [];
   if (!isKycApproved(kyc)) {

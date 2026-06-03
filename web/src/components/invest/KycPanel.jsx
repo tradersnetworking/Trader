@@ -69,9 +69,11 @@ function initForm(kyc) {
 
 
 
-export default function KycPanel({ kyc, onRefresh }) {
+export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingKycRevision, forced = false }) {
 
   const [tab, setTab] = useState("kyc");
+  const [revisionMode, setRevisionMode] = useState(false);
+  const [payoutProofFiles, setPayoutProofFiles] = useState({});
 
   const [step, setStep] = useState(0);
 
@@ -96,7 +98,7 @@ export default function KycPanel({ kyc, onRefresh }) {
 
   const submitted = kyc?.status && !["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
 
-  const canEdit = !submitted || kyc?.status === "REJECTED";
+  const canEdit = !submitted || kyc?.status === "REJECTED" || revisionMode;
 
 
 
@@ -111,43 +113,43 @@ export default function KycPanel({ kyc, onRefresh }) {
 
 
   const saveAccounts = async () => {
-
     setErr("");
-
     setMsg("");
-
-    try {
-
-      await investApi("/payout-details", {
-
-        method: "PUT",
-
-        body: {
-
-          upiId: form.upiId,
-
-          bankName: form.bankName,
-
-          accountNumber: form.bankAccount,
-
-          ifsc: form.ifscCode,
-
-          branchName: form.branchName,
-
-        },
-
-      });
-
-      setMsg("Payout details saved.");
-
-      onRefresh?.();
-
-    } catch (e) {
-
-      setErr(e.message);
-
+    const sizeErr = validateUploadFiles(payoutProofFiles);
+    if (sizeErr) {
+      setErr(sizeErr);
+      return;
     }
-
+    try {
+      if (kyc?.status === "APPROVED") {
+        const fd = new FormData();
+        fd.append("upiId", form.upiId || "");
+        fd.append("bankName", form.bankName || "");
+        fd.append("accountNumber", form.bankAccount || "");
+        fd.append("ifscCode", form.ifscCode || "");
+        fd.append("branchName", form.branchName || "");
+        fd.append("bankProofType", form.bankProofType || "CHEQUE");
+        Object.entries(payoutProofFiles).forEach(([k, f]) => f && fd.append(k, f));
+        await investApiForm("/payout-details/request", fd);
+        setMsg("Bank/UPI change submitted for team approval. Current payout details stay active until approved.");
+        setPayoutProofFiles({});
+      } else {
+        await investApi("/payout-details", {
+          method: "PUT",
+          body: {
+            upiId: form.upiId,
+            bankName: form.bankName,
+            accountNumber: form.bankAccount,
+            ifsc: form.ifscCode,
+            branchName: form.branchName,
+          },
+        });
+        setMsg("Payout details saved.");
+      }
+      onRefresh?.();
+    } catch (e) {
+      setErr(e.message);
+    }
   };
 
 
@@ -329,6 +331,14 @@ export default function KycPanel({ kyc, onRefresh }) {
 
     <div className="page-stack max-w-3xl">
 
+      {(pendingPayoutChange || pendingKycRevision) && (
+        <Alert type="info">
+          {pendingKycRevision && "KYC update pending team approval — your current approved KYC remains in use. "}
+          {pendingPayoutChange && "Bank/UPI change pending team approval — withdrawals still use your current approved details."}
+        </Alert>
+      )}
+
+      {!forced && (
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
 
         {[
@@ -372,24 +382,29 @@ export default function KycPanel({ kyc, onRefresh }) {
         </div>
 
       </div>
+      )}
 
 
 
-      {tab === "accounts" && (
+      {(forced || tab === "accounts") && (
 
         <div className="card max-w-xl space-y-3 p-5 sm:p-6">
 
           <h3 className="font-bold text-foreground">Payout Accounts</h3>
 
           <p className="text-sm text-muted-foreground">
-
-            Update your UPI ID and bank account for withdrawals anytime.
-
+            {kyc?.status === "APPROVED"
+              ? "Changes require team approval with bank proof. Active details below are used for withdrawals until approved."
+              : "Add UPI and bank details for withdrawals (saved with your KYC submission)."}
           </p>
 
-          {err && tab === "accounts" && <Alert type="error">{err}</Alert>}
+          {pendingPayoutChange && (
+            <Alert type="info">Pending change submitted {new Date(pendingPayoutChange.createdAt).toLocaleString("en-IN")} — awaiting team approval.</Alert>
+          )}
 
-          {msg && tab === "accounts" && <Alert type="success">{msg}</Alert>}
+          {err && (forced || tab === "accounts") && <Alert type="error">{err}</Alert>}
+
+          {msg && (forced || tab === "accounts") && <Alert type="success">{msg}</Alert>}
 
           <Field label="UPI ID">
 
@@ -413,7 +428,36 @@ export default function KycPanel({ kyc, onRefresh }) {
 
           </div>
 
-          <button type="button" className="btn-gold w-full" onClick={saveAccounts}>Save Payout Details</button>
+          {kyc?.status === "APPROVED" && !pendingPayoutChange && (
+            <>
+              <Field label="Bank proof type">
+                <select className="input" value={form.bankProofType || "CHEQUE"} onChange={(e) => set("bankProofType", e.target.value)}>
+                  {BANK_PROOF_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </Field>
+              {(form.bankProofType || "CHEQUE") === "CHEQUE" && (
+                <Field label="Cancelled cheque (new account)">
+                  <input type="file" accept={KYC_ACCEPT_DOCS} className="input py-1.5" onChange={(e) => setPayoutProofFiles({ cancelledCheque: e.target.files?.[0] })} />
+                </Field>
+              )}
+              {(form.bankProofType || "CHEQUE") === "PASSBOOK" && (
+                <Field label="Passbook copy">
+                  <input type="file" accept={KYC_ACCEPT_DOCS} className="input py-1.5" onChange={(e) => setPayoutProofFiles({ passbookDocument: e.target.files?.[0] })} />
+                </Field>
+              )}
+              {(form.bankProofType || "CHEQUE") === "STATEMENT" && (
+                <Field label="Bank statement">
+                  <input type="file" accept={KYC_ACCEPT_DOCS} className="input py-1.5" onChange={(e) => setPayoutProofFiles({ bankStatementDocument: e.target.files?.[0] })} />
+                </Field>
+              )}
+            </>
+          )}
+
+          <button type="button" className="btn-gold w-full" onClick={saveAccounts} disabled={kyc?.status === "APPROVED" && Boolean(pendingPayoutChange)}>
+            {kyc?.status === "APPROVED" ? "Submit change for approval" : "Save Payout Details"}
+          </button>
 
         </div>
 
@@ -421,11 +465,11 @@ export default function KycPanel({ kyc, onRefresh }) {
 
 
 
-      {tab === "kyc" && submitted ? (
+      {(forced || tab === "kyc") && submitted && !revisionMode ? (
 
-        <KycStatusView kyc={kyc} />
+        <KycStatusView kyc={kyc} onRequestChanges={() => { setRevisionMode(true); setStep(0); }} pendingKycRevision={pendingKycRevision} />
 
-      ) : tab === "kyc" && (
+      ) : (forced || tab === "kyc") && (
 
         <div className="card p-5 sm:p-6">
 
@@ -1017,7 +1061,7 @@ function Stepper({ step }) {
 
 
 
-function KycStatusView({ kyc }) {
+function KycStatusView({ kyc, onRequestChanges, pendingKycRevision }) {
 
   const verified = kyc.status === "APPROVED";
 
@@ -1072,6 +1116,16 @@ function KycStatusView({ kyc }) {
 
 
       {kyc.remarks && <Alert type="info">Remarks: {kyc.remarks}</Alert>}
+
+      {pendingKycRevision && (
+        <Alert type="info">A KYC update is awaiting team approval. Your approved documents below remain active for payouts.</Alert>
+      )}
+
+      {verified && !pendingKycRevision && onRequestChanges && (
+        <button type="button" className="btn-outline text-sm" onClick={onRequestChanges}>
+          Request KYC document update (requires approval)
+        </button>
+      )}
 
 
 

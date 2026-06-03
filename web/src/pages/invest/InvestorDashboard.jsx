@@ -43,6 +43,7 @@ import {
 } from "../../lib/pendingInvest.js";
 import { emitInvestRefresh, useInvestRefresh } from "../../lib/investRefresh.js";
 import { investEligibility } from "../../lib/investCompliance.js";
+import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -98,7 +99,11 @@ export default function InvestorDashboard() {
     await Promise.all([
       investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {}),
       investApi("/subscriptions").then((d) => setSubs(d.subscriptions)).catch(() => {}),
-      investApi("/kyc").then((d) => setKyc(d.kyc)).catch(() => {}),
+      investApi("/kyc").then((d) => {
+        setKyc(d.kyc);
+        setPendingPayoutChange(d.pendingPayoutChange || null);
+        setPendingKycRevision(d.pendingKycRevision || null);
+      }).catch(() => {}),
       investApi("/maturity-choices").then((d) => setMaturityChoices(d.subscriptions || [])).catch(() => {}),
       Promise.all([
         investApi("/notifications").catch(() => ({ count: 0 })),
@@ -143,6 +148,12 @@ export default function InvestorDashboard() {
         </>
       }
     >
+      <InvestKycGate
+        kyc={kyc}
+        pendingPayoutChange={pendingPayoutChange}
+        pendingKycRevision={pendingKycRevision}
+        onRefresh={fetchCore}
+      >
       <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore(); emitInvestRefresh(); }} />
       {!investEligibility(invest, kyc).canInvest && ["plans", "investments", "agreements"].includes(tab) && (
         <div className="mb-4">
@@ -207,7 +218,16 @@ export default function InvestorDashboard() {
       {tab === "notifications" && (
         <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
       )}
-      {tab === "kyc" && <TabPanel><KycPanel kyc={kyc} onRefresh={fetchCore} /></TabPanel>}
+      {tab === "kyc" && (
+        <TabPanel>
+          <KycPanel
+            kyc={kyc}
+            pendingPayoutChange={pendingPayoutChange}
+            pendingKycRevision={pendingKycRevision}
+            onRefresh={fetchCore}
+          />
+        </TabPanel>
+      )}
       {tab === "agreements" && (
         <TabPanel>
           <InvestorAgreementsPanel
@@ -231,6 +251,7 @@ export default function InvestorDashboard() {
       {!INVESTOR_TAB_IDS.includes(tab) && (
         <DashboardTabFallback title="Dashboard" onGoOverview={() => setTab("overview")} />
       )}
+      </InvestKycGate>
     </InvestDashboardShell>
   );
 }

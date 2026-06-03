@@ -102,9 +102,11 @@ export function LoginScreen({ scope, staff }) {
       login(token, user);
       applyStaffSiblingLogin(res, auth);
     });
-    if (scope === "invest" && kycTab) {
-      nav(investPath("/dashboard?tab=kyc"));
-      return;
+    if (scope === "invest" && !["ADMIN", "SUPERADMIN"].includes(user.role)) {
+      if (res.needsKycSetup || kycTab) {
+        nav(investPath("/dashboard?tab=kyc"));
+        return;
+      }
     }
     nav(dest(user));
   };

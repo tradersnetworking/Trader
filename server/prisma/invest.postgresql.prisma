@@ -46,6 +46,8 @@ model Investor {
   updatedAt     DateTime @updatedAt
 
   kyc           Kyc?
+  kycRevisions  KycRevision[]
+  payoutChanges PayoutDetailsChange[]
   webauthnCredentials WebAuthnCredential[]
   otpTokens     OtpToken[]
   pushSubscriptions PushSubscription[]
@@ -229,6 +231,85 @@ model Kyc {
   verifiedAt    DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  revisions     KycRevision[]
+}
+
+model KycRevision {
+  id            String   @id @default(cuid())
+  investorId    String
+  investor      Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  kycId         String
+  kyc           Kyc      @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  fullName      String?
+  fatherName    String?
+  guardianType  String?
+  guardianName  String?
+  dob           String?
+  phone         String?
+  phoneCountryCode String?
+  whatsappNumber String?
+  whatsappCountryCode String?
+  country       String?
+  houseNo       String?
+  street        String?
+  landmark      String?
+  area          String?
+  district      String?
+  city          String?
+  state         String?
+  pincode       String?
+  address       String?
+  panNumber     String?
+  aadhaarNumber String?
+  bankName      String?
+  bankAccount   String?
+  ifscCode      String?
+  branchName    String?
+  upiId         String?
+  bankProofType String?
+  panDocument   String?
+  aadhaarFront  String?
+  aadhaarBack   String?
+  aadhaarDocument String?
+  photo         String?
+  selfie        String?
+  addressProof  String?
+  signature     String?
+  signatureData String?
+  signatureMethod String?
+  cancelledCheque String?
+  passbookDocument String?
+  bankStatementDocument String?
+  passportDocument String?
+  status        String   @default("PENDING")
+  remarks       String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([investorId, status])
+}
+
+model PayoutDetailsChange {
+  id            String   @id @default(cuid())
+  investorId    String
+  investor      Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  upiId         String?
+  bankName      String?
+  bankAccount   String?
+  ifscCode      String?
+  branchName    String?
+  bankProofType String?
+  cancelledCheque String?
+  passbookDocument String?
+  bankStatementDocument String?
+  status        String   @default("PENDING")
+  remarks       String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([investorId, status])
 }
 
 model Deposit {

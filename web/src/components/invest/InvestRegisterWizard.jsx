@@ -106,7 +106,7 @@ export default function InvestRegisterWizard() {
         },
       });
       login(token, user);
-      nav(investPath("/dashboard?tab=kyc"));
+      nav(investPath("/dashboard"));
     } catch (e) {
       setErr(e.message);
     } finally {

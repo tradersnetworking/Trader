@@ -39,6 +39,7 @@ import {
   PlansAdmin,
   DepositsAdmin,
   KycAdmin,
+  ProfileApprovalsAdmin,
   StaffAdmin,
   AccountSecurityPanel,
 } from "./lazyAdminPanels.js";
@@ -140,7 +141,10 @@ export default function InvestAdminDashboard() {
       case "kyc":
         return gate("review_kyc", "KYC Review", (
           <TabPanel>
-            <KycAdmin onUpdated={(list) => setNavBadges((b) => ({ ...b, kyc: (list || []).filter((k) => k.status === "PENDING").length }))} />
+            <div className="space-y-8">
+              <KycAdmin onUpdated={(list) => setNavBadges((b) => ({ ...b, kyc: (list || []).filter((k) => k.status === "PENDING").length }))} />
+              <ProfileApprovalsAdmin />
+            </div>
           </TabPanel>
         ));
       case "agreements":

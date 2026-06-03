@@ -170,10 +170,44 @@ router.put(
   })
 );
 
+router.get(
+  "/payout-details",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const [investor, kyc, pendingChange] = await Promise.all([
+      investDb.investor.findUnique({ where: { id: req.user.id } }),
+      investDb.kyc.findUnique({ where: { investorId: req.user.id } }),
+      investDb.payoutDetailsChange.findFirst({
+        where: { investorId: req.user.id, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+    res.json({
+      active: {
+        upiId: investor?.upiId,
+        bankName: investor?.bankName,
+        accountNumber: investor?.accountNumber,
+        ifsc: investor?.ifsc,
+        branchName: kyc?.branchName,
+        bankProofType: kyc?.bankProofType,
+      },
+      kycStatus: kyc?.status,
+      pendingChange,
+    });
+  })
+);
+
 router.put(
   "/payout-details",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    if (kyc?.status === "APPROVED") {
+      return res.status(400).json({
+        error: "Bank/UPI changes require admin approval. Submit a change request with proof of account.",
+        code: "REQUIRES_APPROVAL",
+      });
+    }
     const { upiId, bankName, accountNumber, ifsc, branchName } = req.body;
     const inv = await investDb.investor.update({
       where: { id: req.user.id },
@@ -184,7 +218,6 @@ router.put(
         ifsc: ifsc ?? undefined,
       },
     });
-    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
     if (kyc) {
       await investDb.kyc.update({
         where: { investorId: req.user.id },
@@ -210,7 +243,58 @@ router.put(
       });
     }
     const { passwordHash, resetToken, ...u } = inv;
-    res.json({ user: u, message: "Payout details updated" });
+    res.json({ user: u, message: "Payout details saved" });
+  })
+);
+
+router.post(
+  "/payout-details/request",
+  authRequired(SCOPE),
+  upload.fields([
+    { name: "cancelledCheque", maxCount: 1 },
+    { name: "passbookDocument", maxCount: 1 },
+    { name: "bankStatementDocument", maxCount: 1 },
+  ]),
+  asyncH(async (req, res) => {
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    if (!kyc || kyc.status !== "APPROVED") {
+      return res.status(400).json({ error: "Payout change requests are available after KYC is approved." });
+    }
+    const existing = await investDb.payoutDetailsChange.findFirst({
+      where: { investorId: req.user.id, status: "PENDING" },
+    });
+    if (existing) {
+      return res.status(400).json({ error: "You already have a payout change awaiting team approval." });
+    }
+    const b = req.body;
+    const files = req.files || {};
+    const bankProofType = String(b.bankProofType || "CHEQUE").toUpperCase();
+    const data = {
+      investorId: req.user.id,
+      upiId: b.upiId?.trim() || null,
+      bankName: b.bankName?.trim() || null,
+      bankAccount: b.accountNumber?.trim() || b.bankAccount?.trim() || null,
+      ifscCode: b.ifscCode?.trim() || b.ifsc?.trim() || null,
+      branchName: b.branchName?.trim() || null,
+      bankProofType,
+      status: "PENDING",
+      remarks: null,
+    };
+    if (files.cancelledCheque?.[0]) data.cancelledCheque = fileUrl(files.cancelledCheque[0].filename);
+    if (files.passbookDocument?.[0]) data.passbookDocument = fileUrl(files.passbookDocument[0].filename);
+    if (files.bankStatementDocument?.[0]) data.bankStatementDocument = fileUrl(files.bankStatementDocument[0].filename);
+    const proofOk =
+      (bankProofType === "CHEQUE" && data.cancelledCheque) ||
+      (bankProofType === "PASSBOOK" && data.passbookDocument) ||
+      (bankProofType === "STATEMENT" && data.bankStatementDocument);
+    if (!data.bankName || !data.bankAccount || !data.ifscCode) {
+      return res.status(400).json({ error: "Bank name, account number and IFSC are required." });
+    }
+    if (!proofOk) {
+      return res.status(400).json({ error: "Upload proof for the new bank account (cheque, passbook, or statement)." });
+    }
+    const change = await investDb.payoutDetailsChange.create({ data });
+    res.json({ change, message: "Submitted for team approval. Current payout details remain active until approved." });
   })
 );
 
@@ -219,13 +303,25 @@ router.get(
   "/kyc",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const [kyc, investor] = await Promise.all([
+    const [kyc, investor, pendingPayoutChange, pendingKycRevision] = await Promise.all([
       investDb.kyc.findUnique({ where: { investorId: req.user.id } }),
       investDb.investor.findUnique({ where: { id: req.user.id } }),
+      investDb.payoutDetailsChange.findFirst({
+        where: { investorId: req.user.id, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+      }),
+      investDb.kycRevision.findFirst({
+        where: { investorId: req.user.id, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+      }),
     ]);
     const { investEligibility, withdrawEligibility } = await import("../utils/investCompliance.js");
+    const { canAccessInvestDashboard, needsKycSetup } = await import("../services/investProfileApprovals.js");
     res.json({
       kyc,
+      pendingPayoutChange,
+      pendingKycRevision,
+      dashboardAccess: { canAccess: canAccessInvestDashboard(kyc), needsKycSetup: needsKycSetup(kyc) },
       eligibility: investEligibility(investor, kyc),
       withdrawEligibility: withdrawEligibility(investor, kyc),
     });
@@ -402,7 +498,75 @@ router.post(
     }
     const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
     notifyKycSubmitted(investor);
-    res.json({ kyc });
+    res.json({ kyc, message: "KYC submitted for team review." });
+  })
+);
+
+router.post(
+  "/kyc/revision",
+  authRequired(SCOPE),
+  upload.fields([
+    { name: "panDocument" },
+    { name: "aadhaarDocument" },
+    { name: "aadhaarFront" },
+    { name: "aadhaarBack" },
+    { name: "photo" },
+    { name: "selfie" },
+    { name: "addressProof" },
+    { name: "signature" },
+    { name: "cancelledCheque" },
+    { name: "passbookDocument" },
+    { name: "bankStatementDocument" },
+    { name: "passportDocument" },
+  ]),
+  asyncH(async (req, res) => {
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    if (!kyc || kyc.status !== "APPROVED") {
+      return res.status(400).json({ error: "Document updates after approval must be submitted as a change request." });
+    }
+    const pending = await investDb.kycRevision.findFirst({
+      where: { investorId: req.user.id, status: "PENDING" },
+    });
+    if (pending) {
+      return res.status(400).json({ error: "You already have a KYC update awaiting team approval." });
+    }
+    const b = req.body;
+    const files = req.files || {};
+    const { parseKycBody } = await import("../utils/kycFields.js");
+    const data = {
+      investorId: req.user.id,
+      kycId: kyc.id,
+      ...parseKycBody(b, kyc),
+      status: "PENDING",
+      remarks: null,
+    };
+    const fileMap = {
+      panDocument: "panDocument",
+      aadhaarDocument: "aadhaarDocument",
+      aadhaarFront: "aadhaarFront",
+      aadhaarBack: "aadhaarBack",
+      photo: "photo",
+      selfie: "selfie",
+      addressProof: "addressProof",
+      signature: "signature",
+      cancelledCheque: "cancelledCheque",
+      passbookDocument: "passbookDocument",
+      bankStatementDocument: "bankStatementDocument",
+      passportDocument: "passportDocument",
+    };
+    for (const [field, key] of Object.entries(fileMap)) {
+      if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);
+      else if (kyc[key]) data[key] = kyc[key];
+    }
+    if (b.signatureData?.trim()) {
+      data.signatureData = b.signatureData.trim();
+      data.signatureMethod = "draw";
+    }
+    const revision = await investDb.kycRevision.create({ data });
+    res.json({
+      revision,
+      message: "KYC update submitted for team approval. Your current approved KYC remains active until then.",
+    });
   })
 );
 

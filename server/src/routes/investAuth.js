@@ -35,7 +35,17 @@ import { createStaffHandoff, consumeStaffHandoff } from "../services/staffHandof
 const router = Router();
 
 async function jsonInvestLogin(res, investor, payload, req) {
-  const body = await appendStaffSiblingToLogin("invest", investor, payload, req);
+  let body = await appendStaffSiblingToLogin("invest", investor, payload, req);
+  if (investor?.role === "INVESTOR") {
+    const kyc = await investDb.kyc.findUnique({ where: { investorId: investor.id } });
+    const { needsKycSetup, canAccessInvestDashboard } = await import("../services/investProfileApprovals.js");
+    body = {
+      ...body,
+      needsKycSetup: needsKycSetup(kyc),
+      canAccessDashboard: canAccessInvestDashboard(kyc),
+      kycStatus: kyc?.status || "NOT_SUBMITTED",
+    };
+  }
   res.json(body);
 }
 const SCOPE = "invest";
@@ -197,7 +207,7 @@ router.post(
       text: `Hi ${displayName}, sign in and complete KYC to start investing at invest.akshayaexim.com`,
     });
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
-    res.json({ token, user: publicInvestor(investor) });
+    await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
   })
 );
 

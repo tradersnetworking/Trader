@@ -700,6 +700,8 @@ router.post(
       },
     });
     if (status === "APPROVED" && existing.investorId) {
+      const { syncApprovedPayoutFromKyc } = await import("../services/investProfileApprovals.js");
+      await syncApprovedPayoutFromKyc(existing.investorId, kyc);
       const { autoSignPendingAgreementsForInvestor } = await import("../services/agreements.js");
       await autoSignPendingAgreementsForInvestor(existing.investorId, {
         ipAddress: "kyc-approval",
@@ -708,6 +710,97 @@ router.post(
     }
     if (existing.investor) notifyKycDecision(existing.investor, kyc);
     res.json({ kyc });
+  })
+);
+
+router.get(
+  "/payout-changes",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const where = req.query.status ? { status: String(req.query.status) } : {};
+    const changes = await investDb.payoutDetailsChange.findMany({
+      where,
+      include: { investor: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ changes });
+  })
+);
+
+router.post(
+  "/payout-changes/:id/decision",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("review_kyc"),
+  asyncH(async (req, res) => {
+    const { status, remarks } = req.body;
+    const change = await investDb.payoutDetailsChange.findUnique({
+      where: { id: req.params.id },
+      include: { investor: true },
+    });
+    if (!change) return res.status(404).json({ error: "Not found" });
+    if (change.status !== "PENDING") return res.status(400).json({ error: "Already reviewed" });
+    const updated = await investDb.payoutDetailsChange.update({
+      where: { id: change.id },
+      data: {
+        status: status === "APPROVED" ? "APPROVED" : "REJECTED",
+        remarks: remarks || null,
+        reviewedAt: new Date(),
+      },
+    });
+    if (status === "APPROVED") {
+      const { applyPayoutChange } = await import("../services/investProfileApprovals.js");
+      await applyPayoutChange(updated);
+    }
+    res.json({ change: updated });
+  })
+);
+
+router.get(
+  "/kyc-revisions",
+  authRequired(SCOPE),
+  adminOnly,
+  asyncH(async (req, res) => {
+    const where = req.query.status ? { status: String(req.query.status) } : {};
+    const revisions = await investDb.kycRevision.findMany({
+      where,
+      include: { investor: { select: { id: true, name: true, email: true } }, kyc: true },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ revisions });
+  })
+);
+
+router.post(
+  "/kyc-revisions/:id/decision",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("review_kyc"),
+  asyncH(async (req, res) => {
+    const { status, remarks } = req.body;
+    const revision = await investDb.kycRevision.findUnique({
+      where: { id: req.params.id },
+      include: { investor: true, kyc: true },
+    });
+    if (!revision) return res.status(404).json({ error: "Not found" });
+    if (revision.status !== "PENDING") return res.status(400).json({ error: "Already reviewed" });
+    const updated = await investDb.kycRevision.update({
+      where: { id: revision.id },
+      data: {
+        status: status === "APPROVED" ? "APPROVED" : "REJECTED",
+        remarks: remarks || null,
+        reviewedAt: new Date(),
+      },
+    });
+    if (status === "APPROVED") {
+      const { applyKycRevision } = await import("../services/investProfileApprovals.js");
+      await applyKycRevision(updated);
+    } else if (revision.investor) {
+      const { notifyKycDecision } = await import("../services/investNotifications.js");
+      await notifyKycDecision(revision.investor, { ...revision.kyc, status: "APPROVED", remarks });
+    }
+    res.json({ revision: updated });
   })
 );
 

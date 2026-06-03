@@ -376,7 +376,19 @@ async function seedInvest() {
       },
     });
     await investDb.wallet.create({ data: { investorId: demo.id, available: 100000 } });
-    await investDb.kyc.create({ data: { investorId: demo.id, fullName: "Demo Investor", panNumber: "ABCDE1234F", status: "APPROVED" } });
+    await investDb.kyc.create({
+      data: {
+        investorId: demo.id,
+        fullName: "Demo Investor",
+        panNumber: "ABCDE1234F",
+        bankName: "HDFC",
+        bankAccount: "1234567890",
+        ifscCode: "HDFC0001234",
+        upiId: "demo@okhdfc",
+        status: "APPROVED",
+        verifiedAt: new Date(),
+      },
+    });
     await investDb.ledgerEntry.create({ data: { investorId: demo.id, type: "DEPOSIT", direction: "CREDIT", amount: 100000, balanceAfter: 100000, note: "Seed balance" } });
   } else if (!demo.referralCode) {
     demo = await investDb.investor.update({

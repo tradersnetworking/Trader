@@ -32,4 +32,5 @@ export const PayoutsAdmin = lazy(() => import("../../components/invest/AdminPayo
 export const PlansAdmin = lazy(() => import("../../components/invest/AdminPlansPanel.jsx"));
 export const DepositsAdmin = lazy(() => import("../../components/invest/AdminDepositsPanel.jsx"));
 export const KycAdmin = lazy(() => import("../../components/invest/AdminKycPanel.jsx"));
+export const ProfileApprovalsAdmin = lazy(() => import("../../components/invest/AdminProfileApprovalsPanel.jsx"));
 export const StaffAdmin = lazy(() => import("../../components/invest/AdminStaffPanel.jsx"));
