@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { investPath } from "../../../lib/site.js";
+import { investPath, investHash } from "../../../lib/site.js";
 import { INVEST_HERO_SUBTITLE, resolveInvestHeroSubtitle } from "../../../lib/brand.js";
 import { planRoiRange, formatRoiPct } from "../../../lib/plan-types.js";
 import { useI18n } from "../../../lib/i18n/context.jsx";
@@ -225,7 +225,7 @@ export function InvestLandingHero({ cms, invest }) {
               </Link>
             </>
           )}
-          <a href="#plans" className="btn-outline border-white/30 bg-transparent px-8 py-3 text-base text-white hover:bg-white/10 sm:inline-flex">
+          <a href={investHash("plans")} className="btn-outline border-white/30 bg-transparent px-8 py-3 text-base text-white hover:bg-white/10 sm:inline-flex">
             {t("home.viewPlans")}
           </a>
         </div>

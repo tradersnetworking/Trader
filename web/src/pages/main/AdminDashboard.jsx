@@ -163,7 +163,10 @@ function CategoriesAdmin() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", parentId: "" });
   const [err, setErr] = useState("");
-  const load = () => mainApi("/categories").then((d) => setCats(d.categories)).catch(() => {});
+  const load = () =>
+    mainApi("/categories")
+      .then((d) => setCats(d.categories || []))
+      .catch(() => setCats([]));
   useEffect(() => { load(); }, []);
   const save = async (e) => { e.preventDefault(); setErr(""); try { await mainApi("/categories", { method: "POST", body: form }); setOpen(false); setForm({ name: "", parentId: "" }); load(); } catch (e2) { setErr(e2.message); } };
   const del = async (id) => { if (confirm("Delete category?")) { await mainApi(`/categories/${id}`, { method: "DELETE" }); load(); } };
@@ -204,8 +207,16 @@ function ProductsAdmin() {
   const [form, setForm] = useState(blank);
   const [err, setErr] = useState("");
 
-  const load = () => mainApi("/products?take=200").then((d) => setProducts(d.products)).catch(() => {});
-  useEffect(() => { load(); mainApi("/categories").then((d) => setCats(d.categories)); }, []);
+  const load = () =>
+    mainApi("/products?take=200")
+      .then((d) => setProducts(d.products || []))
+      .catch(() => setProducts([]));
+  useEffect(() => {
+    load();
+    mainApi("/categories")
+      .then((d) => setCats(d.categories || []))
+      .catch(() => setCats([]));
+  }, []);
   const subcats = cats.flatMap((c) => (c.children || []).map((s) => ({ ...s, parent: c.name })));
 
   const openNew = () => { setEditing(null); setForm(blank); setErr(""); setOpen(true); };

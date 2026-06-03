@@ -101,5 +101,30 @@ if (invLogin.token) {
   fail("Investor login", invLogin.error || invLoginRes.status);
 }
 
+console.log("\n— Production SPA shells (blank-page guard) —");
+async function spaShell(origin, path, label) {
+  try {
+    const res = await fetch(`${origin.replace(/\/$/, "")}${path}`, { redirect: "follow" });
+    const html = await res.text();
+    if (!res.ok) {
+      fail(`${label} ${path}`, `HTTP ${res.status}`);
+      return;
+    }
+    if (!html.includes('id="root"')) {
+      fail(`${label} ${path}`, "missing React root");
+      return;
+    }
+    pass(`${label} ${path}`);
+  } catch (e) {
+    fail(`${label} ${path}`, e.message);
+  }
+}
+for (const p of ["/", "/products", "/categories", "/about", "/login"]) {
+  await spaShell(MAIN, p, "main");
+}
+for (const p of ["/", "/login", "/register", "/privacy", "/dashboard"]) {
+  await spaShell(INVEST, p, "invest");
+}
+
 console.log(failed ? `\nPRODUCTION AUDIT FAILED (${failed})` : "\nPRODUCTION AUDIT PASSED");
 process.exit(failed ? 1 : 0);

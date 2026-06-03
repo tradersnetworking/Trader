@@ -8,7 +8,11 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [q, setQ] = useState("");
 
-  useEffect(() => { mainApi("/categories").then((d) => setCategories(d.categories)).catch(() => {}); }, []);
+  useEffect(() => {
+    mainApi("/categories")
+      .then((d) => setCategories(d.categories || []))
+      .catch(() => setCategories([]));
+  }, []);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();

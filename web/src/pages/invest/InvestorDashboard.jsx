@@ -70,10 +70,17 @@ export default function InvestorDashboard() {
   const subId = sp.get("subId");
   const resumePlan = sp.get("resumePlan") === "1";
   const setTab = (id, extra = {}) => {
-    const params = { tab: id, ...extra };
-    if (id !== "investments") delete params.subId;
-    if (id !== "money") delete params.moneyTab;
-    setSp(params);
+    setSp((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("tab", id);
+      if (id !== "investments") params.delete("subId");
+      if (id !== "money") params.delete("moneyTab");
+      Object.entries(extra).forEach(([k, v]) => {
+        if (v == null || v === "") params.delete(k);
+        else params.set(k, String(v));
+      });
+      return params;
+    });
   };
   const clearResumePlan = () => setSp({ tab: "plans" }, { replace: true });
   useEffect(() => {

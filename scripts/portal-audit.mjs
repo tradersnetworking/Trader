@@ -127,5 +127,7 @@ const seoCfg = cfgSeo?.seo;
 if (seoCfg?.canonicalUrl?.includes("akshayaexim.com")) pass("Canonical URL");
 else fail("Canonical URL", seoCfg?.canonicalUrl);
 
+run("node", ["scripts/routes-audit.mjs"], "Routes & SPA safety");
+
 console.log(failed ? `\nAUDIT FAILED — ${failed} issue(s).` : "\nAUDIT PASSED — portal ready for GitHub + VPS.");
 process.exit(failed ? 1 : 0);

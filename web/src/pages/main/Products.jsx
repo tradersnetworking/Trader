@@ -19,7 +19,11 @@ export default function Products() {
   const listingType = sp.get("listingType") || "";
   const categoryId = sp.get("categoryId") || "";
 
-  useEffect(() => { mainApi("/categories").then((d) => setCategories(d.categories)).catch(() => {}); }, []);
+  useEffect(() => {
+    mainApi("/categories")
+      .then((d) => setCategories(d.categories || []))
+      .catch(() => setCategories([]));
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams();
     if (listingType) params.set("listingType", listingType);
