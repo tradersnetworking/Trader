@@ -234,7 +234,7 @@ model Kyc {
   revisions     KycRevision[]
 }
 
-/** Pending KYC edits after initial approval — applied only when admin approves. */
+// Pending KYC edits after initial approval — applied only when admin approves.
 model KycRevision {
   id            String   @id @default(cuid())
   investorId    String
@@ -291,7 +291,7 @@ model KycRevision {
   @@index([investorId, status])
 }
 
-/** Pending payout/bank changes — active investor/KYC bank fields unchanged until approved. */
+// Pending payout/bank changes — active investor/KYC bank fields unchanged until approved.
 model PayoutDetailsChange {
   id            String   @id @default(cuid())
   investorId    String
