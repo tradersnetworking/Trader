@@ -39,6 +39,8 @@ export default function KycFullViewModal({
   open,
   onClose,
   kyc,
+  readOnly = false,
+  investorTitle,
   onSectionDecision,
   onFinalApprove,
   onFinalReject,
@@ -48,10 +50,11 @@ export default function KycFullViewModal({
 }) {
   if (!kyc) return null;
 
-  const title = kyc.fullName || kyc.investor?.name || "Investor";
+  const title = investorTitle || kyc.fullName || kyc.investor?.name || "Investor";
+  const modalTitle = readOnly ? `Submitted KYC — ${title}` : `Full KYC — ${title}`;
 
   return (
-    <Modal open={open} onClose={onClose} title={`Full KYC — ${title}`} wide>
+    <Modal open={open} onClose={onClose} title={modalTitle} wide>
       <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
         <div className="flex flex-wrap items-center gap-3">
           <Badge status={kyc.status} />
@@ -95,7 +98,7 @@ export default function KycFullViewModal({
           />
         )}
 
-        {kyc.status === "PENDING" && onApprove && !onSectionDecision && (
+        {!readOnly && kyc.status === "PENDING" && onApprove && !onSectionDecision && (
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
             <button type="button" className="btn-gold text-sm" onClick={() => onApprove(kyc)}>
               Approve update

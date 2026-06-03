@@ -6,6 +6,7 @@ import {
 } from "../../lib/investCompliance.js";
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 import KycPanel from "./KycPanel.jsx";
+import InvestorKycSubmissionPanel from "./InvestorKycSubmissionPanel.jsx";
 
 function KycGateLoading() {
   return (
@@ -35,10 +36,12 @@ function KycLoadError({ message, onRetry, investor }) {
   );
 }
 
+const PROFILE_TABS = new Set(["profile", "account", "support"]);
+
 /**
- * NOT_SUBMITTED → full KYC form
- * REJECTED → fix rejected sections only
- * PENDING → children shown (shell blurs dashboard + overlay)
+ * NOT_SUBMITTED (no record) → full KYC form only
+ * REJECTED → fix form + view submission; profile tabs via shell
+ * PENDING → children (blurred dashboard + overlay)
  * APPROVED → full dashboard
  */
 export default function InvestKycGate({
@@ -46,6 +49,7 @@ export default function InvestKycGate({
   kycLoaded = false,
   kycLoadError = null,
   investor = null,
+  activeTab = "overview",
   pendingPayoutChange,
   pendingKycRevision,
   onRefresh,
@@ -65,18 +69,40 @@ export default function InvestKycGate({
     return children;
   }
 
+  if (phase === "needs_fix" && PROFILE_TABS.has(activeTab)) {
+    return children;
+  }
+
   const rejectedSections = getRejectedSections(kyc);
   const partial = kyc?.status === "REJECTED" && rejectedSections.length > 0;
+  const showSubmission = kyc && kyc.status !== "NOT_SUBMITTED";
+
+  if (phase === "needs_fix") {
+    return (
+      <div className="page-stack mx-auto max-w-3xl space-y-4">
+        <Alert type="error">
+          {partial
+            ? `Please correct the rejected section(s): ${rejectedSections.map((id) => KYC_SECTION_LABELS[id]).join(", ")}. Approved sections are locked — update only what was rejected below.`
+            : `Your KYC needs updates${kyc.remarks ? `: ${kyc.remarks}` : ""}. Fix the form below and resubmit with clear documents.`}
+        </Alert>
+        {showSubmission && <InvestorKycSubmissionPanel kyc={kyc} phase="needs_fix" />}
+        <KycPanel
+          kyc={kyc}
+          pendingPayoutChange={pendingPayoutChange}
+          pendingKycRevision={pendingKycRevision}
+          onRefresh={onRefresh}
+          forced
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="page-stack mx-auto max-w-3xl">
-      <Alert type={kyc?.status === "REJECTED" ? "error" : "info"}>
-        {partial
-          ? `Please correct the rejected section(s): ${rejectedSections.map((id) => KYC_SECTION_LABELS[id]).join(", ")}. Approved sections are locked — update only what was rejected below.`
-          : kyc?.status === "REJECTED"
-            ? `Your KYC needs updates${kyc.remarks ? `: ${kyc.remarks}` : ""}. Fix the form below and resubmit with clear documents.`
-            : "Complete KYC before using the investor dashboard. Fill in your details and upload PAN, Aadhaar, photo, bank proof, and signature, then submit."}
+    <div className="page-stack mx-auto max-w-3xl space-y-4">
+      <Alert type="info">
+        Complete KYC before using the investor dashboard. Fill in your details and upload PAN, Aadhaar, photo, bank proof, and signature, then submit.
       </Alert>
+      {showSubmission && <InvestorKycSubmissionPanel kyc={kyc} phase="needs_submit" />}
       <KycPanel
         kyc={kyc}
         pendingPayoutChange={pendingPayoutChange}

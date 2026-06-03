@@ -32,6 +32,13 @@ export function needsKycSetup(kyc) {
   return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
 }
 
+/** Tabs investors may use before KYC is approved */
+export const INVESTOR_KYC_RESTRICTED_TABS = ["overview", "kyc", "profile", "account", "support"];
+
+export function isInvestorTabAllowedBeforeApproval(tab) {
+  return INVESTOR_KYC_RESTRICTED_TABS.includes(tab);
+}
+
 /**
  * UI routing for investor dashboard shell + KYC gate.
  * loading — KYC fetch in progress (avoid blank flash)

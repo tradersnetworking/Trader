@@ -34,6 +34,7 @@ export default function InvestDashboardShell({
   refreshing = false,
   headerActions,
   kycOnlyMode = false,
+  kycRestricted = false,
   dashboardLocked = false,
   kycReview = null,
   children,
@@ -81,7 +82,9 @@ export default function InvestDashboardShell({
   const links = navItems.filter((n) => n.id);
   const mobilePrimary = role === "admin"
     ? links.filter((n) => ["overview", "pending-payments", "deposits", "kyc"].includes(n.id))
-    : links.filter((n) => ["overview", "money", "investments", "referral", "plans"].includes(n.id));
+    : kycRestricted
+      ? links.filter((n) => ["overview", "kyc", "profile", "account", "support"].includes(n.id))
+      : links.filter((n) => ["overview", "money", "investments", "referral", "plans"].includes(n.id));
 
   const sectionLabel = (section) => {
     const map = {
@@ -271,6 +274,46 @@ export default function InvestDashboardShell({
             >
               Marketplace Dashboard
             </button>
+          )}
+          {kycRestricted && role === "investor" && (
+            <>
+              {kycReview?.onViewSubmission && (
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => {
+                    setUserOpen(false);
+                    kycReview.onViewSubmission();
+                  }}
+                >
+                  View submitted KYC
+                </button>
+              )}
+              {kycReview?.onOpenProfile && (
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => {
+                    setUserOpen(false);
+                    kycReview.onOpenProfile();
+                  }}
+                >
+                  Profile
+                </button>
+              )}
+              {kycReview?.onOpenAccount && (
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => {
+                    setUserOpen(false);
+                    kycReview.onOpenAccount();
+                  }}
+                >
+                  Security settings
+                </button>
+              )}
+            </>
           )}
           <button
             type="button"
@@ -484,7 +527,13 @@ export default function InvestDashboardShell({
 
       {dashboardLocked && kycReview && (
         <div className="absolute inset-0 z-[45] flex items-start justify-center overflow-y-auto bg-background/45 p-4 pt-6 backdrop-blur-[1px] sm:items-center sm:p-6">
-          <KycUnderReviewCard kyc={kycReview.kyc} onRefresh={kycReview.onRefresh} compact />
+          <KycUnderReviewCard
+            kyc={kycReview.kyc}
+            onRefresh={kycReview.onRefresh}
+            onOpenProfile={kycReview.onOpenProfile}
+            onOpenAccount={kycReview.onOpenAccount}
+            compact
+          />
         </div>
       )}
     </div>

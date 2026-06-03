@@ -47,8 +47,10 @@ import {
   canAccessInvestDashboard,
   getKycUiPhase,
   isKycPendingPreview,
+  isInvestorTabAllowedBeforeApproval,
 } from "../../lib/investCompliance.js";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
+import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -93,7 +95,11 @@ export default function InvestorDashboard() {
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
   const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
+  const kycRestricted = kycLoaded && !dashboardUnlocked;
   const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
+  const shellNavItems = dashboardUnlocked
+    ? INVESTOR_NAV
+    : INVESTOR_NAV.filter((n) => !n.id || isInvestorTabAllowedBeforeApproval(n.id));
 
   useEffect(() => {
     if (invest && ["ADMIN", "SUPERADMIN"].includes(invest.role) && !previewInvestor) {
@@ -168,9 +174,12 @@ export default function InvestorDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!kycLoaded || dashboardUnlocked || kycPendingPreview) return;
-    if (tab !== "overview") setSp({ tab: "overview" }, { replace: true });
-  }, [kycLoaded, dashboardUnlocked, kycPendingPreview, tab, setSp]);
+    if (!kycLoaded || dashboardUnlocked) return;
+    if (!isInvestorTabAllowedBeforeApproval(tab)) {
+      const fallback = kycPhase === "needs_fix" ? "kyc" : kycPendingPreview ? "overview" : "kyc";
+      setSp({ tab: fallback }, { replace: true });
+    }
+  }, [kycLoaded, dashboardUnlocked, tab, setSp, kycPhase, kycPendingPreview]);
 
   const displayName = kyc?.fullName || invest?.name || "Investor";
   const kycPageTitle =
@@ -194,7 +203,7 @@ export default function InvestorDashboard() {
     <InvestDashboardShell
       user={invest}
       role="investor"
-      navItems={INVESTOR_NAV}
+      navItems={shellNavItems}
       activeTab={tab}
       onTabChange={setTab}
       pageTitle={dashboardUnlocked ? translateNavLabel(t, INVESTOR_NAV, tab) : kycPageTitle}
@@ -206,7 +215,7 @@ export default function InvestorDashboard() {
       onRefresh={handleRefresh}
       refreshing={refreshing}
       kycOnlyMode={!dashboardUnlocked && !kycPendingPreview}
-      dashboardLocked={kycPendingPreview}
+      dashboardLocked={kycPendingPreview && !["profile", "account", "support"].includes(tab)}
       kycReview={{ kyc, onRefresh: fetchCore }}
       headerActions={
         dashboardUnlocked ? (
@@ -217,11 +226,13 @@ export default function InvestorDashboard() {
         ) : null
       }
     >
+      <InvestorKycViewModal open={kycViewOpen} onClose={() => setKycViewOpen(false)} kyc={kyc} />
       <InvestKycGate
         kyc={kyc}
         kycLoaded={kycLoaded}
         kycLoadError={kycLoadError}
         investor={invest}
+        activeTab={tab}
         pendingPayoutChange={pendingPayoutChange}
         pendingKycRevision={pendingKycRevision}
         onRefresh={() => fetchCore({ soft: true })}
