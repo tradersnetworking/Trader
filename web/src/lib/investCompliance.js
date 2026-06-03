@@ -22,6 +22,11 @@ export function isKycPendingReview(kyc) {
   return kyc?.status === "PENDING";
 }
 
+/** Submitted KYC awaiting admin — show blurred dashboard preview, no interactions */
+export function isKycPendingPreview(kyc) {
+  return isKycPendingReview(kyc);
+}
+
 export function needsKycSetup(kyc) {
   if (!kyc) return true;
   return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);

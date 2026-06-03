@@ -13,6 +13,7 @@ import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "./LanguageSelector.jsx";
 import SupportWidget from "./SupportWidget.jsx";
 import InvestShareWidget from "./InvestShareWidget.jsx";
+import KycUnderReviewCard from "./KycUnderReviewCard.jsx";
 
 export default function InvestDashboardShell({
   user,
@@ -33,6 +34,8 @@ export default function InvestDashboardShell({
   refreshing = false,
   headerActions,
   kycOnlyMode = false,
+  dashboardLocked = false,
+  kycReview = null,
   children,
 }) {
   const { t } = useI18n();
@@ -285,7 +288,19 @@ export default function InvestDashboardShell({
     );
 
   return (
-    <div className={`invest-shell flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background ${kycOnlyMode ? "invest-shell-kyc-only" : ""}`}>
+    <div
+      className={`invest-shell relative flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background ${kycOnlyMode ? "invest-shell-kyc-only" : ""}`}
+    >
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+          dashboardLocked
+            ? "pointer-events-none select-none blur-[4px] brightness-[0.9] saturate-[0.88]"
+            : ""
+        }`}
+        aria-hidden={dashboardLocked ? true : undefined}
+        inert={dashboardLocked ? true : undefined}
+      >
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {!kycOnlyMode && (
       <aside
         className={`invest-sidebar hidden h-full min-h-0 shrink-0 flex-col overflow-hidden border-r shadow-sm backdrop-blur-xl md:flex ${
@@ -424,6 +439,7 @@ export default function InvestDashboardShell({
           </footer>
         </main>
       </div>
+      </div>
 
       <InvestShareWidget />
       <SupportWidget />
@@ -463,6 +479,13 @@ export default function InvestDashboardShell({
           <span>{t("nav.more")}</span>
         </button>
       </nav>
+      )}
+      </div>
+
+      {dashboardLocked && kycReview && (
+        <div className="absolute inset-0 z-[45] flex items-start justify-center overflow-y-auto bg-background/45 p-4 pt-6 backdrop-blur-[1px] sm:items-center sm:p-6">
+          <KycUnderReviewCard kyc={kycReview.kyc} onRefresh={kycReview.onRefresh} compact />
+        </div>
       )}
     </div>
   );

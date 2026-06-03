@@ -46,6 +46,7 @@ import {
   investEligibility,
   canAccessInvestDashboard,
   getKycUiPhase,
+  isKycPendingPreview,
 } from "../../lib/investCompliance.js";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 
@@ -88,6 +89,7 @@ export default function InvestorDashboard() {
   const [refreshing, setRefreshing] = useState(false);
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
+  const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
   const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded });
 
   useEffect(() => {
@@ -150,9 +152,9 @@ export default function InvestorDashboard() {
   useEffect(() => { fetchCore(); }, [fetchCore]);
 
   useEffect(() => {
-    if (!kycLoaded || dashboardUnlocked) return;
+    if (!kycLoaded || dashboardUnlocked || kycPendingPreview) return;
     if (tab !== "overview") setSp({ tab: "overview" }, { replace: true });
-  }, [kycLoaded, dashboardUnlocked, tab, setSp]);
+  }, [kycLoaded, dashboardUnlocked, kycPendingPreview, tab, setSp]);
 
   const displayName = kyc?.fullName || invest?.name || "Investor";
   const kycPageTitle =
@@ -181,13 +183,15 @@ export default function InvestorDashboard() {
       onTabChange={setTab}
       pageTitle={dashboardUnlocked ? translateNavLabel(t, INVESTOR_NAV, tab) : kycPageTitle}
       pageSubtitle={dashboardUnlocked ? `${displayName} • KYC: ${kyc?.status || "APPROVED"}` : kycPageSubtitle}
-      walletBalance={dashboardUnlocked ? wallet?.available : undefined}
-      notificationCount={dashboardUnlocked ? notificationCount : 0}
+      walletBalance={dashboardUnlocked || kycPendingPreview ? wallet?.available : undefined}
+      notificationCount={dashboardUnlocked || kycPendingPreview ? notificationCount : 0}
       onNotificationsClick={dashboardUnlocked ? () => setTab("notifications") : undefined}
       onLogout={logoutInvest}
       onRefresh={handleRefresh}
       refreshing={refreshing}
-      kycOnlyMode={!dashboardUnlocked}
+      kycOnlyMode={!dashboardUnlocked && !kycPendingPreview}
+      dashboardLocked={kycPendingPreview}
+      kycReview={{ kyc, onRefresh: fetchCore }}
       headerActions={
         dashboardUnlocked ? (
           <>
@@ -199,6 +203,7 @@ export default function InvestorDashboard() {
     >
       <InvestKycGate
         kyc={kyc}
+        kycLoaded={kycLoaded}
         pendingPayoutChange={pendingPayoutChange}
         pendingKycRevision={pendingKycRevision}
         onRefresh={fetchCore}
