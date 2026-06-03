@@ -302,7 +302,7 @@ export default function InvestDashboardShell({
                     kycReview.onOpenProfile();
                   }}
                 >
-                  Profile
+                  My Account
                 </button>
               )}
               {kycReview?.onOpenAccount && (
@@ -314,7 +314,7 @@ export default function InvestDashboardShell({
                     kycReview.onOpenAccount();
                   }}
                 >
-                  Security settings
+                  Security
                 </button>
               )}
               {kycReview?.onOpenSupport && (
@@ -326,7 +326,7 @@ export default function InvestDashboardShell({
                     kycReview.onOpenSupport();
                   }}
                 >
-                  Support
+                  Help
                 </button>
               )}
               {kycReview?.onEditKyc && (
