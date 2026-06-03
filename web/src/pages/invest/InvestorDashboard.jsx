@@ -97,15 +97,13 @@ export default function InvestorDashboard() {
   const [kycViewOpen, setKycViewOpen] = useState(false);
 
   const previewInvestor = sp.get("preview") === "investor";
-  const kycUnlockedTabs = INVESTOR_KYC_OVERLAY_UNLOCK_TABS;
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
   const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
   const kycRestricted = kycLoaded && !dashboardUnlocked;
   const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
-  const shellNavItems = dashboardUnlocked
-    ? INVESTOR_NAV
-    : INVESTOR_NAV.filter((n) => !n.id || isInvestorTabAllowedBeforeApproval(n.id));
+  const shellNavItems = dashboardUnlocked ? INVESTOR_NAV : INVESTOR_KYC_NAV;
+  const restrictedNavTitle = INVESTOR_KYC_RESTRICTED_NAV_LABELS[tab];
 
   useEffect(() => {
     if (invest && ["ADMIN", "SUPERADMIN"].includes(invest.role) && !previewInvestor) {
@@ -194,8 +192,8 @@ export default function InvestorDashboard() {
   }, [kycLoaded, dashboardUnlocked, tab, setSp, kycPhase]);
 
   const closeRestrictedView = useCallback(() => {
-    setSp({ tab: kycPendingPreview || kycPhase === "needs_submit" ? "overview" : "kyc" }, { replace: true });
-  }, [setSp, kycPendingPreview, kycPhase]);
+    setSp({ tab: "overview" }, { replace: true });
+  }, [setSp]);
 
   const wrapRestricted = useCallback(
     (title, subtitle, content) => {
@@ -234,8 +232,16 @@ export default function InvestorDashboard() {
       navItems={shellNavItems}
       activeTab={tab}
       onTabChange={setTab}
-      pageTitle={dashboardUnlocked ? translateNavLabel(t, INVESTOR_NAV, tab) : kycPageTitle}
-      pageSubtitle={dashboardUnlocked ? `${displayName} • KYC: ${kyc?.status || "APPROVED"}` : kycPageSubtitle}
+      pageTitle={
+        dashboardUnlocked ? translateNavLabel(t, INVESTOR_NAV, tab) : restrictedNavTitle || kycPageTitle
+      }
+      pageSubtitle={
+        dashboardUnlocked
+          ? `${displayName} • KYC: ${kyc?.status || "APPROVED"}`
+          : restrictedNavTitle
+            ? displayName
+            : kycPageSubtitle
+      }
       walletBalance={dashboardUnlocked || kycPendingPreview ? wallet?.available : undefined}
       notificationCount={dashboardUnlocked || kycPendingPreview ? notificationCount : 0}
       onNotificationsClick={dashboardUnlocked ? () => setTab("notifications") : undefined}
@@ -244,7 +250,7 @@ export default function InvestorDashboard() {
       refreshing={refreshing}
       kycOnlyMode={false}
       kycRestricted={kycRestricted}
-      dashboardLocked={false}
+      dashboardLocked={kycPendingPreview && tab === "overview"}
       kycReview={{
         kyc,
         onRefresh: () => fetchCore({ soft: true }),
@@ -360,20 +366,23 @@ export default function InvestorDashboard() {
       )}
       {tab === "referral" && <TabPanel><ReferralPanel /></TabPanel>}
       {tab === "support" &&
-        wrapRestricted("Support", "Tickets, WhatsApp, and Telegram", <TabPanel><SupportPanel /></TabPanel>)}
+        wrapRestricted("Help", "Tickets, WhatsApp, and Telegram", <TabPanel><SupportPanel /></TabPanel>)}
       {tab === "notifications" && (
         <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
       )}
-      {tab === "kyc" && (
-        <TabPanel>
-          <KycPanel
-            kyc={kyc}
-            pendingPayoutChange={pendingPayoutChange}
-            pendingKycRevision={pendingKycRevision}
-            onRefresh={fetchCore}
-          />
-        </TabPanel>
-      )}
+      {tab === "kyc" &&
+        wrapRestricted(
+          "KYC",
+          "Complete details and upload all required documents before submitting",
+          <TabPanel>
+            <KycPanel
+              kyc={kyc}
+              pendingPayoutChange={pendingPayoutChange}
+              pendingKycRevision={pendingKycRevision}
+              onRefresh={fetchCore}
+            />
+          </TabPanel>
+        )}
       {tab === "agreements" && (
         <TabPanel>
           <InvestorAgreementsPanel
