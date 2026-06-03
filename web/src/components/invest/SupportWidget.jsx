@@ -77,7 +77,7 @@ export default function SupportWidget() {
   const close = () => setOpen(false);
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(var(--invest-mobile-nav-h,var(--mobile-bottom-nav-height,5.25rem))+0.5rem)] right-2.5 z-[80] flex flex-col items-end gap-1.5 md:bottom-4 md:right-4">
+    <div className="pointer-events-none fixed bottom-[calc(var(--invest-mobile-nav-h,var(--mobile-bottom-nav-height,5.25rem))+0.5rem)] right-2.5 z-[90] flex flex-col items-end gap-1.5 md:bottom-4 md:right-4">
       {open && (
         <div className="pointer-events-auto flex flex-col items-end gap-1.5">
           <MenuPill

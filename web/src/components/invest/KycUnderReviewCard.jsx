@@ -4,14 +4,29 @@ import InvestorKycSubmissionPanel from "./InvestorKycSubmissionPanel.jsx";
 import InvestorKycViewModal from "./InvestorKycViewModal.jsx";
 
 /** Shown while KYC is PENDING — dashboard visible behind blur but not usable */
-export default function KycUnderReviewCard({ kyc, onRefresh, compact = false, onOpenProfile, onOpenAccount }) {
+export default function KycUnderReviewCard({
+  kyc,
+  onRefresh,
+  compact = false,
+  onOpenProfile,
+  onOpenAccount,
+  onOpenSupport,
+  onEditKyc,
+  onViewSubmission,
+  onLogout,
+}) {
   const [viewOpen, setViewOpen] = useState(false);
   const submittedAt = kyc?.createdAt || kyc?.updatedAt;
+
+  const openView = () => {
+    if (onViewSubmission) onViewSubmission();
+    else setViewOpen(true);
+  };
 
   return (
     <>
       <div
-        className={`card mx-auto w-full max-w-lg space-y-4 shadow-2xl ring-2 ring-amber-500/30 ${
+        className={`card mx-auto w-full space-y-4 shadow-2xl ring-2 ring-amber-500/30 ${
           compact ? "p-5 sm:p-6" : "p-6 sm:p-8"
         }`}
         role="dialog"
@@ -27,8 +42,8 @@ export default function KycUnderReviewCard({ kyc, onRefresh, compact = false, on
             KYC under review
           </h2>
           <p id="kyc-review-desc" className="mt-2 text-sm text-muted-foreground">
-            Your application was submitted successfully. You can preview the dashboard below, but plans, wallet actions,
-            and investments unlock after admin approval — usually within 24–48 hours.
+            Your application was submitted. Plans and investments unlock after approval — usually 24–48 hours.
+            You can view or update your KYC, contact support, or sign out below.
           </p>
           {submittedAt && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -38,16 +53,21 @@ export default function KycUnderReviewCard({ kyc, onRefresh, compact = false, on
         </div>
 
         <Alert type="info">
-          Please visit again after some time or tap Refresh to check if your KYC has been approved.
+          Tap Refresh to check approval status. Use View / edit KYC to change details while your case is reviewed.
         </Alert>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button type="button" className="btn-gold flex-1 text-sm" onClick={() => onRefresh?.()}>
-            Refresh status
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <button type="button" className="btn-gold text-sm" onClick={() => onRefresh?.()}>
+            Refresh
           </button>
           {kyc && (
-            <button type="button" className="btn-outline flex-1 text-sm" onClick={() => setViewOpen(true)}>
-              View submitted KYC
+            <button type="button" className="btn-outline text-sm" onClick={openView}>
+              View KYC
+            </button>
+          )}
+          {onEditKyc && (
+            <button type="button" className="btn-outline text-sm" onClick={onEditKyc}>
+              Edit KYC
             </button>
           )}
         </div>
@@ -58,26 +78,43 @@ export default function KycUnderReviewCard({ kyc, onRefresh, compact = false, on
           </div>
         )}
 
-        {(onOpenProfile || onOpenAccount) && (
-          <div className="border-t border-border pt-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account</p>
-            <div className="flex flex-wrap gap-2">
-              {onOpenProfile && (
-                <button type="button" className="btn-outline text-sm" onClick={onOpenProfile}>
-                  Profile
-                </button>
-              )}
-              {onOpenAccount && (
-                <button type="button" className="btn-outline text-sm" onClick={onOpenAccount}>
-                  Security &amp; logout
-                </button>
-              )}
-            </div>
+        <div className="border-t border-border pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account &amp; help</p>
+          <div className="flex flex-wrap gap-2">
+            {onOpenProfile && (
+              <button type="button" className="btn-outline text-sm" onClick={onOpenProfile}>
+                Profile
+              </button>
+            )}
+            {onOpenAccount && (
+              <button type="button" className="btn-outline text-sm" onClick={onOpenAccount}>
+                Security
+              </button>
+            )}
+            {onOpenSupport && (
+              <button type="button" className="btn-outline text-sm" onClick={onOpenSupport}>
+                Support
+              </button>
+            )}
+            {onLogout && (
+              <button
+                type="button"
+                className="btn-outline text-sm text-red-600 dark:text-red-400"
+                onClick={() => onLogout()}
+              >
+                Logout
+              </button>
+            )}
           </div>
-        )}
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Floating buttons: Share (left) and Support — WhatsApp, Telegram, or in-app chat.
+          </p>
+        </div>
       </div>
 
-      <InvestorKycViewModal open={viewOpen} onClose={() => setViewOpen(false)} kyc={kyc} />
+      {!onViewSubmission && (
+        <InvestorKycViewModal open={viewOpen} onClose={() => setViewOpen(false)} kyc={kyc} />
+      )}
     </>
   );
 }

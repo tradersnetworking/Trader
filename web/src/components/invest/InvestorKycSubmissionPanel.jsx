@@ -7,7 +7,12 @@ import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.
 /**
  * Lets pending/rejected investors review what they submitted (View opens popup).
  */
-export default function InvestorKycSubmissionPanel({ kyc, phase = "pending_review", compact = false }) {
+export default function InvestorKycSubmissionPanel({
+  kyc,
+  phase = "pending_review",
+  compact = false,
+  onEditKyc,
+}) {
   const [viewOpen, setViewOpen] = useState(false);
 
   if (!kyc || kyc.status === "NOT_SUBMITTED") return null;
@@ -35,9 +40,16 @@ export default function InvestorKycSubmissionPanel({ kyc, phase = "pending_revie
               </p>
             )}
           </div>
-          <button type="button" className="btn-gold shrink-0 text-sm" onClick={() => setViewOpen(true)}>
-            View full KYC
-          </button>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button type="button" className="btn-gold text-sm" onClick={() => setViewOpen(true)}>
+              View full KYC
+            </button>
+            {onEditKyc && (
+              <button type="button" className="btn-outline text-sm" onClick={onEditKyc}>
+                Edit KYC
+              </button>
+            )}
+          </div>
         </div>
 
         {isRejected && kyc.remarks && (

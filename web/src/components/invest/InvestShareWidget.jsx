@@ -61,7 +61,7 @@ export default function InvestShareWidget() {
   };
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(var(--invest-mobile-nav-h,var(--mobile-bottom-nav-height,5.25rem))+0.5rem)] left-2.5 z-[80] flex flex-col items-start gap-1.5 md:bottom-4 md:left-4">
+    <div className="pointer-events-none fixed bottom-[calc(var(--invest-mobile-nav-h,var(--mobile-bottom-nav-height,5.25rem))+0.5rem)] left-2.5 z-[90] flex flex-col items-start gap-1.5 md:bottom-4 md:left-4">
       {open && (
         <div className="pointer-events-auto flex flex-col items-start gap-1.5">
           <button

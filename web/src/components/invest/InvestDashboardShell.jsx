@@ -313,6 +313,30 @@ export default function InvestDashboardShell({
                   Security settings
                 </button>
               )}
+              {kycReview?.onOpenSupport && (
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => {
+                    setUserOpen(false);
+                    kycReview.onOpenSupport();
+                  }}
+                >
+                  Support
+                </button>
+              )}
+              {kycReview?.onEditKyc && (
+                <button
+                  type="button"
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+                  onClick={() => {
+                    setUserOpen(false);
+                    kycReview.onEditKyc();
+                  }}
+                >
+                  View / edit KYC
+                </button>
+              )}
             </>
           )}
           <button
@@ -334,15 +358,7 @@ export default function InvestDashboardShell({
     <div
       className={`invest-shell relative flex h-[100dvh] max-w-[100vw] overflow-hidden overflow-x-clip bg-background ${kycOnlyMode ? "invest-shell-kyc-only" : ""}`}
     >
-      <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
-          dashboardLocked
-            ? "pointer-events-none select-none blur-[4px] brightness-[0.9] saturate-[0.88]"
-            : ""
-        }`}
-        aria-hidden={dashboardLocked ? true : undefined}
-        inert={dashboardLocked ? true : undefined}
-      >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {!kycOnlyMode && (
       <aside
@@ -473,7 +489,14 @@ export default function InvestDashboardShell({
           </div>
         </header>
 
-        <main className="invest-main-scroll flex-1 overflow-y-auto">
+        <main
+          className={`invest-main-scroll flex-1 overflow-y-auto ${
+            dashboardLocked
+              ? "pointer-events-none select-none blur-[4px] brightness-[0.9] saturate-[0.88]"
+              : ""
+          }`}
+          aria-hidden={dashboardLocked ? true : undefined}
+        >
           <div className="invest-page-main">
             <ErrorBoundary>{children}</ErrorBoundary>
           </div>
@@ -481,6 +504,7 @@ export default function InvestDashboardShell({
             © {new Date().getFullYear()} AKSHYA INVESTMENTS · <a href={investPath("/privacy")} className="hover:text-primary">Privacy</a> · <a href={investPath("/cookie-policy")} className="hover:text-primary">Cookies</a> · <a href={investPath("/dashboard?tab=support")} className="hover:text-primary">Support</a>
           </footer>
         </main>
+      </div>
       </div>
       </div>
 
@@ -523,17 +547,22 @@ export default function InvestDashboardShell({
         </button>
       </nav>
       )}
-      </div>
 
       {dashboardLocked && kycReview && (
-        <div className="absolute inset-0 z-[45] flex items-start justify-center overflow-y-auto bg-background/45 p-4 pt-6 backdrop-blur-[1px] sm:items-center sm:p-6">
-          <KycUnderReviewCard
-            kyc={kycReview.kyc}
-            onRefresh={kycReview.onRefresh}
-            onOpenProfile={kycReview.onOpenProfile}
-            onOpenAccount={kycReview.onOpenAccount}
-            compact
-          />
+        <div className="pointer-events-none absolute inset-0 z-[45] flex items-start justify-center overflow-y-auto bg-background/45 p-4 pt-6 backdrop-blur-[1px] sm:items-center sm:p-6">
+          <div className="pointer-events-auto w-full max-w-lg">
+            <KycUnderReviewCard
+              kyc={kycReview.kyc}
+              onRefresh={kycReview.onRefresh}
+              onOpenProfile={kycReview.onOpenProfile}
+              onOpenAccount={kycReview.onOpenAccount}
+              onOpenSupport={kycReview.onOpenSupport}
+              onEditKyc={kycReview.onEditKyc}
+              onViewSubmission={kycReview.onViewSubmission}
+              onLogout={kycReview.onLogout}
+              compact
+            />
+          </div>
         </div>
       )}
     </div>

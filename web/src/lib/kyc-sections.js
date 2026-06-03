@@ -65,6 +65,7 @@ export function isSectionRejected(kyc, sectionId) {
 
 export function canEditSection(kyc, sectionId) {
   if (!kyc || kyc.status === "NOT_SUBMITTED") return true;
+  if (kyc.status === "PENDING") return true;
   if (kyc.status !== "REJECTED") return false;
   const reviews = parseSectionReviews(kyc);
   if (!reviews) return true;

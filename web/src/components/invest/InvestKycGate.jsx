@@ -36,7 +36,7 @@ function KycLoadError({ message, onRetry, investor }) {
   );
 }
 
-const PROFILE_TABS = new Set(["profile", "account", "support"]);
+const PROFILE_TABS = new Set(["profile", "account", "support", "kyc"]);
 
 /**
  * NOT_SUBMITTED (no record) → full KYC form only
@@ -69,7 +69,26 @@ export default function InvestKycGate({
     return children;
   }
 
-  if (phase === "needs_fix" && PROFILE_TABS.has(activeTab)) {
+  if ((phase === "needs_fix" || phase === "pending_review") && PROFILE_TABS.has(activeTab)) {
+    if (activeTab === "kyc") {
+      return (
+        <div className="page-stack space-y-4">
+          {kyc && kyc.status !== "NOT_SUBMITTED" && (
+            <InvestorKycSubmissionPanel
+              kyc={kyc}
+              phase={phase === "pending_review" ? "pending_review" : "needs_fix"}
+              onEditKyc={() => {}}
+            />
+          )}
+          <KycPanel
+            kyc={kyc}
+            pendingPayoutChange={pendingPayoutChange}
+            pendingKycRevision={pendingKycRevision}
+            onRefresh={onRefresh}
+          />
+        </div>
+      );
+    }
     return children;
   }
 
@@ -85,7 +104,9 @@ export default function InvestKycGate({
             ? `Please correct the rejected section(s): ${rejectedSections.map((id) => KYC_SECTION_LABELS[id]).join(", ")}. Approved sections are locked — update only what was rejected below.`
             : `Your KYC needs updates${kyc.remarks ? `: ${kyc.remarks}` : ""}. Fix the form below and resubmit with clear documents.`}
         </Alert>
-        {showSubmission && <InvestorKycSubmissionPanel kyc={kyc} phase="needs_fix" />}
+        {showSubmission && (
+          <InvestorKycSubmissionPanel kyc={kyc} phase="needs_fix" onEditKyc={() => {}} />
+        )}
         <KycPanel
           kyc={kyc}
           pendingPayoutChange={pendingPayoutChange}

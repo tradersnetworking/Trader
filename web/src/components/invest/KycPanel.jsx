@@ -107,7 +107,8 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
   const submitted = kyc?.status && !["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
 
-  const canEdit = !submitted || kyc?.status === "REJECTED" || revisionMode;
+  const canEdit =
+    !submitted || kyc?.status === "REJECTED" || kyc?.status === "PENDING" || revisionMode;
 
 
 
@@ -481,7 +482,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
-      {(forced || tab === "kyc") && submitted && !revisionMode ? (
+      {(forced || tab === "kyc") && submitted && !revisionMode && !canEdit ? (
 
         <KycStatusView kyc={kyc} onRequestChanges={() => { setRevisionMode(true); setStep(0); }} pendingKycRevision={pendingKycRevision} />
 

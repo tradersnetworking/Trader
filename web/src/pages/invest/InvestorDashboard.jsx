@@ -90,8 +90,10 @@ export default function InvestorDashboard() {
   const [kycLoaded, setKycLoaded] = useState(false);
   const [kycLoadError, setKycLoadError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [kycViewOpen, setKycViewOpen] = useState(false);
 
   const previewInvestor = sp.get("preview") === "investor";
+  const kycUnlockedTabs = ["profile", "account", "support", "kyc"];
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
   const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
@@ -214,9 +216,22 @@ export default function InvestorDashboard() {
       onLogout={logoutInvest}
       onRefresh={handleRefresh}
       refreshing={refreshing}
-      kycOnlyMode={!dashboardUnlocked && !kycPendingPreview}
-      dashboardLocked={kycPendingPreview && !["profile", "account", "support"].includes(tab)}
-      kycReview={{ kyc, onRefresh: fetchCore }}
+      kycOnlyMode={false}
+      kycRestricted={kycRestricted}
+      dashboardLocked={kycPendingPreview && !kycUnlockedTabs.includes(tab)}
+      kycReview={{
+        kyc,
+        onRefresh: () => fetchCore({ soft: true }),
+        onOpenProfile: () => setTab("profile"),
+        onOpenAccount: () => setTab("account"),
+        onOpenSupport: () => setTab("support"),
+        onEditKyc: () => setTab("kyc"),
+        onViewSubmission: kyc?.status && kyc.status !== "NOT_SUBMITTED" ? () => setKycViewOpen(true) : undefined,
+        onLogout: () => {
+          logoutInvest();
+          nav(investPath("/login"));
+        },
+      }}
       headerActions={
         dashboardUnlocked ? (
           <>
