@@ -58,7 +58,7 @@ function defaultMailboxes(portal) {
   };
 }
 
-export default function PortalEmailSettingsPanel({ portal, api }) {
+export default function PortalEmailSettingsPanel({ portal, api, readOnly = false }) {
   const base = defaultsFor(portal);
   const domain = portal === "main" ? "akshayaexim.com" : "akshayaexim.in";
 
@@ -158,8 +158,23 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
     }
   };
 
+  const provisionMailboxes = async () => {
+    setSaving(true);
+    setMsg("");
+    setLoadError("");
+    try {
+      const r = await api("/admin/settings/mailboxes/provision", { method: "POST", body: { force: false } });
+      setMsg(r.message || "SMTP template applied to mailboxes.");
+      await load();
+    } catch (e) {
+      setLoadError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveMailboxes = async () => {
-    if (!mailboxes) return;
+    if (readOnly || !mailboxes) return;
     setSaving(true);
     setMsg("");
     try {
@@ -174,7 +189,7 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
   };
 
   const saveRouting = async () => {
-    if (!config) return;
+    if (readOnly || !config) return;
     setSaving(true);
     setMsg("");
     try {
@@ -273,6 +288,32 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
         </button>
       </div>
 
+      {readOnly && (
+        <Alert type="info">
+          View-only: only Super Admin can change SMTP passwords, routing, or send tests. Create these five addresses in your hosting panel (
+          {portal === "main" ? "@akshayaexim.com" : "@akshayaexim.in"}), then ask Super Admin to apply SMTP settings.
+        </Alert>
+      )}
+      {!readOnly && (
+        <div className="card space-y-3 p-4 sm:p-5">
+          <h3 className="font-bold text-navy dark:text-white">Official mailbox addresses ({portal === "main" ? ".com" : ".in"})</h3>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {(portal === "main" ? MAIN_MAILBOXES : INVEST_MAILBOXES).map((m) => (
+              <li key={m.id} className="rounded-lg border border-border px-3 py-2 text-sm">
+                <span className="font-semibold">{m.label}</span>
+                <span className="mt-0.5 block font-mono text-muted-foreground">{m.address}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted-foreground">
+            Hostinger defaults: SMTP <span className="font-mono">smtp.hostinger.com:587</span>, IMAP <span className="font-mono">imap.hostinger.com:993</span>.
+            Set <span className="font-mono">SMTP_PASS</span> on the server or enter each mailbox password below after creating accounts.
+          </p>
+          <button type="button" className="btn-gold text-sm" disabled={saving} onClick={provisionMailboxes}>
+            {saving ? "Applying…" : "Apply SMTP/IMAP template to all 5 mailboxes"}
+          </button>
+        </div>
+      )}
       {loadError && <Alert type="error">{loadError}</Alert>}
       {msg && <Alert type="success">{msg}</Alert>}
 
@@ -285,7 +326,7 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
         </div>
       )}
 
-      {portal === "invest" && emailRouting && (
+      {portal === "invest" && emailRouting && !readOnly && (
         <div className="card space-y-4 p-4 sm:p-5">
           <div>
             <h3 className="font-bold text-navy dark:text-white">Additional domain email routing</h3>
@@ -378,7 +419,9 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-muted-foreground">Five fixed addresses per portal — add Hostinger (or your provider) SMTP/IMAP credentials for each mailbox you use.</p>
-                <button type="button" className="btn-gold text-sm" onClick={saveMailboxes} disabled={saving}>{saving ? "Saving…" : "Save all mailboxes"}</button>
+                {!readOnly && (
+                  <button type="button" className="btn-gold text-sm" onClick={saveMailboxes} disabled={saving}>{saving ? "Saving…" : "Save all mailboxes"}</button>
+                )}
               </div>
               {mailboxes.mailboxes.map((box) => (
                 <div key={box.id} className="card space-y-3 p-4 sm:p-5">
@@ -400,26 +443,26 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <Field label="Display name"><input className="input" value={box.name} onChange={(e) => updateMailbox(box.id, { name: e.target.value })} /></Field>
-                    <Field label="Email address"><input className="input font-mono text-sm" type="email" value={box.address} onChange={(e) => updateMailbox(box.id, { address: e.target.value })} /></Field>
-                    <Field label="Login / SMTP user"><input className="input font-mono text-sm" value={box.smtp.user} onChange={(e) => updateMailboxSmtp(box.id, "user", e.target.value)} placeholder={box.address} /></Field>
+                    <Field label="Display name"><input className="input" readOnly={readOnly} value={box.name} onChange={(e) => updateMailbox(box.id, { name: e.target.value })} /></Field>
+                    <Field label="Email address"><input className="input font-mono text-sm" readOnly={readOnly} type="email" value={box.address} onChange={(e) => updateMailbox(box.id, { address: e.target.value })} /></Field>
+                    <Field label="Login / SMTP user"><input className="input font-mono text-sm" readOnly={readOnly} value={box.smtp.user} onChange={(e) => updateMailboxSmtp(box.id, "user", e.target.value)} placeholder={box.address} /></Field>
                   </div>
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                    <Field label="SMTP host"><input className="input" value={box.smtp.host} onChange={(e) => updateMailboxSmtp(box.id, "host", e.target.value)} placeholder="smtp.hostinger.com" /></Field>
-                    <Field label="SMTP port"><input className="input" value={box.smtp.port} onChange={(e) => updateMailboxSmtp(box.id, "port", e.target.value)} /></Field>
-                    <Field label="SMTP password"><PasswordInput value={box.smtp.pass} onChange={(e) => updateMailboxSmtp(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
+                    <Field label="SMTP host"><input className="input" readOnly={readOnly} value={box.smtp.host} onChange={(e) => updateMailboxSmtp(box.id, "host", e.target.value)} placeholder="smtp.hostinger.com" /></Field>
+                    <Field label="SMTP port"><input className="input" readOnly={readOnly} value={box.smtp.port} onChange={(e) => updateMailboxSmtp(box.id, "port", e.target.value)} /></Field>
+                    <Field label="SMTP password"><PasswordInput readOnly={readOnly} value={readOnly && box.smtp.pass ? "••••••••" : box.smtp.pass} onChange={(e) => updateMailboxSmtp(box.id, "pass", e.target.value)} placeholder={readOnly ? "Hidden" : "Leave blank to keep"} /></Field>
                     <label className="flex items-end gap-2 pb-2 text-sm">
-                      <input type="checkbox" checked={box.smtp.secure === true || box.smtp.secure === "true"} onChange={(e) => updateMailboxSmtp(box.id, "secure", e.target.checked)} />
+                      <input type="checkbox" disabled={readOnly} checked={box.smtp.secure === true || box.smtp.secure === "true"} onChange={(e) => updateMailboxSmtp(box.id, "secure", e.target.checked)} />
                       SMTP SSL/TLS
                     </label>
                   </div>
                   <details className="rounded-lg border border-border p-3">
                     <summary className="cursor-pointer text-sm font-semibold">IMAP (inbox sync for Mail Desk)</summary>
                     <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-                      <Field label="IMAP host"><input className="input" value={box.imap.host} onChange={(e) => updateMailboxImap(box.id, "host", e.target.value)} placeholder="imap.hostinger.com" /></Field>
-                      <Field label="IMAP port"><input className="input" value={box.imap.port} onChange={(e) => updateMailboxImap(box.id, "port", e.target.value)} /></Field>
-                      <Field label="IMAP password"><PasswordInput value={box.imap.pass} onChange={(e) => updateMailboxImap(box.id, "pass", e.target.value)} placeholder="Leave blank to keep" /></Field>
-                      <Field label="IMAP user"><input className="input font-mono text-sm" value={box.imap.user} onChange={(e) => updateMailboxImap(box.id, "user", e.target.value)} placeholder={box.address} /></Field>
+                      <Field label="IMAP host"><input className="input" readOnly={readOnly} value={box.imap.host} onChange={(e) => updateMailboxImap(box.id, "host", e.target.value)} placeholder="imap.hostinger.com" /></Field>
+                      <Field label="IMAP port"><input className="input" readOnly={readOnly} value={box.imap.port} onChange={(e) => updateMailboxImap(box.id, "port", e.target.value)} /></Field>
+                      <Field label="IMAP password"><PasswordInput readOnly={readOnly} value={readOnly && box.imap.pass ? "••••••••" : box.imap.pass} onChange={(e) => updateMailboxImap(box.id, "pass", e.target.value)} placeholder={readOnly ? "Hidden" : "Leave blank to keep"} /></Field>
+                      <Field label="IMAP user"><input className="input font-mono text-sm" readOnly={readOnly} value={box.imap.user} onChange={(e) => updateMailboxImap(box.id, "user", e.target.value)} placeholder={box.address} /></Field>
                     </div>
                   </details>
                 </div>
@@ -431,7 +474,9 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
             <div className="card space-y-4 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-bold">Purpose → Sender Routing</h3>
-                <button type="button" className="btn-gold text-sm" onClick={saveRouting} disabled={saving}>{saving ? "Saving…" : "Save routing"}</button>
+                {!readOnly && (
+                  <button type="button" className="btn-gold text-sm" onClick={saveRouting} disabled={saving}>{saving ? "Saving…" : "Save routing"}</button>
+                )}
               </div>
               {grouped.map(({ group, items }) => (
                 <div key={group}>
@@ -461,18 +506,20 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
             <div className="card space-y-3 p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-bold">Automated Email Subjects</h3>
-                <button type="button" className="btn-gold text-sm" onClick={saveRouting} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                {!readOnly && (
+                  <button type="button" className="btn-gold text-sm" onClick={saveRouting} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                )}
               </div>
               {purposes.map((purpose) => {
                 const auto = config.autoEmails[purpose] || { enabled: true, subject: "" };
                 return (
                   <div key={purpose} className="grid grid-cols-1 gap-2 rounded-lg border border-border p-3 sm:grid-cols-12 sm:items-center">
                     <label className="flex items-center gap-2 sm:col-span-4">
-                      <input type="checkbox" checked={auto.enabled !== false} onChange={(e) => setConfig({ ...config, autoEmails: { ...config.autoEmails, [purpose]: { ...auto, enabled: e.target.checked } } })} />
+                      <input type="checkbox" disabled={readOnly} checked={auto.enabled !== false} onChange={(e) => setConfig({ ...config, autoEmails: { ...config.autoEmails, [purpose]: { ...auto, enabled: e.target.checked } } })} />
                       <span className="text-sm font-semibold">{purposeMeta[purpose]?.label || purpose}</span>
                     </label>
                     <div className="sm:col-span-8">
-                      <input className="input text-sm" value={auto.subject || ""} onChange={(e) => setConfig({ ...config, autoEmails: { ...config.autoEmails, [purpose]: { ...auto, subject: e.target.value } } })} placeholder="Email subject line" />
+                      <input className="input text-sm" readOnly={readOnly} value={auto.subject || ""} onChange={(e) => setConfig({ ...config, autoEmails: { ...config.autoEmails, [purpose]: { ...auto, subject: e.target.value } } })} placeholder="Email subject line" />
                     </div>
                   </div>
                 );
@@ -491,7 +538,9 @@ export default function PortalEmailSettingsPanel({ portal, api }) {
               <Field label="Recipient">
                 <input className="input" type="email" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@example.com" />
               </Field>
-              <button type="button" className="btn-gold" disabled={testing} onClick={sendTest}>{testing ? "Sending…" : "Send test"}</button>
+              {!readOnly && (
+                <button type="button" className="btn-gold" disabled={testing} onClick={sendTest}>{testing ? "Sending…" : "Send test"}</button>
+              )}
             </div>
           )}
         </>

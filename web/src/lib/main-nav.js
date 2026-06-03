@@ -32,13 +32,17 @@ export const MAIN_ADMIN_NAV = [
   { id: "backup", label: "Backup & Export", icon: "ledger", color: "slate" },
 ];
 
-export function getMainAdminNav(isSuper) {
+export function getMainAdminNav(isSuper, role) {
+  const isMailAdmin = isSuper || role === "ADMIN";
   const items = MAIN_ADMIN_NAV.filter((item) => !item.superOnly || isSuper);
   if (isSuper) {
     items.push({ section: "Super Admin" });
     items.push({ id: "site-settings", label: "Site & SEO", icon: "settings", color: "violet" });
-    items.push({ id: "communication", label: "Email & Communication", icon: "support", color: "cyan" });
     items.push({ id: "staff", label: "Staff & Roles", icon: "profile", color: "cyan" });
+  }
+  if (isMailAdmin) {
+    if (!isSuper) items.push({ section: "Administration" });
+    items.push({ id: "communication", label: "Email & Communication", icon: "support", color: "cyan" });
   }
   items.push({ id: "account", label: "Account Security", icon: "profile", color: "amber" });
   return items;

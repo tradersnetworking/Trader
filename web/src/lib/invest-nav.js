@@ -103,7 +103,7 @@ export const ADMIN_NAV = [
 
   { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold", superOnly: true },
 
-  { id: "communication", label: "Mail Settings", icon: "support", color: "cyan", superOnly: true },
+  { id: "communication", label: "Mail Settings", icon: "support", color: "cyan" },
 
   { section: "Platform Settings" },
 

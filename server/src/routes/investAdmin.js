@@ -1135,7 +1135,7 @@ router.post(
   "/settings/email-communication",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     const config = await saveEmailCommunicationConfig(req.body.config || req.body, "invest");
     const bundle = await getEmailCommunicationBundle("invest");
@@ -1157,7 +1157,7 @@ router.put(
   "/settings/mailboxes",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     const config = await saveMailboxConfig("invest", req.body.config || req.body);
     res.json(await getMailboxBundle("invest"));
@@ -1165,10 +1165,23 @@ router.put(
 );
 
 router.post(
+  "/settings/mailboxes/provision",
+  authRequired(SCOPE),
+  adminOnly,
+  superOnly,
+  asyncH(async (req, res) => {
+    const { provisionPortalMailboxes } = await import("../services/mailboxProvisioning.js");
+    const force = req.body?.force === true;
+    const result = await provisionPortalMailboxes("invest", { force, forcePassword: true });
+    res.json(result);
+  })
+);
+
+router.post(
   "/settings/mailboxes/test",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     const { mailboxId, type } = req.body;
     if (!mailboxId) return res.status(400).json({ error: "mailboxId required" });
@@ -1197,7 +1210,7 @@ router.put(
   "/settings/email-routing",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     try {
       const { enabled, domainId } = req.body;
@@ -1219,7 +1232,7 @@ router.post(
   "/settings/mailboxes/apply-additional-domain",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     try {
       const info = await getInvestEmailRoutingInfo();
@@ -1240,7 +1253,7 @@ router.post(
   "/settings/mailboxes/revert-subdomain-email",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (_req, res) => {
     try {
       const result = await revertInvestMailboxesToSubdomain();
@@ -1255,7 +1268,7 @@ router.post(
   "/settings/email-communication/test",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_settings"),
+  superOnly,
   asyncH(async (req, res) => {
     const { purpose, testTo } = req.body;
     if (!testTo?.trim()) return res.status(400).json({ error: "testTo email required" });

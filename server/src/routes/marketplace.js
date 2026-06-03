@@ -828,7 +828,7 @@ router.put(
 router.get(
   "/admin/settings/email-communication",
   authRequired(SCOPE),
-  superOnly,
+  requireRole("SUPERADMIN", "ADMIN"),
   asyncH(async (_req, res) => {
     const [email, mailboxes] = await Promise.all([
       getEmailCommunicationBundle("main"),
@@ -868,7 +868,7 @@ router.post(
 router.get(
   "/admin/settings/mailboxes",
   authRequired(SCOPE),
-  superOnly,
+  requireRole("SUPERADMIN", "ADMIN"),
   asyncH(async (_req, res) => {
     res.json(await getMailboxBundle("main"));
   })
@@ -881,6 +881,18 @@ router.put(
   asyncH(async (req, res) => {
     await saveMailboxConfig("main", req.body.config || req.body);
     res.json(await getMailboxBundle("main"));
+  })
+);
+
+router.post(
+  "/admin/settings/mailboxes/provision",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { provisionPortalMailboxes } = await import("../services/mailboxProvisioning.js");
+    const force = req.body?.force === true;
+    const result = await provisionPortalMailboxes("main", { force, forcePassword: true });
+    res.json(result);
   })
 );
 

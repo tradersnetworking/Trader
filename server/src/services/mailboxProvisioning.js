@@ -1,0 +1,141 @@
+/**
+ * Seed five mailboxes per portal (.com main, .in invest) with Hostinger-style SMTP/IMAP.
+ * Passwords come from env — create accounts in hosting panel first, then set SMTP_PASS / portal passwords.
+ */
+
+import {
+  getMailboxConfig,
+  saveMailboxConfig,
+  isMailboxSmtpConfigured,
+  DEFAULT_MAIN_MAILBOXES,
+  DEFAULT_INVEST_MAILBOXES,
+} from "./mailboxConfig.js";
+import { getSetting, setSettings } from "./investSettings.js";
+import {
+  saveEmailCommunicationConfig,
+  MAIN_EMAIL_COMM_CONFIG,
+  DEFAULT_EMAIL_COMM_CONFIG,
+} from "./emailCommunication.js";
+
+const CONFIG_KEYS = {
+  main: { mailboxes: "main_mailboxes_config", email: "main_email_communication_config" },
+  invest: { mailboxes: "invest_mailboxes_config", email: "email_communication_config" },
+};
+
+function smtpHost() {
+  return process.env.SMTP_HOST || "smtp.hostinger.com";
+}
+
+function imapHost() {
+  return process.env.IMAP_HOST || "imap.hostinger.com";
+}
+
+function portalMailboxPassword(portal) {
+  if (portal === "main") {
+    return (
+      process.env.MAIN_MAILBOX_SMTP_PASS ||
+      process.env.MAIN_MAILBOX_PASSWORD ||
+      process.env.SMTP_PASS ||
+      ""
+    );
+  }
+  return (
+    process.env.INVEST_MAILBOX_SMTP_PASS ||
+    process.env.INVEST_MAILBOX_PASSWORD ||
+    process.env.SMTP_PASS ||
+    ""
+  );
+}
+
+function applyProviderTemplate(mailbox, portal, { forcePassword = false } = {}) {
+  const pass = portalMailboxPassword(portal);
+  const smtp = {
+    host: smtpHost(),
+    port: String(process.env.SMTP_PORT || "587"),
+    secure: process.env.SMTP_SECURE === "true",
+    user: mailbox.address,
+    pass: forcePassword && pass ? pass : mailbox.smtp?.pass || pass || "",
+  };
+  const imap = {
+    host: imapHost(),
+    port: String(process.env.IMAP_PORT || "993"),
+    secure: process.env.IMAP_SECURE !== "false",
+    user: mailbox.address,
+    pass: forcePassword && pass ? pass : mailbox.imap?.pass || pass || "",
+  };
+  return { ...mailbox, smtp, imap };
+}
+
+/** Apply SMTP/IMAP hosts + username (= email); optional shared password from env. */
+export async function provisionPortalMailboxes(portal, { force = false, forcePassword = false } = {}) {
+  const current = await getMailboxConfig(portal, true);
+  const merged = {
+    defaultMailboxId: "noreply",
+    mailboxes: current.mailboxes.map((mb) => {
+      if (!force && isMailboxSmtpConfigured(mb)) return mb;
+      return applyProviderTemplate(mb, portal, { forcePassword });
+    }),
+  };
+  await saveMailboxConfig(portal, merged);
+  const bundle = await getMailboxConfig(portal, false);
+  const configured = merged.mailboxes.filter(isMailboxSmtpConfigured).length;
+  return {
+    portal,
+    domain: portal === "main" ? "akshayaexim.com" : "akshayaexim.in",
+    addresses: merged.mailboxes.map((m) => m.address),
+    smtpConfigured: configured,
+    passwordApplied: Boolean(portalMailboxPassword(portal)),
+    message:
+      configured === 5
+        ? "All 5 mailboxes have SMTP configured."
+        : "SMTP hosts and users set — add mailbox passwords in Mail Settings or set SMTP_PASS in server env.",
+  };
+}
+
+export async function ensureEmailCommunicationConfig(portal) {
+  const key = CONFIG_KEYS[portal]?.email || CONFIG_KEYS.invest.email;
+  const existing = await getSetting(key);
+  if (existing) return { portal, skipped: true };
+  const defaults = portal === "main" ? MAIN_EMAIL_COMM_CONFIG : DEFAULT_EMAIL_COMM_CONFIG;
+  await saveEmailCommunicationConfig(defaults, portal);
+  return { portal, seeded: true };
+}
+
+export async function ensureMailboxAddressesSeeded(portal) {
+  const key = CONFIG_KEYS[portal]?.mailboxes || CONFIG_KEYS.invest.mailboxes;
+  const raw = await getSetting(key);
+  if (raw) return { portal, skipped: true };
+  const defaults = portal === "main" ? DEFAULT_MAIN_MAILBOXES : DEFAULT_INVEST_MAILBOXES;
+  const withTemplate = {
+    ...defaults,
+    mailboxes: defaults.mailboxes.map((mb) => applyProviderTemplate(mb, portal)),
+  };
+  await setSettings({ [key]: JSON.stringify(withTemplate) });
+  return { portal, seeded: true, addresses: withTemplate.mailboxes.map((m) => m.address) };
+}
+
+/** Run on seed / deploy: create configs, wire SMTP template, set default communication routing. */
+export async function ensureAllEmailInfrastructure({ provisionSmtp = true } = {}) {
+  const results = [];
+  for (const portal of ["main", "invest"]) {
+    results.push(await ensureMailboxAddressesSeeded(portal));
+    results.push(await ensureEmailCommunicationConfig(portal));
+    if (provisionSmtp) {
+      results.push(await provisionPortalMailboxes(portal, { force: false, forcePassword: Boolean(portalMailboxPassword(portal)) }));
+    }
+  }
+  const curSupport = await getSetting("support_email");
+  if (!curSupport) {
+    await setSettings({
+      support_email: "support@akshayaexim.in",
+      default_communication_email: "noreply@akshayaexim.in",
+      mail_from: "AKSHAYA INVESTMENTS <noreply@akshayaexim.in>",
+    });
+  }
+  return results;
+}
+
+export function listDefaultMailboxAddresses(portal) {
+  const defaults = portal === "main" ? DEFAULT_MAIN_MAILBOXES : DEFAULT_INVEST_MAILBOXES;
+  return defaults.mailboxes.map((m) => ({ id: m.id, label: m.label, address: m.address }));
+}

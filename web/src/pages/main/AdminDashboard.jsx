@@ -20,7 +20,8 @@ import MainTradePaymentsPanel from "../../components/main/MainTradePaymentsPanel
 export default function AdminDashboard() {
   const { main, logoutMain } = useAuth();
   const isSuper = main?.role === "SUPERADMIN";
-  const navItems = useMemo(() => getMainAdminNav(isSuper), [isSuper]);
+  const canViewMail = isSuper || main?.role === "ADMIN";
+  const navItems = useMemo(() => getMainAdminNav(isSuper, main?.role), [isSuper, main?.role]);
   const tabIds = useMemo(() => navItems.filter((n) => n.id).map((n) => n.id), [navItems]);
 
   const [sp, setSp] = useSearchParams();
@@ -67,7 +68,7 @@ export default function AdminDashboard() {
       )}
       {tab === "staff" && isSuper && <StaffAdmin key={refreshKey} />}
       {tab === "site-settings" && isSuper && <MainSiteSettingsPanel key={refreshKey} />}
-      {tab === "communication" && isSuper && <MainCommunicationPanel key={refreshKey} />}
+      {tab === "communication" && canViewMail && <MainCommunicationPanel readOnly={!isSuper} key={refreshKey} />}
       {tab === "trade-kyc" && <MainTradeKycAdminPanel key={refreshKey} />}
       {tab === "trade-payments" && isSuper && <MainTradePaymentsPanel key={refreshKey} />}
       {tab === "backup" && (

@@ -329,6 +329,11 @@ async function seedMain() {
   }
 
   const stats = getCatalogStats();
+  const { ensureMailboxAddressesSeeded, ensureEmailCommunicationConfig, listDefaultMailboxAddresses } =
+    await import("./services/mailboxProvisioning.js");
+  await ensureMailboxAddressesSeeded("main");
+  await ensureEmailCommunicationConfig("main");
+  console.log("  Main mailboxes:", listDefaultMailboxAddresses("main").map((m) => m.address).join(", "));
   console.log(`  MAIN done. ${stats.topCategories} top categories, ${stats.subCategories} subcategories, ${productCount} products seeded.`);
 }
 
@@ -395,6 +400,9 @@ async function seedInvest() {
   await seedInvestExtras();
   const { seedRolePermissions } = await import("./services/rbac.js");
   await seedRolePermissions();
+  const { ensureAllEmailInfrastructure, listDefaultMailboxAddresses } = await import("./services/mailboxProvisioning.js");
+  await ensureAllEmailInfrastructure({ provisionSmtp: Boolean(process.env.SMTP_PASS || process.env.INVEST_MAILBOX_SMTP_PASS) });
+  console.log("  Invest mailboxes:", listDefaultMailboxAddresses("invest").map((m) => m.address).join(", "));
   console.log("  INVEST done.");
 }
 

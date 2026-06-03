@@ -210,7 +210,13 @@ export default function InvestAdminDashboard() {
           </TabPanel>
         );
       case "communication":
-        return gate("manage_settings", "Mail Settings", <TabPanel><CommunicationSettingsPanel /></TabPanel>);
+        return gate(
+          "manage_settings",
+          "Mail Settings",
+          <TabPanel>
+            <CommunicationSettingsPanel readOnly={!isSuper} />
+          </TabPanel>
+        );
       case "settings":
         return gate("manage_settings", "Site Settings", <TabPanel><InvestSettingsPanel /></TabPanel>);
       case "staff":
