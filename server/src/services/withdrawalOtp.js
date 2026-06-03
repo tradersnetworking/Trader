@@ -48,6 +48,13 @@ export async function initiateWithdrawal(investor, { amount, mode, destination, 
     html: `<p>Hi ${investor.name},</p><p>Your withdrawal OTP is <b>${otp}</b> (valid 10 minutes).</p><p>Amount: ₹${Number(amount).toLocaleString("en-IN")} via ${mode}</p>`,
   });
 
+  try {
+    const { sendWhatsAppOtp } = await import("./whatsappBusiness.js");
+    await sendWhatsAppOtp(investor, otp, "withdrawal");
+  } catch (err) {
+    console.error("[whatsapp:withdrawal-otp]", err.message);
+  }
+
   return {
     ok: true,
     confirmationToken: token,

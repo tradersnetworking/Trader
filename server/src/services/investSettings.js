@@ -1,6 +1,19 @@
 import { investDb } from "../db.js";
 import { config } from "../config.js";
 import { BRAND_INVEST, INVEST_HOME_DESCRIPTION, normalizeInvestBrandingText } from "../data/brand.js";
+const WHATSAPP_KEYS = new Set([
+  "whatsapp_api_enabled",
+  "whatsapp_api_phone_number_id",
+  "whatsapp_api_business_account_id",
+  "whatsapp_api_access_token",
+  "whatsapp_api_version",
+  "whatsapp_otp_enabled",
+  "whatsapp_transactional_enabled",
+  "whatsapp_otp_template_name",
+  "whatsapp_otp_template_language",
+  "whatsapp_tx_template_name",
+  "whatsapp_tx_template_language",
+]);
 
 const DEFAULTS = {
   support_email: "support@akshayaexim.in",
@@ -59,15 +72,18 @@ export async function getAllSettings(includeSecrets = false) {
   if (!includeSecrets) {
     map.smtp_pass = map.smtp_pass ? "••••••••" : "";
     map.telegram_bot_token = map.telegram_bot_token ? "••••••••" : "";
+    map.whatsapp_api_access_token = map.whatsapp_api_access_token ? "••••••••" : "";
   }
   return map;
 }
 
-export async function setSettings(pairs) {
+export async function setSettings(pairs, { allowWhatsAppKeys = false } = {}) {
   for (const [key, value] of Object.entries(pairs)) {
     if (value === undefined) continue;
+    if (WHATSAPP_KEYS.has(key) && !allowWhatsAppKeys) continue;
     if (key === "smtp_pass" && (value === "••••••••" || value === "")) continue;
     if (key === "telegram_bot_token" && (value === "••••••••" || value === "")) continue;
+    if (key === "whatsapp_api_access_token" && (value === "••••••••" || value === "")) continue;
     await investDb.investSetting.upsert({
       where: { key },
       create: { key, value: String(value) },

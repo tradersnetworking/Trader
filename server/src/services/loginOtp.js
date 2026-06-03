@@ -27,6 +27,12 @@ export async function startLoginOtp(investor) {
   if (sent?.dev) {
     console.log(`[MAIL:DEV] Login OTP for ${investor.email}: ${otp}`);
   }
+  try {
+    const { sendWhatsAppOtp } = await import("./whatsappBusiness.js");
+    await sendWhatsAppOtp(investor, otp, "login");
+  } catch (err) {
+    console.error("[whatsapp:login-otp]", err.message);
+  }
   return {
     loginOtpToken: token,
     message: "Verification code sent to your email.",

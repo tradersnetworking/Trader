@@ -173,11 +173,12 @@ export default function InvestSettingsPanel() {
 
 
         <h3 className="pt-2 font-bold text-navy dark:text-white">Security</h3>
-        <Field label="Screenshot protection">
-          <select className="input" value={form.screenshot_protection || "false"} onChange={(e) => set("screenshot_protection", e.target.value)}>
+        <Field label="Screenshot protection (guest / pre-login invest pages)">
+          <select className="input" value={form.screenshot_protection || "true"} onChange={(e) => set("screenshot_protection", e.target.value)}>
             <option value="false">Off</option>
             <option value="true">On (watermark + block shortcuts)</option>
           </select>
+          <p className="mt-1 text-xs text-muted-foreground">Logged-in investors always have screenshot protection enabled.</p>
         </Field>
         <Field label="Watermark opacity (0–1)"><input className="input" type="number" step="0.01" min="0" max="1" value={form.screenshot_watermark_opacity || "0.08"} onChange={(e) => set("screenshot_watermark_opacity", e.target.value)} /></Field>
 

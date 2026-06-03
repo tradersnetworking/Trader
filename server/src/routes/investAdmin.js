@@ -1080,6 +1080,44 @@ router.post(
 );
 
 router.get(
+  "/whatsapp-business",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    const { getWhatsAppSettings } = await import("../services/whatsappBusiness.js");
+    res.json({ settings: await getWhatsAppSettings(false) });
+  })
+);
+
+router.put(
+  "/whatsapp-business",
+  authRequired(SCOPE),
+  adminOnly,
+  superOnly,
+  asyncH(async (req, res) => {
+    const { saveWhatsAppSettings } = await import("../services/whatsappBusiness.js");
+    const settings = await saveWhatsAppSettings(req.body.settings || req.body, { includeSecrets: false });
+    res.json({ settings });
+  })
+);
+
+router.post(
+  "/whatsapp-business/test",
+  authRequired(SCOPE),
+  adminOnly,
+  superOnly,
+  asyncH(async (req, res) => {
+    const { testWhatsAppConnection } = await import("../services/whatsappBusiness.js");
+    const phone = req.body.testPhone || req.body.phone;
+    if (!phone) return res.status(400).json({ error: "testPhone required (digits with country code)" });
+    const result = await testWhatsAppConnection(phone);
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  })
+);
+
+router.get(
   "/settings/email-communication",
   authRequired(SCOPE),
   adminOnly,

@@ -13,6 +13,7 @@ import {
   DepositPaymentAccountsPanel,
   InvestSettingsPanel,
   SupportLinksPanel,
+  WhatsAppBusinessPanel,
   CommunicationSettingsPanel,
   TodayPendingPayments,
   UpcomingPayments,
@@ -200,6 +201,14 @@ export default function InvestAdminDashboard() {
         );
       case "support-links":
         return gate("manage_settings", "WhatsApp & Telegram", <TabPanel><SupportLinksPanel /></TabPanel>);
+      case "whatsapp-business":
+        return gate(
+          "manage_settings",
+          "WhatsApp Business API",
+          <TabPanel>
+            <WhatsAppBusinessPanel readOnly={!isSuper} />
+          </TabPanel>
+        );
       case "communication":
         return gate("manage_settings", "Mail Settings", <TabPanel><CommunicationSettingsPanel /></TabPanel>);
       case "settings":

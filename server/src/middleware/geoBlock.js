@@ -17,7 +17,8 @@ export function geoBlockMiddleware() {
 }
 
 export async function getSecuritySettings() {
-  const screenshot = (await getSetting("screenshot_protection")) === "true";
+  const raw = await getSetting("screenshot_protection");
+  const screenshot = raw === "" || raw === undefined ? true : raw === "true";
   const watermark = Number(await getSetting("screenshot_watermark_opacity")) || 0.08;
   const geoBlocked = (process.env.BLOCKED_COUNTRY_CODES || "").split(",").filter(Boolean);
   return { screenshotProtection: screenshot, watermarkOpacity: watermark, blockedCountries: geoBlocked };

@@ -97,6 +97,8 @@ export const ADMIN_NAV = [
 
   { id: "support-links", label: "WhatsApp, Telegram & Alerts", icon: "support", color: "emerald", superOnly: true },
 
+  { id: "whatsapp-business", label: "WhatsApp Business API", icon: "support", color: "emerald" },
+
   { id: "settings", label: "Site Settings", icon: "settings", color: "slate", superOnly: true },
 
   { id: "homepage-cms", label: "Content Settings", icon: "plans", color: "gold", superOnly: true },

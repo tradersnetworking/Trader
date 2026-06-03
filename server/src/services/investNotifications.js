@@ -2,9 +2,14 @@ import { sendMail } from "../utils/mailer.js";
 import { config } from "../config.js";
 import { compoundedMaturity, simpleMaturity } from "../utils/invest.js";
 import { postTelegramTransaction } from "./telegramTransactionAlerts.js";
+import { sendWhatsAppTransactional } from "./whatsappBusiness.js";
 
 function tg(event, payload) {
   postTelegramTransaction(event, payload).catch(() => {});
+}
+
+function wa(investor, message) {
+  sendWhatsAppTransactional(investor, message).catch(() => {});
 }
 
 const PORTAL = config.investPortalUrl;
@@ -58,7 +63,7 @@ export function notifyDepositSubmitted(investor, deposit) {
 ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + row("Reference", deposit.reference || "—") + row("Status", "PENDING"))}
 <p>You will receive another email once your deposit is approved or rejected.</p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Deposit request received — ${fmtInr(deposit.amount)} pending`,
     html,
@@ -66,6 +71,10 @@ ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + 
     purpose: "deposit_submitted",
   });
   tg("deposit_submitted", { investor, deposit });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Hi ${investor.name}, we received your deposit of ${fmtInr(deposit.amount)} (${deposit.method}). Status: pending verification.`
+  );
 }
 
 export function notifyDepositApproved(investor, deposit) {
@@ -76,7 +85,7 @@ export function notifyDepositApproved(investor, deposit) {
 ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + row("Status", "APPROVED"))}
 <p><a href="${PORTAL}/dashboard?tab=money" style="display:inline-block;background:#d4a017;color:#0a1f44;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">View Wallet</a></p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Deposit approved — ${fmtInr(deposit.amount)} credited to wallet`,
     html,
@@ -84,6 +93,10 @@ ${table(row("Amount", fmtInr(deposit.amount)) + row("Method", deposit.method) + 
     purpose: "deposit_approved",
   });
   tg("deposit_approved", { investor, deposit });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Deposit confirmed. ${fmtInr(deposit.amount)} credited to your wallet. Ref: ${deposit.reference || deposit.id || "—"}.`
+  );
 }
 
 export function notifyDepositRejected(investor, deposit, remarks) {
@@ -112,7 +125,7 @@ export function notifyWithdrawalRequested(investor, payout) {
 ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("Destination", payout.destination) + row("Status", "PENDING"))}
 <p>You will be notified when the payout is processed.</p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Withdrawal request — ${fmtInr(payout.amount)} pending`,
     html,
@@ -120,6 +133,10 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("D
     purpose: "withdrawal_submitted",
   });
   tg("withdrawal_requested", { investor, payout });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Withdrawal request ${fmtInr(payout.amount)} to ${payout.destination} (${payout.mode}) received. Status: pending.`
+  );
 }
 
 export function notifyWithdrawalReleased(investor, payout) {
@@ -129,7 +146,7 @@ export function notifyWithdrawalReleased(investor, payout) {
 <p>Your withdrawal has been <b style="color:#059669">released</b> to your account.</p>
 ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("Destination", payout.destination) + row("Status", payout.status) + row("Reference", payout.gatewayRef || "—"))}`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Withdrawal processed — ${fmtInr(payout.amount)} sent`,
     html,
@@ -142,6 +159,10 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Mode", payout.mode) + row("D
     payout,
     receiptNote: payout?.gatewayRef ? "Payment gateway payout completed" : null,
   });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Payout receipt — ${fmtInr(payout.amount)} sent to ${payout.destination}. Ref: ${payout.gatewayRef || payout.id || "—"}.`
+  );
 }
 
 export function notifyWithdrawalRejected(investor, payout, remarks) {
@@ -151,7 +172,7 @@ export function notifyWithdrawalRejected(investor, payout, remarks) {
 <p>Your withdrawal request was <b style="color:#dc2626">rejected</b>. The amount has been refunded to your wallet.</p>
 ${table(row("Amount", fmtInr(payout.amount)) + row("Remarks", remarks || "Contact support for details"))}`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Withdrawal rejected — ${fmtInr(payout.amount)} refunded`,
     html,
@@ -159,10 +180,18 @@ ${table(row("Amount", fmtInr(payout.amount)) + row("Remarks", remarks || "Contac
     purpose: "withdrawal_rejected",
   });
   tg("withdrawal_rejected", { investor, payout, remarks });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Withdrawal ${fmtInr(payout.amount)} rejected; amount refunded to wallet. ${remarks || ""}`
+  );
 }
 
 export function notifyInvestmentActivity(investor, { planName, amount, settlementCycle, source = "investor" }) {
   tg("investment", { investor, planName, amount, settlementCycle, source });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Investment update — ${planName || "Plan"} ${fmtInr(amount)}${settlementCycle ? ` (${settlementCycle})` : ""}.`
+  );
 }
 
 export function notifyKycSubmitted(investor) {
@@ -172,13 +201,14 @@ export function notifyKycSubmitted(investor) {
 <p>Your KYC documents have been submitted and are <b>under review</b>.</p>
 <p>We typically review within 1–2 business days. You will receive an email once approved.</p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: "KYC submitted — under review",
     html,
     text: `Hi ${investor.name}, your KYC is under review.`,
     purpose: "kyc_submitted",
   });
+  wa(investor, `AKSHYA INVESTMENTS: KYC submitted and under review.`);
 }
 
 export function notifyKycDecision(investor, kyc) {
@@ -190,13 +220,14 @@ export function notifyKycDecision(investor, kyc) {
 ${kyc.remarks ? `<p>Remarks: ${kyc.remarks}</p>` : ""}
 ${approved ? `<p><a href="${PORTAL}/dashboard?tab=plans" style="display:inline-block;background:#d4a017;color:#0a1f44;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">Browse Investment Plans</a></p>` : `<p>Please resubmit corrected documents from your dashboard.</p>`}`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: approved ? "KYC approved — you can invest now" : "KYC rejected — action required",
     html,
     text: `Hi ${investor.name}, your KYC is ${kyc.status}. ${kyc.remarks || ""}`,
     purpose: approved ? "kyc_approved" : "kyc_rejected",
   });
+  wa(investor, `AKSHYA INVESTMENTS: KYC ${kyc.status}. ${kyc.remarks || ""}`);
 }
 
 export function notifyMaturityReminder(investor, subscription, plan, daysLeft) {
@@ -214,13 +245,17 @@ ${table(
 <p>After maturity, compounding applies to your returns. Visit your dashboard for projected maturity value.</p>
 <p><a href="${PORTAL}/dashboard?tab=investments">View My Investments →</a></p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Maturity in ${daysLeft} days — ${plan?.name || "Investment Plan"}`,
     html,
     text: `Hi ${investor.name}, your ${plan?.name} investment of ${fmtInr(subscription.amount)} matures on ${fmtDate(subscription.maturityDate)}.`,
     purpose: "investment",
   });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: ${plan?.name || "Investment"} matures in ${daysLeft} day(s) on ${fmtDate(subscription.maturityDate)}. Amount: ${fmtInr(subscription.amount)}.`
+  );
 }
 
 export function notifyMaturityChoicePrompt(investor, subscription, plan, profitAmount) {
@@ -236,13 +271,17 @@ export function notifyMaturityChoicePrompt(investor, subscription, plan, profitA
 ${table(row("Plan", plan?.name) + row("Principal", fmtInr(subscription.amount)) + row("Est. Profit", fmtInr(profitAmount)))}
 <p><a href="${PORTAL}/dashboard?tab=investments" style="display:inline-block;background:#d4a017;color:#0a1f44;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">Choose Now</a></p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: "Action required — maturity payout choice (due tomorrow)",
     html,
     text: `Hi ${investor.name}, choose wallet, withdraw, or reinvest for your maturing ${plan?.name} plan.`,
     purpose: "investment",
   });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Action required — choose maturity payout for ${plan?.name} (profit ~${fmtInr(profitAmount)}).`
+  );
 }
 
 export function notifyMaturityProfitReleased(investor, payout, choice) {
@@ -252,13 +291,17 @@ export function notifyMaturityProfitReleased(investor, payout, choice) {
 <p>Your maturity profit of <b>${fmtInr(payout.profitAmount)}</b> has been processed as <b>${choice}</b>.</p>
 <p><a href="${PORTAL}/dashboard?tab=money">View Wallet →</a></p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Maturity profit ${fmtInr(payout.profitAmount)} processed`,
     html,
     text: `Hi ${investor.name}, maturity profit ${fmtInr(payout.profitAmount)} processed (${choice}).`,
     purpose: "investment",
   });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: Maturity profit ${fmtInr(payout.profitAmount)} processed (${choice}).`
+  );
 }
 
 export function notifyPlanMatured(investor, subscription, plan) {
@@ -278,11 +321,15 @@ ${table(
 <p>Compounding now applies to your returns. Contact admin for payout of matured returns or reinvest from your dashboard.</p>
 <p><a href="${PORTAL}/dashboard?tab=investments" style="display:inline-block;background:#d4a017;color:#0a1f44;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">View Investment</a></p>`
   );
-  return notify({
+  notify({
     to: investor.email,
     subject: `Plan matured — ${plan?.name || "Investment"} (${fmtInr(subscription.amount)})`,
     html,
     text: `Hi ${investor.name}, your ${plan?.name} investment of ${fmtInr(subscription.amount)} has matured. Compounded value: ${fmtInr(compounded.maturityValue)}.`,
     purpose: "investment",
   });
+  wa(
+    investor,
+    `AKSHYA INVESTMENTS: ${plan?.name || "Investment"} matured. Principal ${fmtInr(subscription.amount)}; compounded value ${fmtInr(compounded.maturityValue)}.`
+  );
 }

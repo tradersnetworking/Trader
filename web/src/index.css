@@ -635,6 +635,12 @@
     }
   }
 
+  html.invest-screenshot-guard .site-invest-shell .app-content,
+  html.invest-screenshot-guard .site-invest-shell .app-content * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   @media (max-width: 767px) {
     input:not([type="checkbox"]):not([type="radio"]),
     textarea,

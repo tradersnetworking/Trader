@@ -29,6 +29,7 @@ export const ADMIN_TAB_PERMISSIONS = {
   gateways: "manage_gateways",
   communication: "manage_settings",
   "support-links": "manage_settings",
+  "whatsapp-business": "manage_settings",
   settings: "manage_settings",
   staff: "manage_staff",
 };
