@@ -14,7 +14,8 @@ export default function KycImageCaptureField({
   setFiles,
   existingUrl,
   allowCamera = true,
-  accept = KYC_ACCEPT_IMAGE,
+  imageOnly = false,
+  accept = imageOnly ? KYC_ACCEPT_IMAGE : KYC_ACCEPT_DOCS,
 }) {
   const inputId = useId();
   const galleryRef = useRef(null);
@@ -97,7 +98,7 @@ export default function KycImageCaptureField({
           className="btn-outline w-full text-sm sm:w-auto"
           onClick={() => galleryRef.current?.click()}
         >
-          Upload photo
+          {imageOnly ? "Upload photo" : "Upload file"}
         </button>
         {allowCamera && (
           <button type="button" className="btn-gold w-full text-sm sm:w-auto" onClick={() => setCameraOpen(true)}>

@@ -403,9 +403,14 @@ async function seedInvest() {
     await investDb.investSetting.upsert({
       where: { key: s.key },
       create: s,
-      update: {},
+      update: { value: s.value },
     });
   }
+  await investDb.investSetting.upsert({
+    where: { key: "kyc_ocr_enabled" },
+    create: { key: "kyc_ocr_enabled", value: "true" },
+    update: { value: "true" },
+  });
   await seedDefaultPaymentGateways();
   await ensureMissingPaymentGateways();
   await ensureDefaultBankAccounts();

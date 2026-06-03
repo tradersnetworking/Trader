@@ -86,7 +86,7 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
       await investApi(`/agreements/${ag.id}/sign`, { method: "POST", body: { useKycSignature: true } });
       setSign(null);
       setSignatureData(null);
-      setMsg("Agreement signed using your KYC signature.");
+      setMsg("Agreement signed using your KYC signature (clean copy for PDF).");
       load();
     } catch (e) {
       alert(e.message);

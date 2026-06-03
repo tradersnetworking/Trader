@@ -1,3 +1,5 @@
+import { isKycFullySubmitted } from "./kyc-full-submit.js";
+
 /** Client-side invest / withdraw eligibility (mirrors server rules). */
 
 export function hasBankDetails(investor) {
@@ -19,7 +21,7 @@ export function canAccessInvestDashboard(kyc) {
 }
 
 export function isKycPendingReview(kyc) {
-  return kyc?.status === "PENDING";
+  return kyc?.status === "PENDING" && isKycFullySubmitted(kyc);
 }
 
 /** Submitted KYC awaiting admin — show blurred dashboard preview, no interactions */
@@ -69,6 +71,7 @@ export function getKycUiPhase(kyc, { loaded = true, loadError = null } = {}) {
   if (!loaded) return "loading";
   if (loadError && !kyc) return "error";
   if (canAccessInvestDashboard(kyc)) return "approved";
+  if (kyc?.status === "PENDING" && !isKycFullySubmitted(kyc)) return "needs_submit";
   if (isKycPendingReview(kyc)) return "pending_review";
   if (kyc?.status === "REJECTED") return "needs_fix";
   return "needs_submit";

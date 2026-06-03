@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { kycSubmitReadiness } from "../../lib/kyc-submit-readiness.js";
+import { isKycFullySubmitted } from "../../lib/kyc-full-submit.js";
 
 import { investApi, investApiForm } from "../../lib/api.js";
 import { validateUploadFiles } from "../../lib/upload-limits.js";
@@ -141,10 +142,14 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
-  const submitted = kyc?.status && !["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+  const submitted =
+    kyc?.status === "APPROVED" || (kyc?.status === "PENDING" && isKycFullySubmitted(kyc));
 
   const canEdit =
-    !submitted || kyc?.status === "REJECTED" || kyc?.status === "PENDING" || revisionMode;
+    !submitted ||
+    kyc?.status === "REJECTED" ||
+    (kyc?.status === "PENDING" && !isKycFullySubmitted(kyc)) ||
+    revisionMode;
 
 
 
@@ -244,6 +249,8 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
         if (!hasDoc("panDocument")) return "PAN card photocopy is required";
         const aadhaarOk = (hasDoc("aadhaarFront") && hasDoc("aadhaarBack")) || hasDoc("aadhaarDocument");
         if (!aadhaarOk) return "Upload Aadhaar front & back, or a single Aadhaar PDF/image";
+        if (!hasDoc("selfie")) return "Selfie verification photo is required";
+        if (!hasDoc("addressProof")) return "Address proof upload is required";
       }
 
       if (editSignature) {
@@ -711,138 +718,78 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
               <div className="space-y-3">
 
-                <UploadField
-
+                <KycImageCaptureField
                   label="Passport Size Photo *"
-
                   hint="Recent colour photo, white background, face clearly visible (35×45 mm style)"
-
                   name="photo"
-
-                  accept={KYC_ACCEPT_IMAGE}
-
-                  imageOnly
-
                   required
-
+                  imageOnly
                   files={files}
-
                   setFiles={setFiles}
-
                   existingUrl={kyc?.photo}
-
+                  allowCamera
                 />
 
-                <UploadField
-
+                <KycImageCaptureField
                   label="PAN Card (photocopy) *"
-
-                  hint="Clear scan or photo of your PAN card — image or PDF"
-
+                  hint="Clear scan or photo — must match PAN number entered above"
                   name="panDocument"
-
-                  accept={KYC_ACCEPT_DOCS}
-
                   required
-
                   files={files}
-
                   setFiles={setFiles}
-
                   existingUrl={kyc?.panDocument}
-
+                  allowCamera
                 />
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-
-                  <UploadField
-
+                  <KycImageCaptureField
                     label="Aadhaar Front *"
-
                     name="aadhaarFront"
-
-                    accept={KYC_ACCEPT_DOCS}
-
                     files={files}
-
                     setFiles={setFiles}
-
                     existingUrl={kyc?.aadhaarFront}
-
+                    allowCamera
                   />
-
-                  <UploadField
-
+                  <KycImageCaptureField
                     label="Aadhaar Back *"
-
                     name="aadhaarBack"
-
-                    accept={KYC_ACCEPT_DOCS}
-
                     files={files}
-
                     setFiles={setFiles}
-
                     existingUrl={kyc?.aadhaarBack}
-
+                    allowCamera
                   />
-
                 </div>
 
-                <UploadField
-
+                <KycImageCaptureField
                   label="Aadhaar (single file alternative)"
-
-                  hint="Or upload one combined Aadhaar PDF/image instead of front & back"
-
+                  hint="Or one combined Aadhaar PDF/image instead of front & back"
                   name="aadhaarDocument"
-
-                  accept={KYC_ACCEPT_DOCS}
-
                   files={files}
-
                   setFiles={setFiles}
-
                   existingUrl={kyc?.aadhaarDocument}
-
+                  allowCamera
                 />
 
                 {form.idType === "PASSPORT" && (
-
-                  <UploadField
-
+                  <KycImageCaptureField
                     label="Passport Document"
-
                     name="passportDocument"
-
-                    accept={KYC_ACCEPT_DOCS}
-
                     files={files}
-
                     setFiles={setFiles}
-
                     existingUrl={kyc?.passportDocument}
-
+                    allowCamera
                   />
-
                 )}
 
-                <UploadField
-
-                  label="Address Proof"
-
+                <KycImageCaptureField
+                  label="Address Proof *"
                   hint="Utility bill, bank statement, or rental agreement (not older than 3 months)"
-
                   name="addressProof"
-
-                  accept={KYC_ACCEPT_DOCS}
-
+                  required
                   files={files}
-
                   setFiles={setFiles}
-
                   existingUrl={kyc?.addressProof}
-
+                  allowCamera
                 />
 
                 <KycImageCaptureField
@@ -937,13 +884,40 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                 <p className="mt-1 text-xs text-muted-foreground">Upload clear image or PDF. Password-protected bank statements are not accepted.</p>
               </Field>
               {form.bankProofType === "CHEQUE" && (
-                <UploadField label="Cancelled cheque *" hint="Clear scan — image or PDF" name="cancelledCheque" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.cancelledCheque} />
+                <KycImageCaptureField
+                  label="Cancelled cheque *"
+                  hint="Must show account number and IFSC matching entries above"
+                  name="cancelledCheque"
+                  required
+                  files={files}
+                  setFiles={setFiles}
+                  existingUrl={kyc?.cancelledCheque}
+                  allowCamera
+                />
               )}
               {form.bankProofType === "PASSBOOK" && (
-                <UploadField label="Bank passbook *" hint="First page showing name & account — image or PDF" name="passbookDocument" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.passbookDocument} />
+                <KycImageCaptureField
+                  label="Bank passbook *"
+                  hint="First page with name & account — image or PDF"
+                  name="passbookDocument"
+                  required
+                  files={files}
+                  setFiles={setFiles}
+                  existingUrl={kyc?.passbookDocument}
+                  allowCamera
+                />
               )}
               {form.bankProofType === "STATEMENT" && (
-                <UploadField label="Bank statement *" hint="Recent statement — unlocked PDF or image only" name="bankStatementDocument" accept={KYC_ACCEPT_DOCS} files={files} setFiles={setFiles} existingUrl={kyc?.bankStatementDocument} />
+                <KycImageCaptureField
+                  label="Bank statement *"
+                  hint="Unlocked PDF or image — password-protected files not accepted"
+                  name="bankStatementDocument"
+                  required
+                  files={files}
+                  setFiles={setFiles}
+                  existingUrl={kyc?.bankStatementDocument}
+                  allowCamera
+                />
               )}
             </div>
             </SectionFieldset>
@@ -1279,110 +1253,3 @@ function InfoTile({ label, value }) {
   );
 
 }
-
-
-
-function UploadField({ label, hint, name, accept, imageOnly, required, files, setFiles, existingUrl }) {
-
-  const file = files[name];
-
-  const [localErr, setLocalErr] = useState("");
-
-
-
-  const onChange = (e) => {
-
-    const f = e.target.files?.[0];
-
-    if (!f) return;
-
-    const err = validateKycFile(f, { imageOnly });
-
-    if (err) {
-
-      setLocalErr(err);
-
-      e.target.value = "";
-
-      return;
-
-    }
-
-    setLocalErr("");
-
-    setFiles((prev) => ({ ...prev, [name]: f }));
-
-  };
-
-
-
-  const preview = file?.type?.startsWith("image/") ? URL.createObjectURL(file) : null;
-
-
-
-  return (
-
-    <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4">
-
-      <div className="mb-2 flex items-start justify-between gap-2">
-
-        <div>
-
-          <p className="text-xs font-semibold text-foreground">
-
-            {label}
-
-            {required && <span className="text-rose-500"> *</span>}
-
-          </p>
-
-          {hint && <p className="mt-0.5 text-[10px] text-muted-foreground">{hint}</p>}
-
-        </div>
-
-        {existingUrl && !file && (
-
-          <span className="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">Uploaded</span>
-
-        )}
-
-      </div>
-
-      {preview && (
-
-        <img src={preview} alt="" className="mb-2 h-20 w-20 rounded-lg border border-border object-cover" onLoad={() => URL.revokeObjectURL(preview)} />
-
-      )}
-
-      {file && !preview && (
-
-        <p className="mb-2 truncate text-xs text-muted-foreground">{file.name}</p>
-
-      )}
-
-      {existingUrl && !file && (
-
-        <p className="mb-2 truncate text-[11px] text-muted-foreground">Current: {filenameFromUrl(existingUrl)}</p>
-
-      )}
-
-      <input
-
-        type="file"
-
-        accept={accept}
-
-        className="block w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-primary/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-foreground"
-
-        onChange={onChange}
-
-      />
-
-      {localErr && <p className="mt-1 text-[11px] text-rose-500">{localErr}</p>}
-
-    </div>
-
-  );
-
-}
-

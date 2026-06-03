@@ -9,6 +9,7 @@ import { sendMail } from "../utils/mailer.js";
 import { creditReferralOnInvestment } from "./referral.js";
 import { generateSubscriptionAgreement } from "./agreements.js";
 import { logAudit } from "./auditLog.js";
+import { purgeAgreementsForSubscription } from "./agreements.js";
 
 function fmtInr(n) {
   return "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
@@ -141,6 +142,14 @@ export async function updateInvestorFull(investorId, body, actor) {
         ...(k.status != null && { status: k.status, verifiedAt: k.status === "APPROVED" ? new Date() : null }),
       },
     });
+    if (k.status === "APPROVED") {
+      const { autoGenerateAndSignInvestorAgreements } = await import("./agreements.js");
+      await autoGenerateAndSignInvestorAgreements(investorId, {
+        ipAddress: "admin-panel",
+        userAgent: "admin-investor-update",
+        triggerEvent: "admin_kyc_approved",
+      }).catch(() => {});
+    }
   }
 
   await logAudit({
@@ -471,10 +480,14 @@ export async function adminWalletOperation(body, actor) {
 
   if (target === "available" || target === "earnings") {
     const manualNote =
-    note?.trim() ||
-    `[Manual admin] ${dir === "CREDIT" ? "Credit" : "Debit"} ${target} — ${actor?.name || "Admin"}`;
-  await addLedger(investorId, {
-      type: dir === "CREDIT" && target === "earnings" ? "RETURN" : "ADJUSTMENT",
+      note?.trim() ||
+      `[Manual admin] ${dir === "CREDIT" ? "Credit" : "Debit"} ${target} — ${actor?.name || "Admin"}`;
+    let ledgerType = "ADJUSTMENT";
+    if (transactionType === "CASH_DEPOSIT" && dir === "CREDIT" && target === "available") ledgerType = "DEPOSIT";
+    else if (transactionType === "CASH_WITHDRAWAL" && dir === "DEBIT" && target === "available") ledgerType = "WITHDRAWAL";
+    else if (dir === "CREDIT" && target === "earnings") ledgerType = "RETURN";
+    await addLedger(investorId, {
+      type: ledgerType,
       direction: dir,
       amount: amt,
       note: manualNote.startsWith("[Manual") ? manualNote : `[Manual admin] ${manualNote}`,

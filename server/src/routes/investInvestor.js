@@ -468,11 +468,35 @@ router.post(
     }
     if (signatureMethod) data.signatureMethod = signatureMethod;
 
+    const { processSignatureForAgreement, processSignatureDataUrlForAgreement } = await import(
+      "../services/signatureProcess.js"
+    );
+    if (files.signature?.[0]?.path) {
+      data.signatureForAgreement = await processSignatureForAgreement(files.signature[0].path);
+    } else if (b.signatureData && requiredSections.includes("signature")) {
+      data.signatureForAgreement = await processSignatureDataUrlForAgreement(b.signatureData);
+    } else if (existing?.signatureForAgreement) {
+      data.signatureForAgreement = existing.signatureForAgreement;
+    }
+
     data.panNumber = data.panNumber ? String(data.panNumber).trim().toUpperCase() : "";
     data.aadhaarNumber = data.aadhaarNumber ? String(data.aadhaarNumber).replace(/\s/g, "") : "";
 
+    const { assertInvestorKycSubmitReady } = await import("../services/kycSections.js");
+    const submitErr = assertInvestorKycSubmitReady(data, files, existing);
+    if (submitErr) {
+      return res.status(400).json({
+        ...submitErr,
+        error: submitErr.error || "Complete all KYC steps and uploads before submitting for review.",
+      });
+    }
+
     const sectionErr = validateKycSections(data, files, existing, requiredSections);
     if (sectionErr) return res.status(400).json(sectionErr);
+
+    const { validateKycDocumentsOcr } = await import("../services/kycOcr.js");
+    const ocrErr = await validateKycDocumentsOcr(data, files, existing);
+    if (ocrErr) return res.status(400).json(ocrErr);
 
     let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
     if (existing?.status === "REJECTED") {
@@ -739,6 +763,7 @@ router.post(
       ipAddress: clientIp(req),
       userAgent: req.headers["user-agent"] || "",
       method: req.body.method || (req.body.useKycSignature ? "kyc" : "draw"),
+      useKycSignature: Boolean(req.body.useKycSignature),
     });
     res.json({ agreement, pdfHash: agreement.pdfHash });
   })

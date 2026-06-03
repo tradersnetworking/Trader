@@ -219,6 +219,7 @@ model Kyc {
   photo         String?
   selfie        String?
   signature     String?
+  signatureForAgreement String?
   signatureData String?
   signatureMethod String?
   cancelledCheque String?
@@ -276,6 +277,7 @@ model KycRevision {
   selfie        String?
   addressProof  String?
   signature     String?
+  signatureForAgreement String?
   signatureData String?
   signatureMethod String?
   cancelledCheque String?

@@ -146,12 +146,15 @@ export async function generateSubscriptionAgreement(investorId, subscriptionId, 
   });
   const kyc = await investDb.kyc.findUnique({ where: { investorId } });
   if (kyc?.status === "APPROVED") {
-    const sig = await getKycSignatureBase64(kyc);
+    const { ensureKycSignatureForAgreement } = await import("./kycSignature.js");
+    const freshKyc = (await ensureKycSignatureForAgreement(kyc)) || kyc;
+    const sig = await getKycSignatureBase64(freshKyc);
     if (sig) {
       try {
         return await signAgreement(investorId, record.id, sig, {
           ...meta,
           method: kyc.signatureMethod || "kyc",
+          useKycSignature: true,
         });
       } catch {
         return record;
@@ -214,9 +217,69 @@ export async function listAllAgreementsForInvestor(investorId) {
 }
 
 async function resolveSignatureForAgreement(ag) {
-  if (ag.signatureData?.startsWith("data:image")) return ag.signatureData;
   const kyc = await investDb.kyc.findUnique({ where: { investorId: ag.investorId } });
-  return getKycSignatureBase64(kyc);
+  const kycSig = await getKycSignatureBase64(kyc);
+  if (kycSig) return kycSig;
+  if (ag.signatureData?.startsWith("data:image")) return ag.signatureData;
+  return null;
+}
+
+/** Investor-level agreements (not tied to a subscription). */
+const INVESTOR_STANDARD_AGREEMENT_TYPES = [
+  "profit_sharing",
+  "risk_disclosure",
+  "aml_kyc",
+  "terms_conditions",
+  "withdrawal_policy",
+  "privacy_policy",
+];
+
+export async function ensureInvestorStandardAgreements(investorId, meta = {}) {
+  await ensureDefaultTemplates();
+  let created = 0;
+  for (const type of INVESTOR_STANDARD_AGREEMENT_TYPES) {
+    const existing = await investDb.agreement.findFirst({
+      where: {
+        investorId,
+        type,
+        subscriptionId: null,
+        status: { notIn: ["REVOKED", "PURGED"] },
+      },
+    });
+    if (existing) continue;
+    await generateAgreement(investorId, type, { ...meta, triggerEvent: meta.triggerEvent || "kyc_approved" });
+    created += 1;
+  }
+  return created;
+}
+
+/** Create missing platform agreements, investment agreements per plan, then sign with transparent KYC signature. */
+export async function autoGenerateAndSignInvestorAgreements(investorId, meta = {}) {
+  const { ensureKycSignatureForAgreementByInvestorId } = await import("./kycSignature.js");
+  const kyc = await investDb.kyc.findUnique({ where: { investorId } });
+  if (kyc?.status !== "APPROVED") return { created: 0, signed: 0 };
+
+  await ensureKycSignatureForAgreementByInvestorId(investorId);
+
+  const createdStandard = await ensureInvestorStandardAgreements(investorId, meta);
+
+  const subs = await investDb.subscription.findMany({
+    where: { investorId, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  let createdInvestment = 0;
+  for (const sub of subs) {
+    const before = await investDb.agreement.count({
+      where: { subscriptionId: sub.id, type: "investment", status: { not: "PURGED" } },
+    });
+    await generateSubscriptionAgreement(investorId, sub.id, meta).catch(() => {});
+    const after = await investDb.agreement.count({
+      where: { subscriptionId: sub.id, type: "investment", status: { not: "PURGED" } },
+    });
+    if (after > before) createdInvestment += 1;
+  }
+
+  const signed = await autoSignPendingAgreementsForInvestor(investorId, meta);
+  return { created: createdStandard + createdInvestment, signed };
 }
 
 function agreementContentAsTemplate(ag) {
@@ -251,6 +314,8 @@ async function normalizeAgreementTemplate(ag) {
 }
 
 export async function autoSignPendingAgreementsForInvestor(investorId, meta = {}) {
+  const { ensureKycSignatureForAgreementByInvestorId } = await import("./kycSignature.js");
+  await ensureKycSignatureForAgreementByInvestorId(investorId);
   const sig = await getInvestorKycSignatureBase64(investorId);
   if (!sig) return 0;
   const kyc = await investDb.kyc.findUnique({ where: { investorId } });
@@ -261,7 +326,11 @@ export async function autoSignPendingAgreementsForInvestor(investorId, meta = {}
   let n = 0;
   for (const ag of pending) {
     try {
-      await signAgreement(investorId, ag.id, sig, { ...meta, method: kyc.signatureMethod || "kyc" });
+      await signAgreement(investorId, ag.id, sig, {
+        ...meta,
+        method: kyc.signatureMethod || "kyc",
+        useKycSignature: true,
+      });
       n += 1;
     } catch {
       /* skip */
@@ -270,12 +339,41 @@ export async function autoSignPendingAgreementsForInvestor(investorId, meta = {}
   return n;
 }
 
+async function resolveSignatureForSigning(investorId, signatureData, meta = {}) {
+  const { ensureKycSignatureForAgreementByInvestorId } = await import("./kycSignature.js");
+  const { processSignatureDataUrlForAgreement } = await import("./signatureProcess.js");
+  const { loadUploadImageBuffer: loadBuf } = await import("./agreementAssetHelper.js");
+
+  await ensureKycSignatureForAgreementByInvestorId(investorId);
+
+  if (meta.useKycSignature || meta.method === "kyc") {
+    const kycSig = await getInvestorKycSignatureBase64(investorId);
+    if (kycSig) return kycSig;
+  }
+
+  const kycSig = await getInvestorKycSignatureBase64(investorId);
+  if (kycSig && !signatureData) return kycSig;
+
+  if (signatureData?.startsWith("data:image")) {
+    const url = await processSignatureDataUrlForAgreement(signatureData);
+    if (url) {
+      const buf = loadBuf(url);
+      if (buf?.length) return `data:image/png;base64,${buf.toString("base64")}`;
+    }
+  }
+
+  return kycSig || signatureData;
+}
+
 export async function signAgreement(investorId, agreementId, signatureData, meta = {}) {
   const ag = await investDb.agreement.findFirst({
     where: { id: agreementId, investorId, status: "PENDING_SIGNATURE" },
     include: { investor: true },
   });
   if (!ag) throw new Error("Agreement not found or already signed");
+
+  const signatureForPdf = await resolveSignatureForSigning(investorId, signatureData, meta);
+  if (!signatureForPdf) throw new Error("No signature available. Complete KYC with a clear signature first.");
 
   const filledData = JSON.parse(ag.filledData || "{}");
   const verificationHash = createHash("sha256")
@@ -291,7 +389,7 @@ export async function signAgreement(investorId, agreementId, signatureData, meta
     filledData,
     agreementUid: ag.agreementUid,
     userName: ag.investor?.name || filledData.FULL_NAME,
-    signatureBase64: signatureData,
+    signatureBase64: signatureForPdf,
   });
 
   const signedAt = new Date();
@@ -301,7 +399,7 @@ export async function signAgreement(investorId, agreementId, signatureData, meta
     where: { id: ag.id },
     data: {
       status: "SIGNED",
-      signatureData,
+      signatureData: signatureForPdf,
       signMethod: meta.method || "draw",
       signedAt,
       pdfHash: hash,

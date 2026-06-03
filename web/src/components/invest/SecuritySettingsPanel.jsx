@@ -9,13 +9,25 @@ export default function SecuritySettingsPanel() {
   const [token, setToken] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [enabling, setEnabling] = useState(false);
+  const [setupBusy, setSetupBusy] = useState(false);
 
   const load = () => investSecurityApi("/2fa/status").then(setStatus).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const startSetup = async () => {
-    const d = await investSecurityApi("/2fa/setup", { method: "POST" });
-    setSetup(d);
+    setErr("");
+    setSetupBusy(true);
+    try {
+      const d = await investSecurityApi("/2fa/setup", { method: "POST" });
+      setSetup(d);
+      setToken("");
+    } catch (e) {
+      setErr(e.message || "Could not start 2FA setup");
+      setSetup(null);
+    } finally {
+      setSetupBusy(false);
+    }
   };
 
   const enable = async () => {
@@ -63,7 +75,11 @@ export default function SecuritySettingsPanel() {
       <div className="card space-y-3 p-4">
         <h4 className="font-semibold">Authenticator app (TOTP)</h4>
         <p className="text-xs text-muted-foreground">Status: {status.enabled ? "Enabled" : "Not enabled"}</p>
-        {!status.enabled && !setup && <button type="button" className="btn-outline text-sm" onClick={startSetup}>Set up 2FA</button>}
+        {!status.enabled && !setup && (
+          <button type="button" className="btn-outline text-sm" onClick={startSetup} disabled={setupBusy}>
+            {setupBusy ? "Preparing…" : "Set up 2FA"}
+          </button>
+        )}
         {setup && (
           <TotpSetupPanel
             setup={setup}

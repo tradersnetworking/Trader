@@ -47,7 +47,15 @@ export default function InvestorOpsPanel() {
   const [viewKyc, setViewKyc] = useState(null);
   const [pdfAgreement, setPdfAgreement] = useState(null);
 
-  const [walletForm, setWalletForm] = useState({ amount: "", direction: "CREDIT", bucket: "available", note: "", sendNotice: true });
+  const [walletForm, setWalletForm] = useState({
+    amount: "",
+    direction: "CREDIT",
+    bucket: "available",
+    transactionType: "CASH_DEPOSIT",
+    note: "",
+    sendNotice: true,
+  });
+  const [cancelSub, setCancelSub] = useState({ subscriptionId: "", reason: "", refundPrincipal: true });
   const [subForm, setSubForm] = useState({
     planId: "",
     amount: "",
@@ -222,6 +230,37 @@ export default function InvestorOpsPanel() {
     }
   };
 
+  const resetKyc = async () => {
+    if (!detail || !window.confirm("Delete this investor's KYC record? They must submit KYC again.")) return;
+    flash();
+    try {
+      await investApi(`/admin/investors/${detail.id}/kyc`, { method: "DELETE" });
+      flash("KYC record deleted.");
+      await loadDetail(detail.id);
+      load();
+    } catch (e2) {
+      flash("", e2.message);
+    }
+  };
+
+  const cancelPlan = async (e) => {
+    e.preventDefault();
+    if (!cancelSub.subscriptionId) return;
+    flash();
+    try {
+      await investApi(`/admin/subscriptions/${cancelSub.subscriptionId}/cancel`, {
+        method: "POST",
+        body: { reason: cancelSub.reason, refundPrincipal: cancelSub.refundPrincipal },
+      });
+      flash("Plan cancelled (opt-out). Principal returned to wallet when enabled.");
+      setCancelSub({ subscriptionId: "", reason: "", refundPrincipal: true });
+      await loadDetail(detail.id);
+      load();
+    } catch (e2) {
+      flash("", e2.message);
+    }
+  };
+
   const resetPassword = async (e) => {
     e.preventDefault();
     if (!isSuper || !detail) return;
@@ -264,7 +303,8 @@ export default function InvestorOpsPanel() {
       <div>
         <h2 className="text-lg font-bold">Investor Management</h2>
         <p className="text-sm text-muted-foreground">
-          Create investors manually, set KYC & bank details, add/withdraw funds, assign plans, override ROI, and schedule payouts with prior notice.
+          Super Admin and Admin can manage investors on behalf: create accounts, add/edit/delete KYC, credit or debit wallet (cash/manual),
+          opt in to plans, opt out (cancel), invest, schedule withdrawals, and deposits.
         </p>
       </div>
 
@@ -492,29 +532,67 @@ export default function InvestorOpsPanel() {
                 <Field label="PAN"><input className="input" value={detail.kyc?.panNumber || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, panNumber: e.target.value } })} /></Field>
                 <Field label="Aadhaar"><input className="input" value={detail.kyc?.aadhaarNumber || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, aadhaarNumber: e.target.value } })} /></Field>
                 <Field label="KYC status">
-                  <select className="input" value={detail.kyc?.status || "APPROVED"} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, status: e.target.value } })}>
+                  <select className="input" value={detail.kyc?.status || "NOT_SUBMITTED"} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, status: e.target.value } })}>
+                    <option value="NOT_SUBMITTED">Not submitted</option>
+                    <option value="PENDING">Pending review</option>
                     <option value="APPROVED">Approved</option>
-                    <option value="PENDING">Pending</option>
                     <option value="REJECTED">Rejected</option>
                   </select>
                 </Field>
+                <Field label="Address" className="sm:col-span-2">
+                  <textarea className="input" rows={2} value={detail.kyc?.address || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, address: e.target.value } })} />
+                </Field>
               </div>
-              <button className="btn-gold">Save profile & KYC</button>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-gold" type="submit">Save profile & KYC</button>
+                {detail.kyc && (
+                  <button type="button" className="btn-outline text-rose-600" onClick={resetKyc}>
+                    Delete KYC record
+                  </button>
+                )}
+              </div>
             </form>
           )}
 
           {manageTab === "wallet" && (
             <form onSubmit={adjustWallet} className="card max-w-lg space-y-3 p-5">
-              <p className="text-sm text-muted-foreground">Add (credit) or withdraw (debit) from available, invested, or earnings bucket.</p>
+              <p className="text-sm text-muted-foreground">
+                Top-up (credit) or debit wallet for cash/manual transactions. Use Available for deposits and withdrawals.
+              </p>
+              <Field label="Transaction type">
+                <select
+                  className="input"
+                  value={walletForm.transactionType}
+                  onChange={(e) => {
+                    const t = e.target.value;
+                    const direction = t === "CASH_WITHDRAWAL" ? "DEBIT" : "CREDIT";
+                    setWalletForm({ ...walletForm, transactionType: t, direction, bucket: "available" });
+                  }}
+                >
+                  <option value="CASH_DEPOSIT">Cash deposit / top-up</option>
+                  <option value="CASH_WITHDRAWAL">Cash withdrawal / payout</option>
+                  <option value="MANUAL_ADJUSTMENT">Manual adjustment (any bucket)</option>
+                </select>
+              </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Direction">
-                  <select className="input" value={walletForm.direction} onChange={(e) => setWalletForm({ ...walletForm, direction: e.target.value })}>
+                  <select
+                    className="input"
+                    value={walletForm.direction}
+                    disabled={walletForm.transactionType !== "MANUAL_ADJUSTMENT"}
+                    onChange={(e) => setWalletForm({ ...walletForm, direction: e.target.value })}
+                  >
                     <option value="CREDIT">Add funds (+)</option>
                     <option value="DEBIT">Withdraw (−)</option>
                   </select>
                 </Field>
                 <Field label="Bucket">
-                  <select className="input" value={walletForm.bucket} onChange={(e) => setWalletForm({ ...walletForm, bucket: e.target.value })}>
+                  <select
+                    className="input"
+                    value={walletForm.bucket}
+                    disabled={walletForm.transactionType !== "MANUAL_ADJUSTMENT"}
+                    onChange={(e) => setWalletForm({ ...walletForm, bucket: e.target.value })}
+                  >
                     <option value="available">Available</option>
                     <option value="invested">Invested</option>
                     <option value="earnings">Earnings</option>
@@ -529,6 +607,7 @@ export default function InvestorOpsPanel() {
           )}
 
           {manageTab === "invest" && (
+            <div className="space-y-4">
             <form onSubmit={assignPlan} className="card max-w-lg space-y-3 p-5">
               <Field label="Investment plan">
                 <select className="input" required value={subForm.planId} onChange={(e) => setSubForm({ ...subForm, planId: e.target.value })}>
@@ -580,8 +659,48 @@ export default function InvestorOpsPanel() {
               </Field>
               <Field label="ROI override note"><input className="input" value={subForm.roiOverrideNote} onChange={(e) => setSubForm({ ...subForm, roiOverrideNote: e.target.value })} /></Field>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={subForm.skipBalanceCheck} onChange={(e) => setSubForm({ ...subForm, skipBalanceCheck: e.target.checked })} /> Skip balance check (credit wallet first if needed)</label>
-              <button className="btn-gold">Assign plan & invest</button>
+              <button className="btn-gold">Assign plan & invest (opt-in)</button>
             </form>
+
+            <div className="card max-w-lg space-y-3 p-5">
+              <h4 className="text-sm font-bold">Active plans — opt out / cancel</h4>
+              {(detail.subscriptions || []).filter((s) => s.status === "ACTIVE").length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active subscriptions.</p>
+              ) : (
+                <form onSubmit={cancelPlan} className="space-y-3">
+                  <Field label="Plan to cancel">
+                    <select
+                      className="input"
+                      required
+                      value={cancelSub.subscriptionId}
+                      onChange={(e) => setCancelSub({ ...cancelSub, subscriptionId: e.target.value })}
+                    >
+                      <option value="">Select…</option>
+                      {(detail.subscriptions || [])
+                        .filter((s) => s.status === "ACTIVE")
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.plan?.name} — {inr(s.amount)}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <Field label="Reason (optional)">
+                    <input className="input" value={cancelSub.reason} onChange={(e) => setCancelSub({ ...cancelSub, reason: e.target.value })} />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={cancelSub.refundPrincipal}
+                      onChange={(e) => setCancelSub({ ...cancelSub, refundPrincipal: e.target.checked })}
+                    />
+                    Return principal to available wallet
+                  </label>
+                  <button className="btn-outline" type="submit">Cancel plan (opt-out)</button>
+                </form>
+              )}
+            </div>
+            </div>
           )}
 
           {manageTab === "roi" && (

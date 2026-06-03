@@ -159,6 +159,8 @@ export function validateKycSections(data, files, existing, requiredSections) {
     if (!hasAadhaarDoc) {
       return { error: "Upload Aadhaar front & back, or a single Aadhaar PDF/image" };
     }
+    if (!data.selfie) return { error: "Selfie verification photo is required" };
+    if (!data.addressProof) return { error: "Address proof document is required" };
   }
 
   if (need("banking")) {
@@ -193,6 +195,18 @@ export function validateKycSections(data, files, existing, requiredSections) {
   }
 
   return null;
+}
+
+/** Investor must pass full validation before status becomes PENDING (under review). */
+export function assertInvestorKycSubmitReady(data, files, existing) {
+  const err = validateKycSections(data, files || {}, existing, KYC_SECTIONS);
+  if (err) return err;
+  return null;
+}
+
+export function isKycRecordFullySubmitted(record) {
+  if (!record) return false;
+  return assertInvestorKycSubmitReady(record, {}, record) === null;
 }
 
 /** Document fields per section for quality checks on upload */

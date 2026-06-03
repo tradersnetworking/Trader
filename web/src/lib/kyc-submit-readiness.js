@@ -51,6 +51,8 @@ export function kycSubmitReadiness({
         if (!hasDoc("panDocument")) blockers.push("PAN card document upload is required");
         const aadhaarOk = (hasDoc("aadhaarFront") && hasDoc("aadhaarBack")) || hasDoc("aadhaarDocument");
         if (!aadhaarOk) blockers.push("Aadhaar front & back (or single Aadhaar file) upload is required");
+        if (!hasDoc("selfie")) blockers.push("Selfie verification photo is required");
+        if (!hasDoc("addressProof")) blockers.push("Address proof upload is required");
       }
 
       if (editSignature) {

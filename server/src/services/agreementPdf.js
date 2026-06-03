@@ -177,7 +177,14 @@ export async function generateAgreementPDF({ template, filledData, agreementUid,
     if (signatureBase64) {
       try {
         const sigBuffer = Buffer.from(signatureBase64.replace(/^data:image\/\w+;base64,/, ""), "base64");
-        doc.image(sigBuffer, MARGIN + 8, sigBoxY + 18, { width: sigBoxW - 16, height: 36, fit: [sigBoxW - 16, 36] });
+        doc.save();
+        doc.rect(MARGIN + 8, sigBoxY + 18, sigBoxW - 16, 36).fill("#ffffff");
+        doc.image(sigBuffer, MARGIN + 8, sigBoxY + 18, {
+          width: sigBoxW - 16,
+          height: 36,
+          fit: [sigBoxW - 16, 36],
+        });
+        doc.restore();
       } catch { /* skip */ }
     }
     doc.font("Helvetica").fontSize(8).fillColor(MUTED).text(filledData.FULL_NAME || userName || "Investor", MARGIN + 8, sigBoxY + sigBoxH - 14, { lineBreak: false });

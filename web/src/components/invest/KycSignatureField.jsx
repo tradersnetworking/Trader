@@ -1,29 +1,34 @@
 import { useState } from "react";
 import SignaturePad from "./SignaturePad.jsx";
+import KycImageCaptureField from "./KycImageCaptureField.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import { KYC_ACCEPT_DOCS } from "../../lib/kyc-document-fields.js";
 
-/** KYC signature: draw on pad OR upload image/PDF */
-export default function KycSignatureField({ signatureMode, setSignatureMode, signatureData, setSignatureData, signatureFile, setSignatureFile, existingUrl }) {
+/** KYC signature: draw on pad OR upload/capture image (camera supported). */
+export default function KycSignatureField({
+  signatureMode,
+  setSignatureMode,
+  signatureData,
+  setSignatureData,
+  signatureFile,
+  setSignatureFile,
+  existingUrl,
+}) {
   const [sigErr, setSigErr] = useState("");
+  const [captureFiles, setCaptureFiles] = useState({});
 
   const onDraw = (data) => {
     setSignatureData(data);
     setSignatureFile(null);
+    setCaptureFiles({});
     setSigErr(data ? validateSignatureBase64(data) : "");
   };
 
-  const onUpload = (e) => {
-    const f = e.target.files?.[0];
+  const onCaptureFile = (f) => {
     if (!f) return;
-    if (f.size > 10 * 1024 * 1024) {
-      setSigErr("Signature file must be 10 MB or smaller");
-      return;
-    }
     setSignatureFile(f);
     setSignatureData(null);
     setSigErr("");
-    e.target.value = "";
   };
 
   return (
@@ -31,7 +36,8 @@ export default function KycSignatureField({ signatureMode, setSignatureMode, sig
       <div>
         <p className="text-sm font-bold text-foreground">Your signature *</p>
         <p className="text-xs text-muted-foreground">
-          Required for KYC and all investment agreements. Draw clearly or upload a sharp signature on white paper (JPG, PNG, or PDF).
+          Required for KYC and agreements. Draw on the pad, upload a scan, or use your camera. We keep your original
+          file and generate a clean version for PDF agreements.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -47,19 +53,34 @@ export default function KycSignatureField({ signatureMode, setSignatureMode, sig
           className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${signatureMode === "upload" ? "bg-primary/15 text-accent-tone" : "bg-muted text-muted-foreground"}`}
           onClick={() => setSignatureMode("upload")}
         >
-          Upload image / PDF
+          Upload / camera
         </button>
       </div>
       {signatureMode === "draw" ? (
         <SignaturePad onChange={onDraw} />
       ) : (
-        <div>
-          <input type="file" accept={KYC_ACCEPT_DOCS} className="input text-sm" onChange={onUpload} />
-          {signatureFile && <p className="mt-1 text-xs text-emerald-600">Selected: {signatureFile.name}</p>}
-          {existingUrl && !signatureFile && (
-            <p className="mt-1 text-xs text-muted-foreground">Current file on record (upload new to replace)</p>
-          )}
-        </div>
+        <KycImageCaptureField
+          label="Signature image"
+          hint="Sign on white paper — JPG/PNG/PDF, or capture with camera"
+          name="signatureCapture"
+          required
+          files={captureFiles}
+          setFiles={(updater) => {
+            setCaptureFiles((prev) => {
+              const next = typeof updater === "function" ? updater(prev) : updater;
+              if (next.signatureCapture) onCaptureFile(next.signatureCapture);
+              else setSignatureFile(null);
+              return next;
+            });
+          }}
+          existingUrl={existingUrl}
+          allowCamera
+          accept={KYC_ACCEPT_DOCS}
+          imageOnly={false}
+        />
+      )}
+      {signatureFile && signatureMode === "upload" && (
+        <p className="text-xs text-emerald-600">Selected: {signatureFile.name}</p>
       )}
       {sigErr && <p className="text-xs font-semibold text-rose-600">{sigErr}</p>}
     </div>

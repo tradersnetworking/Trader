@@ -66,6 +66,8 @@ import {
   completeScheduledPayout,
   cancelScheduledPayout,
   adminWalletOperation,
+  adminResetKyc,
+  adminCancelSubscription,
 } from "../services/adminInvestorOps.js";
 import {
   payReferralEarningById,
@@ -419,6 +421,39 @@ router.post(
   })
 );
 
+router.delete(
+  "/investors/:id/kyc",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const result = await adminResetKyc(req.params.id, req.user);
+      res.json(result);
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/subscriptions/:id/cancel",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    try {
+      const subscription = await adminCancelSubscription(req.params.id, req.user, {
+        reason: req.body?.reason,
+        refundPrincipal: req.body?.refundPrincipal !== false,
+      });
+      res.json({ subscription });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
 router.patch(
   "/subscriptions/:id/roi",
   authRequired(SCOPE),
@@ -673,8 +708,11 @@ router.get(
   asyncH(async (req, res) => {
     const where = req.query.status ? { status: String(req.query.status) } : {};
     const rows = await investDb.kyc.findMany({ where, include: { investor: true }, orderBy: { createdAt: "desc" } });
-    const { attachSectionReviews } = await import("../services/kycSections.js");
-    res.json({ kyc: rows.map(attachSectionReviews) });
+    const { attachSectionReviews, isKycRecordFullySubmitted } = await import("../services/kycSections.js");
+    const kyc = rows
+      .filter((r) => r.status !== "PENDING" || isKycRecordFullySubmitted(r))
+      .map(attachSectionReviews);
+    res.json({ kyc });
   })
 );
 
@@ -708,6 +746,13 @@ router.post(
     if (!["PENDING", "REJECTED"].includes(existing.status)) {
       return res.status(400).json({ error: "KYC is not open for section review" });
     }
+    const { assertInvestorKycSubmitReady } = await import("../services/kycSections.js");
+    const incomplete = assertInvestorKycSubmitReady(existing, {}, existing);
+    if (incomplete) {
+      return res.status(400).json({
+        error: "Investor has not completed full KYC submission. Cannot review until all sections and documents are present.",
+      });
+    }
     let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
     reviews = setSectionDecision(reviews, section, status, remarks);
     const nextStatus = deriveKycStatusAfterSectionReview(reviews);
@@ -739,6 +784,12 @@ router.post(
     const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (existing.status === "APPROVED") return res.status(400).json({ error: "Already approved" });
+    const { isKycRecordFullySubmitted, assertInvestorKycSubmitReady } = await import("../services/kycSections.js");
+    if (!isKycRecordFullySubmitted(existing)) {
+      return res.status(400).json({
+        error: "Investor has not completed full KYC. Cannot final-review until submission is complete.",
+      });
+    }
     if (status === "APPROVED") {
       if (!allSectionsApproved(existing)) {
         return res.status(400).json({
@@ -762,10 +813,11 @@ router.post(
     if (status === "APPROVED" && existing.investorId) {
       const { syncApprovedPayoutFromKyc } = await import("../services/investProfileApprovals.js");
       await syncApprovedPayoutFromKyc(existing.investorId, kyc);
-      const { autoSignPendingAgreementsForInvestor } = await import("../services/agreements.js");
-      await autoSignPendingAgreementsForInvestor(existing.investorId, {
+      const { autoGenerateAndSignInvestorAgreements } = await import("../services/agreements.js");
+      await autoGenerateAndSignInvestorAgreements(existing.investorId, {
         ipAddress: "kyc-approval",
         userAgent: "admin-kyc",
+        triggerEvent: "kyc_approved",
       }).catch(() => {});
     }
     if (existing.investor) {
@@ -801,10 +853,11 @@ router.post(
     if (status === "APPROVED" && existing.investorId) {
       const { syncApprovedPayoutFromKyc } = await import("../services/investProfileApprovals.js");
       await syncApprovedPayoutFromKyc(existing.investorId, kyc);
-      const { autoSignPendingAgreementsForInvestor } = await import("../services/agreements.js");
-      await autoSignPendingAgreementsForInvestor(existing.investorId, {
+      const { autoGenerateAndSignInvestorAgreements } = await import("../services/agreements.js");
+      await autoGenerateAndSignInvestorAgreements(existing.investorId, {
         ipAddress: "kyc-approval",
         userAgent: "admin-kyc",
+        triggerEvent: "kyc_approved",
       }).catch(() => {});
     }
     if (existing.investor) notifyKycDecision(existing.investor, kyc);
