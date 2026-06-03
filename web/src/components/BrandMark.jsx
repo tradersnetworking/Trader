@@ -38,6 +38,7 @@ export default function BrandMark({
   mobileBarFill = false,
   className = "",
 }) {
+  const useLogoImage = showLogoImage;
   const scale = brandSize || (compact ? "sm" : "md");
   const mobileFill = mobileBarFill && scale === "lg";
   const titleSize = investSiteTitle

@@ -122,17 +122,26 @@ const icon192 = join(outDir, "icon-192.png");
 const icon512 = join(outDir, "icon-512.png");
 const defaultTrade = join(catDir, "default-trade.webp");
 
-/** Key out near-black pixels so logos blend on the navy header (no black box). */
+/** Key out black/near-black pixels — logos sit on transparent PNGs (no black box on site). */
 async function pngWithoutBlackBox(input) {
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const px = info.width * info.height;
   for (let i = 0; i < px; i++) {
     const o = i * 4;
-    if (data[o] < 48 && data[o + 1] < 48 && data[o + 2] < 48) data[o + 3] = 0;
+    const r = data[o];
+    const g = data[o + 1];
+    const b = data[o + 2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    if (lum < 42 || (r < 72 && g < 72 && b < 72)) data[o + 3] = 0;
   }
   return sharp(Buffer.from(data), {
     raw: { width: info.width, height: info.height, channels: 4 },
   });
+}
+
+async function writeTransparentPng(pipeline, dest, w, h) {
+  const buf = await pipeline.resize(w, h, { fit: "inside" }).png().toBuffer();
+  await sharp(buf).trim({ threshold: 10 }).png().toFile(dest);
 }
 
 function writeIcoFromPng(pngPath, icoPath) {
@@ -159,7 +168,7 @@ async function buildMainBrandAssets() {
     const h = meta.height || 1024;
 
     const mainFullPipeline = await pngWithoutBlackBox(SOURCE_MAIN_LOGO);
-    await mainFullPipeline.resize(320, 400, { fit: "inside" }).png().toFile(mainFull);
+    await writeTransparentPng(mainFullPipeline, mainFull, 320, 400);
 
     const markSide = Math.min(w, Math.round(h * 0.52));
     const left = Math.max(0, Math.round((w - markSide) / 2));
@@ -167,8 +176,8 @@ async function buildMainBrandAssets() {
       .extract({ left, top: 0, width: markSide, height: markSide })
       .toBuffer();
     const mainMarkPipeline = await pngWithoutBlackBox(cropped);
-    await mainMarkPipeline.resize(512, 512, { fit: "inside" }).png().toFile(mainMark);
-    console.log("Main brand assets from akshaya-exim-logo.png");
+    await writeTransparentPng(mainMarkPipeline, mainMark, 512, 512);
+    console.log("Main marketplace assets (akshaya-exim-logo.png, transparent)");
   } else {
     await writeSvgPng(logoSvg(), mainFull, 960, 240);
     await writeSvgPng(logoSvg({ compact: true }), mainMark, 512, 512);
@@ -205,7 +214,7 @@ async function buildInvestBrandAssets() {
   const h = meta.height || 1024;
 
   const investFullPipeline = await pngWithoutBlackBox(SOURCE_INVEST_LOGO);
-  await investFullPipeline.resize(300, 400, { fit: "inside" }).png().toFile(investFull);
+  await writeTransparentPng(investFullPipeline, investFull, 300, 400);
 
   const markSide = Math.min(w, Math.round(h * 0.48));
   const left = Math.max(0, Math.round((w - markSide) / 2));
@@ -213,7 +222,7 @@ async function buildInvestBrandAssets() {
     .extract({ left, top: 0, width: markSide, height: markSide })
     .toBuffer();
   const investMarkPipeline = await pngWithoutBlackBox(cropped);
-  await investMarkPipeline.resize(512, 512, { fit: "inside" }).png().toFile(investMark);
+  await writeTransparentPng(investMarkPipeline, investMark, 512, 512);
 
   const markBuf = await sharp(investMark).toBuffer();
   const investFavicon = join(outDir, "favicon-invest.png");
@@ -229,7 +238,7 @@ async function buildInvestBrandAssets() {
   const publicRoot = join(root, "public");
   copyFileSync(investFavicon, join(publicRoot, "favicon-invest.png"));
   copyFileSync(join(outDir, "favicon-invest.ico"), join(publicRoot, "favicon-invest.ico"));
-  console.log("Invest brand assets from akshaya-investments-logo.png");
+  console.log("Invest portal assets (akshaya-investments-logo.png, transparent — not used on main site)");
   return true;
 }
 

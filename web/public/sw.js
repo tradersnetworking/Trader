@@ -1,4 +1,4 @@
-const CACHE = "aex-invest-v15";
+const CACHE = "aex-invest-v16";
 const SHELL = [
   "/assets/favicon-invest.png",
   "/assets/favicon-invest.ico",

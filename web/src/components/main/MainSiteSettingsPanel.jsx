@@ -13,7 +13,7 @@ const FIELDS = [
   { key: "main_seo_description", label: "Meta description", type: "textarea" },
   { key: "main_seo_keywords", label: "Meta keywords (comma-separated)", type: "textarea" },
   { key: "main_seo_canonical_url", label: "Canonical site URL", hint: "e.g. https://akshayaexim.com" },
-  { key: "main_seo_og_image", label: "Open Graph image path", hint: "e.g. /assets/logo.png" },
+  { key: "main_seo_og_image", label: "Open Graph image path", hint: "e.g. /assets/logo-main.png" },
   { key: "main_json_ld_description", label: "Structured data description", type: "textarea" },
   { section: "Analytics" },
   { key: "main_ga4_measurement_id", label: "Google Analytics 4 Measurement ID", hint: "e.g. G-XXXXXXXXXX" },
