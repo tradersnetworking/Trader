@@ -26,6 +26,8 @@ export default function BrandMark({
   /** main | invest — which logo files to load. */
   brand = "main",
   subtitle,
+  /** Main marketplace tagline in gold (header / hero on dark backgrounds). */
+  subtitleGold = false,
   onDark = false,
   compact = false,
   /** Invest header scale: sm (sidebar) | md (desktop bar) | lg (mobile top bar). */
@@ -65,8 +67,8 @@ export default function BrandMark({
   const logoBrand = investFullLogo || investSiteTitle ? "invest" : brand;
   const useBeside = !investFullLogo && (titleBesideLogo || !fullLogo);
   const showSubtitle = subtitle && !(compact && !mobileFill);
-  const taglineClass = `truncate text-[8px] uppercase tracking-[0.14em] sm:text-[9px] ${
-    onDark ? "text-slate-300" : "text-muted-foreground"
+  const taglineClass = `truncate text-[8px] font-semibold uppercase tracking-[0.14em] sm:text-[9px] ${
+    subtitleGold ? "gold-text" : onDark ? "text-slate-300" : "text-muted-foreground"
   }`;
   const fullLogoClass = investFullLogo
     ? mobileFill

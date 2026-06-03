@@ -50,6 +50,7 @@ export function MainAuthMobileBrand() {
         brandSize="lg"
         titleBesideLogo
         subtitle={MAIN_SITE_TAGLINE}
+        subtitleGold
         onDark
       />
     </div>

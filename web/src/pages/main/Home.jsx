@@ -62,6 +62,7 @@ export default function Home() {
                 titleBesideLogo
                 brandSize="hero"
                 subtitle={MAIN_SITE_TAGLINE}
+                subtitleGold
                 onDark
                 className="mb-4"
               />

@@ -46,6 +46,7 @@ function Shell({
         line1Silver,
         line2Gold: true,
         subtitle: brandSub,
+        subtitleGold: Boolean(brandSub),
         onDark: true,
         brand: "main",
         showLogoImage: mainSiteHeader && showLogoImage,
