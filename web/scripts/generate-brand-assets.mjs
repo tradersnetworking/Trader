@@ -231,9 +231,15 @@ async function buildInvestBrandAssets() {
     await sharp(markBuf).resize(size, size).png().toFile(join(outDir, `favicon-invest-${size}.png`));
   }
   writeIcoFromPng(investFavicon, join(outDir, "favicon-invest.ico"));
-  await sharp(markBuf).resize(180, 180).png().toFile(join(outDir, "apple-touch-icon-invest.png"));
-  await sharp(markBuf).resize(192, 192).png().toFile(join(outDir, "icon-invest-192.png"));
-  await sharp(markBuf).resize(512, 512).png().toFile(join(outDir, "icon-invest-512.png"));
+  const logoBuf = await sharp(investFull).toBuffer();
+  const pwaIcon = (size, name) =>
+    sharp(logoBuf)
+      .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toFile(join(outDir, name));
+  await pwaIcon(180, "apple-touch-icon-invest.png");
+  await pwaIcon(192, "icon-invest-192.png");
+  await pwaIcon(512, "icon-invest-512.png");
 
   const publicRoot = join(root, "public");
   copyFileSync(investFavicon, join(publicRoot, "favicon-invest.png"));

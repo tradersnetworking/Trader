@@ -44,4 +44,4 @@ In **Admin → Settings**, set:
 
 ## PWA fallback
 
-Users can also install via Chrome **Add to Home screen** using `manifest.webmanifest`.
+Users can also install via Chrome **Add to Home screen** on **invest.akshayaexim.com** only (`manifest.invest.webmanifest`, icons from the AKSHAYA INVESTMENTS site logo). The main marketplace site does not offer a PWA install.

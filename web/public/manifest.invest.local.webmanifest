@@ -1,10 +1,10 @@
 {
-  "id": "akshaya-investments",
+  "id": "akshaya-investments-local",
   "name": "AKSHAYA INVESTMENTS",
   "short_name": "AKSHAYA Invest",
   "description": "Investment plans with transparent monthly returns — AKSHAYA INVESTMENTS",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "start_url": "/invest/?source=pwa",
+  "scope": "/invest/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

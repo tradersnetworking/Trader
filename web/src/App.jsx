@@ -158,7 +158,7 @@ function SiteClassSync() {
     applySiteRootClass(mode);
 
     configurePortalPwa(mode);
-    if (mode === "invest") registerInvestServiceWorker();
+    if (mode === "invest") registerInvestServiceWorker(mode);
     else unregisterServiceWorker();
 
   }, [mode]);

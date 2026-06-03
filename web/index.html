@@ -5,8 +5,12 @@
     <script>
       (function () {
         var h = (location.hostname || "").toLowerCase().replace(/^www\./, "");
+        var p = location.pathname || "/";
+        var isInvestHost = h.startsWith("invest.");
+        var isInvestPath = p === "/invest" || p.indexOf("/invest/") === 0;
+        var isInvest = isInvestHost || isInvestPath;
         var root = document.documentElement;
-        if (h.startsWith("invest.")) {
+        if (isInvest) {
           root.classList.add("site-invest");
           root.classList.remove("site-main");
           window.__aexSwCleanup = Promise.resolve();
@@ -53,11 +57,11 @@
               for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) el.setAttribute(k, extra[k]);
             }
           }
-          setLink("manifest", "/manifest.invest.webmanifest");
-          setLink("icon", "/assets/favicon-invest.ico", { sizes: "any" });
-          setLink("shortcut icon", "/assets/favicon-invest.png", { type: "image/png" });
+          setLink("manifest", isInvestHost ? "/manifest.invest.webmanifest" : "/manifest.invest.local.webmanifest");
+          setLink("icon", "/assets/icon-invest-192.png", { type: "image/png", sizes: "192x192" });
           setLink("apple-touch-icon", "/assets/apple-touch-icon-invest.png", { sizes: "180x180" });
           setMeta("name", "theme-color", "#000000");
+          window.__aexSwCleanup = Promise.resolve();
         } else {
           root.classList.add("site-main");
           root.classList.remove("site-invest");
