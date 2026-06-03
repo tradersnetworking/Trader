@@ -149,18 +149,17 @@ export default function InvestDashboardShell({
       >
         {collapsed && !mobile ? (
           <Link to={role === "admin" ? investPath("/admin") : investPath("/dashboard")} className="block">
-            <Logo variant="mark" className="h-10 w-10" />
+            <Logo brand="invest" variant="mark" className="h-10 w-10" />
           </Link>
         ) : (
           <>
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
+              showLogoImage
               brandSize={mobile ? "lg" : "md"}
               subtitle={role === "admin" ? "Admin Portal" : "Investor Portal"}
-              fullLogo={false}
-              titleBesideLogo
-              className="min-w-0 flex-1"
+              className="min-w-0 flex-1 overflow-hidden"
             />
             {mobile && onClose && (
               <button
@@ -309,10 +308,9 @@ export default function InvestDashboardShell({
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
+              showLogoImage
               brandSize="lg"
               mobileBarFill
-              fullLogo={false}
-              titleBesideLogo
               className="w-full"
             />
           </div>
@@ -328,10 +326,9 @@ export default function InvestDashboardShell({
             <BrandMark
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
+              showLogoImage
               brandSize="md"
-              fullLogo={false}
-              titleBesideLogo
-              className="hidden shrink-0 md:flex"
+              className="hidden min-w-0 shrink-0 md:flex"
             />
             <div className="hidden min-w-0 flex-1 overflow-hidden xl:block">
               <h1 className="page-title truncate">{pageTitle}</h1>

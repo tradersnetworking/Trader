@@ -4,7 +4,7 @@ const SIZE_CLASSES = {
   sm: "text-xs sm:text-sm",
   mobile: "text-sm leading-none sm:text-base",
   /** Fills mobile header width; height kept tight via leading-none + clamp. */
-  mobileBar: "text-[clamp(1.0625rem,5.25vw,1.5rem)] leading-none tracking-tight",
+  mobileBar: "text-[clamp(0.75rem,3.8vw,1.125rem)] leading-none tracking-tight",
   default: "text-sm sm:text-base md:text-lg",
   lg: "text-base sm:text-lg md:text-xl",
   hero: "text-base leading-none sm:text-lg sm:leading-tight md:text-xl lg:text-2xl",

@@ -20,10 +20,9 @@ export default function AuthBrandPanel() {
         <BrandMark
           to={investPath("")}
           investSiteTitle
+          showLogoImage
           brandSize="md"
           onDark
-          fullLogo={false}
-          titleBesideLogo
           className="mb-8"
         />
         <p className="text-xl font-light leading-relaxed text-slate-300">
@@ -48,9 +47,8 @@ export function AuthMobileBrand() {
       <BrandMark
         to={investPath("")}
         investSiteTitle
+        showLogoImage
         brandSize="lg"
-        fullLogo={false}
-        titleBesideLogo
         subtitle="Investment Portal"
       />
     </div>

@@ -196,14 +196,7 @@ export function InvestLandingHero({ cms, invest }) {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.12)_0,transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-4 py-12 text-center sm:py-16 md:py-20">
         <div className="mx-auto mb-4 flex justify-center sm:mb-6">
-          <BrandMark
-            to={investPath("")}
-            investSiteTitle
-            brandSize="hero"
-            onDark
-            fullLogo={false}
-            titleBesideLogo
-          />
+          <BrandMark to={investPath("")} investFullLogo brandSize="hero" onDark className="mx-auto" />
         </div>
         <span className="badge border border-amber-500/40 bg-amber-500/10 text-amber-300">
           {t("home.heroBadge")}

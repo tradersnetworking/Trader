@@ -18,7 +18,7 @@ export default function MainAuthBrandPanel() {
       <div className="absolute -bottom-24 -right-24 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl" />
       <div className="relative z-10 max-w-lg">
         <Link to="/" className="mb-8 block no-underline">
-          <Logo variant="full" className="mb-6 h-24 w-auto max-w-[280px] lg:h-32 lg:max-w-[340px]" />
+          <Logo brand="main" variant="full" className="mb-6 max-h-28 w-auto max-w-[min(100%,320px)] object-contain lg:max-h-32" />
         </Link>
         <p className="text-xl font-light leading-relaxed text-slate-300">
           Global export & import of agricultural products, FMCG, metals, chemicals, medical supplies, and industrial goods — B2B and B2C across India and abroad.
@@ -39,7 +39,15 @@ export default function MainAuthBrandPanel() {
 export function MainAuthMobileBrand() {
   return (
     <div className="mb-4 flex justify-center md:hidden">
-      <BrandMark to="/" subtitle="Global Export & Import" />
+      <BrandMark
+        to="/"
+        line1="Akshaya"
+        line2="EXIM TRADERS"
+        showLogoImage
+        brand="main"
+        brandSize="lg"
+        titleBesideLogo
+      />
     </div>
   );
 }

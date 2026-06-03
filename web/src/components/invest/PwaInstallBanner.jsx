@@ -41,11 +41,11 @@ export default function PwaInstallBanner() {
     >
       <div className="flex items-start gap-2.5">
         <img
-          src="/assets/logo-mark.png"
+          src="/assets/logo-invest.png"
           alt=""
           width={36}
           height={36}
-          className="h-9 w-9 shrink-0 rounded-lg object-contain bg-black"
+          className="h-9 w-9 shrink-0 rounded-lg object-contain"
         />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-foreground">Install {BRAND_INVEST}</p>

@@ -9,7 +9,7 @@ export default function InvestFooter() {
     <footer className="hero-gradient mt-12 text-slate-300">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-1">
-          <Logo className="h-16 w-auto max-w-[9rem] sm:h-20 sm:max-w-[11rem]" variant="full" />
+          <Logo brand="invest" className="h-20 w-auto max-w-[11rem] object-contain sm:h-24 sm:max-w-[13rem]" variant="full" />
           <p className="mt-3 text-sm">
             Transparent investment plans with secure capital and consistent monthly returns in INR.
           </p>

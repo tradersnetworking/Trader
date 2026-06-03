@@ -57,23 +57,33 @@ export function UserAvatar({ user, size = 36, className = "" }) {
 
 
 
-export function Logo({ className, variant = "full" }) {
+export function Logo({ className, variant = "full", brand = "main" }) {
   const useMark = variant === "mark";
-  const src = useMark ? "/assets/logo-mark.png" : "/assets/logo.png";
+  const pack = brand === "invest" ? "invest" : "main";
+  const src = useMark
+    ? pack === "invest"
+      ? "/assets/logo-invest-mark.png"
+      : "/assets/logo-main-mark.png"
+    : pack === "invest"
+      ? "/assets/logo-invest.png"
+      : "/assets/logo-main.png";
+  const alt = pack === "invest" ? "AKSHYA INVESTMENTS" : "AKASHYA EXIM TRADERS";
   const defaultClass = useMark
     ? "h-9 w-9 sm:h-10 sm:w-10"
-    : "h-14 w-auto max-w-[9rem] sm:h-16 sm:max-w-[10rem]";
+    : pack === "invest"
+      ? "h-14 w-auto max-w-[10rem] object-contain sm:h-16 sm:max-w-[11rem]"
+      : "h-14 w-auto max-w-[9rem] sm:h-16 sm:max-w-[10rem]";
   const sizeClass = className || defaultClass;
 
   return (
-    <span className={`brand-logo-wrap shrink-0 ${useMark ? "inline-flex" : ""}`}>
+    <span className={`brand-logo-wrap shrink-0 ${useMark ? "inline-flex" : "inline-flex items-center"}`}>
       <img
         src={src}
-        alt="AKSHYA INVESTMENTS"
-        className={`brand-logo ${sizeClass}`}
+        alt={alt}
+        className={`brand-logo object-contain ${sizeClass}`}
         draggable={false}
-        width={useMark ? 40 : 180}
-        height={useMark ? 40 : 72}
+        width={useMark ? 40 : pack === "invest" ? 160 : 180}
+        height={useMark ? 40 : pack === "invest" ? 120 : 72}
       />
     </span>
   );

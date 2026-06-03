@@ -2,8 +2,8 @@ const CACHE = "aex-invest-v15";
 const SHELL = [
   "/assets/favicon-invest.png",
   "/assets/favicon-invest.ico",
-  "/assets/logo.png",
-  "/assets/logo-mark.png",
+  "/assets/logo-invest.png",
+  "/assets/logo-invest-mark.png",
   "/assets/icon-invest-192.png",
   "/assets/icon-invest-512.png",
   "/assets/apple-touch-icon-invest.png",

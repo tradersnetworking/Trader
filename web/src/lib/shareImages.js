@@ -2,7 +2,8 @@
 
 import { productImageUrl } from "./img.js";
 
-export const SITE_LOGO_IMAGE = "/assets/logo.png";
+export const SITE_LOGO_IMAGE = "/assets/logo-main.png";
+export const INVEST_LOGO_IMAGE = "/assets/logo-invest.png";
 export const MAIN_DEFAULT_SHARE_IMAGE = "/assets/categories/default-trade.webp";
 export const INVEST_PLANS_SHARE_IMAGE = "/assets/share/invest-plans.png";
 

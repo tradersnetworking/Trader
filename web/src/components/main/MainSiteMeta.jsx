@@ -132,7 +132,7 @@ export default function MainSiteMeta() {
       document.head.appendChild(ld);
     }
     const orgName = page.siteName || "AKSHAYA EXIM TRADERS";
-    const logo = page.image?.startsWith("http") ? page.image : `${canonicalBase}/assets/logo.png`;
+    const logo = page.image?.startsWith("http") ? page.image : `${canonicalBase}/assets/logo-main.png`;
     const graph = [
       {
         "@type": "Organization",

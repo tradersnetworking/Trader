@@ -16,24 +16,48 @@ import { MAIN_SUPPORT_PHONE, MAIN_SUPPORT_PHONE_TEL } from "../lib/mainContact.j
 import { investHash, investPath } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
-function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, investSiteTitle = false }) {
+function Shell({
+  homeTo,
+  brandLine1,
+  brandLine2,
+  brandSub,
+  links,
+  actions,
+  investSiteTitle = false,
+  mainSiteHeader = false,
+  showLogoImage = false,
+  line1Silver = false,
+}) {
   const [open, setOpen] = useState(false);
 
   const brandProps = investSiteTitle
-    ? { investSiteTitle: true, subtitle: brandSub, onDark: true, fullLogo: false, titleBesideLogo: true }
+    ? {
+        investSiteTitle: true,
+        showLogoImage,
+        subtitle: brandSub,
+        onDark: true,
+        fullLogo: false,
+        titleBesideLogo: true,
+      }
     : {
         line1: brandLine1,
         line2: brandLine2,
+        line1Silver,
+        line2Gold: true,
         subtitle: brandSub,
         onDark: true,
-        fullLogo: !investSiteTitle,
-        titleBesideLogo: investSiteTitle,
+        brand: "main",
+        showLogoImage: mainSiteHeader && showLogoImage,
+        fullLogo: false,
+        titleBesideLogo: true,
       };
+
+  const mobileBrandBar = investSiteTitle || mainSiteHeader;
 
   return (
     <header className="hero-gradient sticky top-0 z-50 overflow-x-clip overflow-y-visible text-white shadow-md [&_a]:text-inherit">
-      {/* Mobile — invest: mark + site title in one row above nav icons */}
-      {investSiteTitle && (
+      {/* Mobile — invest: full logo or mark + title above nav icons */}
+      {mobileBrandBar && (
         <div className="border-b border-white/10 md:hidden">
           <div className="mx-auto w-full max-w-7xl px-2 py-1.5">
             <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full" />
@@ -52,21 +76,21 @@ function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, inves
               <path d="M3 6h18M3 12h18M3 18h18" />
             </svg>
           </button>
-          {!investSiteTitle && (
+          {!mobileBrandBar && (
             <BrandMark
               to={homeTo}
               line1={brandLine1}
               line2={brandLine2}
               subtitle={brandSub}
               onDark
+              brand="main"
               compact
               fullLogo={false}
               titleBesideLogo
-              grow
-              className="min-w-0 flex-1"
+              className="min-w-0 flex-1 overflow-hidden"
             />
           )}
-          {investSiteTitle && <div className="min-w-0 flex-1" />}
+          {mobileBrandBar && <div className="min-w-0 flex-1" />}
           <ThemeToggle compact />
           <LanguageSelector compact variant="onDark" />
           <div className="flex shrink-0 items-center gap-1">{actions}</div>
@@ -84,9 +108,9 @@ function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, inves
       <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-3 md:flex lg:px-6">
         <BrandMark
           to={homeTo}
-          brandSize={investSiteTitle ? "md" : undefined}
+          brandSize={mobileBrandBar ? "md" : undefined}
           {...brandProps}
-          className={investSiteTitle ? "max-w-[min(100%,18rem)]" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
+          className={mobileBrandBar ? "max-w-[min(100%,20rem)]" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
         />
         <nav className="flex items-center gap-5">{links}</nav>
         <div className="flex shrink-0 items-center gap-2">
@@ -158,9 +182,12 @@ export function MarketplaceLayout({ children }) {
     <div className="app-shell site-main-shell overflow-x-clip">
       <Shell
         homeTo="/"
-        brandLine1="AKSHAYA Exim"
-        brandLine2="Traders"
-        brandSub="Global Export & Import"
+        mainSiteHeader
+        showLogoImage
+        brandLine1="Akshaya"
+        brandLine2="EXIM TRADERS"
+        brandSub=""
+        line1Silver
         links={links}
         actions={actions}
       />
@@ -225,6 +252,7 @@ export function InvestLayout({ children }) {
       <Shell
         homeTo={home}
         investSiteTitle
+        showLogoImage
         brandSub=""
         links={links}
         actions={actions}
@@ -244,7 +272,7 @@ function MarketplaceFooter() {
     <footer className="hero-gradient mt-12 text-slate-300">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Logo className="h-16 w-auto max-w-[9rem] sm:h-20 sm:max-w-[11rem]" variant="full" />
+          <Logo brand="main" className="h-16 w-auto max-w-[9rem] sm:h-20 sm:max-w-[11rem]" variant="full" />
           <p className="mt-3 text-sm">
             Global export & import of agricultural products, FMCG, chemicals, machinery, metals, medical supplies,
             textiles & more. B2B & B2C trade across India and abroad.

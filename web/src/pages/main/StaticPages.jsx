@@ -18,7 +18,7 @@ export function StaticPage({ title, children, showLogo = true }) {
     <div className="mx-auto max-w-4xl px-4 py-10">
       {showLogo && (
         <Link to="/" className="mb-6 inline-block">
-          <Logo variant="full" className="h-16 w-auto max-w-[10rem] sm:h-20 sm:max-w-[12rem]" />
+          <Logo brand="main" variant="full" className="h-16 w-auto max-w-[10rem] sm:h-20 sm:max-w-[12rem]" />
         </Link>
       )}
       <h1 className="text-3xl font-extrabold text-navy">{title}</h1>
