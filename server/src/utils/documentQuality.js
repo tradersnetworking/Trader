@@ -72,6 +72,7 @@ export const KYC_DOC_LABELS = {
   aadhaarBack: "Aadhaar back",
   aadhaarDocument: "Aadhaar document",
   passportDocument: "Passport",
+  driversLicenseDocument: "Driving licence",
   addressProof: "Address proof",
   selfie: "Selfie verification",
   signature: "Signature image",

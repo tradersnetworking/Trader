@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { KYC_ACCEPT_IMAGE, validateKycFile, filenameFromUrl } from "../../lib/kyc-document-fields.js";
+import { KYC_ACCEPT_IMAGE, KYC_ACCEPT_DOCS, validateKycFile, filenameFromUrl } from "../../lib/kyc-document-fields.js";
 import CameraCaptureModal from "./CameraCaptureModal.jsx";
 
 /**
@@ -37,7 +37,7 @@ export default function KycImageCaptureField({
 
   const applyFile = (f) => {
     if (!f) return;
-    const err = validateKycFile(f, { imageOnly: true });
+    const err = validateKycFile(f, { imageOnly });
     if (err) {
       setLocalErr(err);
       return;

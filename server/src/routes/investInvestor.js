@@ -394,6 +394,7 @@ router.post(
     { name: "passbookDocument" },
     { name: "bankStatementDocument" },
     { name: "passportDocument" },
+    { name: "driversLicenseDocument" },
   ]),
   asyncH(async (req, res) => {
     const b = req.body;
@@ -440,6 +441,7 @@ router.post(
       passbookDocument: "passbookDocument",
       bankStatementDocument: "bankStatementDocument",
       passportDocument: "passportDocument",
+      driversLicenseDocument: "driversLicenseDocument",
     };
     for (const [field, key] of Object.entries(fileMap)) {
       if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);
@@ -546,6 +548,7 @@ router.post(
     { name: "passbookDocument" },
     { name: "bankStatementDocument" },
     { name: "passportDocument" },
+    { name: "driversLicenseDocument" },
   ]),
   asyncH(async (req, res) => {
     const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
@@ -582,6 +585,7 @@ router.post(
       passbookDocument: "passbookDocument",
       bankStatementDocument: "bankStatementDocument",
       passportDocument: "passportDocument",
+      driversLicenseDocument: "driversLicenseDocument",
     };
     for (const [field, key] of Object.entries(fileMap)) {
       if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);

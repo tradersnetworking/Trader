@@ -31,7 +31,7 @@ export function initKycForm(kyc) {
     pincode: kyc?.pincode || "",
     country: kyc?.country || "India",
     address: kyc?.address || "",
-    idType: kyc?.idType || "PAN",
+    idType: ["PASSPORT", "DRIVERS_LICENSE"].includes(kyc?.idType) ? kyc.idType : "PASSPORT",
     idNumber: kyc?.idNumber || "",
     panNumber: kyc?.panNumber || "",
     aadhaarNumber: kyc?.aadhaarNumber || "",

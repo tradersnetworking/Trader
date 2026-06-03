@@ -53,6 +53,14 @@ export function kycSubmitReadiness({
         if (!aadhaarOk) blockers.push("Aadhaar front & back (or single Aadhaar file) upload is required");
         if (!hasDoc("selfie")) blockers.push("Selfie verification photo is required");
         if (!hasDoc("addressProof")) blockers.push("Address proof upload is required");
+        if (form.idType === "PASSPORT") {
+          if (!String(form.idNumber || "").trim()) blockers.push("Passport number is required");
+          if (!hasDoc("passportDocument")) blockers.push("Passport document upload is required");
+        }
+        if (form.idType === "DRIVERS_LICENSE") {
+          if (!String(form.idNumber || "").trim()) blockers.push("Driving licence number is required");
+          if (!hasDoc("driversLicenseDocument")) blockers.push("Driving licence document upload is required");
+        }
       }
 
       if (editSignature) {

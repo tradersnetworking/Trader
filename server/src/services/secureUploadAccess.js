@@ -19,6 +19,7 @@ const KYC_FILE_FIELDS = [
   "aadhaarBack",
   "aadhaarDocument",
   "passportDocument",
+  "driversLicenseDocument",
   "addressProof",
   "selfie",
   "signature",

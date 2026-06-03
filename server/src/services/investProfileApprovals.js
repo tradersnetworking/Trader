@@ -51,7 +51,7 @@ const REVISION_SCALAR_FIELDS = [
   "bankName", "bankAccount", "ifscCode", "branchName", "upiId", "bankProofType",
   "panDocument", "aadhaarFront", "aadhaarBack", "aadhaarDocument", "photo", "selfie",
   "addressProof", "signature", "signatureData", "signatureMethod", "cancelledCheque",
-  "passbookDocument", "bankStatementDocument", "passportDocument",
+  "passbookDocument", "bankStatementDocument", "passportDocument", "driversLicenseDocument",
 ];
 
 export async function applyKycRevision(revision) {

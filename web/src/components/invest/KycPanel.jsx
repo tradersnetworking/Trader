@@ -61,16 +61,10 @@ const STEPS = [
 
 
 
-const ID_TYPES = [
-
-  { value: "PAN", label: "PAN Card" },
-
-  { value: "AADHAAR", label: "Aadhaar Card" },
-
+/** Additional government ID (PAN + Aadhaar are always required separately). */
+const PRIMARY_ID_TYPES = [
   { value: "PASSPORT", label: "Passport" },
-
-  { value: "DRIVERS_LICENSE", label: "Driver's License" },
-
+  { value: "DRIVERS_LICENSE", label: "Driving Licence" },
 ];
 
 
@@ -744,7 +738,9 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <KycImageCaptureField
                     label="Aadhaar Front *"
+                    hint="Required unless you upload a single combined Aadhaar file below"
                     name="aadhaarFront"
+                    required
                     files={files}
                     setFiles={setFiles}
                     existingUrl={kyc?.aadhaarFront}
@@ -752,7 +748,9 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
                   />
                   <KycImageCaptureField
                     label="Aadhaar Back *"
+                    hint="Required unless you upload a single combined Aadhaar file below"
                     name="aadhaarBack"
+                    required
                     files={files}
                     setFiles={setFiles}
                     existingUrl={kyc?.aadhaarBack}
@@ -762,7 +760,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 <KycImageCaptureField
                   label="Aadhaar (single file alternative)"
-                  hint="Or one combined Aadhaar PDF/image instead of front & back"
+                  hint="Or one combined Aadhaar PDF/image instead of front & back (mandatory if front/back not uploaded)"
                   name="aadhaarDocument"
                   files={files}
                   setFiles={setFiles}
@@ -772,11 +770,26 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
                 {form.idType === "PASSPORT" && (
                   <KycImageCaptureField
-                    label="Passport Document"
+                    label="Passport Document *"
+                    hint="Upload the photo page of your passport"
                     name="passportDocument"
+                    required
                     files={files}
                     setFiles={setFiles}
                     existingUrl={kyc?.passportDocument}
+                    allowCamera
+                  />
+                )}
+
+                {form.idType === "DRIVERS_LICENSE" && (
+                  <KycImageCaptureField
+                    label="Driving Licence Document *"
+                    hint="Upload front and back of your driving licence (image or PDF)"
+                    name="driversLicenseDocument"
+                    required
+                    files={files}
+                    setFiles={setFiles}
+                    existingUrl={kyc?.driversLicenseDocument}
                     allowCamera
                   />
                 )}

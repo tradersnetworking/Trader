@@ -6,6 +6,7 @@ export const KYC_DOCUMENT_FIELDS = [
   { key: "aadhaarBack", label: "Aadhaar Back" },
   { key: "aadhaarDocument", label: "Aadhaar (single PDF/image)" },
   { key: "passportDocument", label: "Passport Document" },
+  { key: "driversLicenseDocument", label: "Driving Licence" },
   { key: "addressProof", label: "Address Proof" },
   { key: "selfie", label: "Selfie (holding ID beside face)", imageOnly: true },
   { key: "signature", label: "Signature" },

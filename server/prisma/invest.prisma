@@ -215,6 +215,7 @@ model Kyc {
   aadhaarFront  String?
   aadhaarBack   String?
   passportDocument String?
+  driversLicenseDocument String?
   addressProof  String?
   photo         String?
   selfie        String?
@@ -285,6 +286,7 @@ model KycRevision {
   passbookDocument String?
   bankStatementDocument String?
   passportDocument String?
+  driversLicenseDocument String?
   status        String   @default("PENDING")
   remarks       String?
   reviewedAt    DateTime?

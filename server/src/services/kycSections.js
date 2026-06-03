@@ -161,6 +161,14 @@ export function validateKycSections(data, files, existing, requiredSections) {
     }
     if (!data.selfie) return { error: "Selfie verification photo is required" };
     if (!data.addressProof) return { error: "Address proof document is required" };
+    const idType = String(data.idType || "PASSPORT").toUpperCase();
+    if (idType === "PASSPORT") {
+      if (!String(data.idNumber || "").trim()) return { error: "Passport number is required" };
+      if (!data.passportDocument) return { error: "Passport document upload is required" };
+    } else if (idType === "DRIVERS_LICENSE") {
+      if (!String(data.idNumber || "").trim()) return { error: "Driving licence number is required" };
+      if (!data.driversLicenseDocument) return { error: "Driving licence document upload is required" };
+    }
   }
 
   if (need("banking")) {
@@ -241,7 +249,7 @@ const PERSONAL_SCALAR = [
 
 const IDENTITY_SCALAR = [
   "idType", "idNumber", "panNumber", "aadhaarNumber", "taxId",
-  "panDocument", "aadhaarDocument", "aadhaarFront", "aadhaarBack", "passportDocument",
+  "panDocument", "aadhaarDocument", "aadhaarFront", "aadhaarBack", "passportDocument", "driversLicenseDocument",
   "addressProof", "photo", "selfie",
 ];
 
