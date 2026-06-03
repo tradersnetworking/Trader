@@ -6,42 +6,52 @@
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-/** Domains commonly used for product imagery in India trade listings. */
+/** B2B listing sources for India wholesale imagery & pricing. */
 export const MARKETPLACE_SITES = [
-  "tradeindia.com",
   "indiamart.com",
-  "exportersindia.com",
   "dir.indiamart.com",
-  "udaan.com",
-  "alibaba.com",
-  "bigbasket.com",
+  "tradeindia.com",
+  "exportersindia.com",
 ];
+
+export function isMarketplaceHost(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    return MARKETPLACE_SITES.some((s) => host === s || host.endsWith(`.${s}`));
+  } catch {
+    return false;
+  }
+}
+
+export function filterMarketplaceUrls(urls) {
+  return (urls || []).filter(isMarketplaceHost);
+}
 
 export function buildProductImageQueries(productName, subCategory = "") {
   const base = String(productName || "").trim();
   const sub = String(subCategory || "").trim();
   const short = base.split(/[(&,/]/)[0].trim();
-  const queries = [];
-  for (const site of MARKETPLACE_SITES.slice(0, 5)) {
-    queries.push(`site:${site} ${base} product`);
-    if (sub) queries.push(`site:${site} ${short} ${sub}`);
+  const queries = [
+    `site:indiamart.com ${base} product image`,
+    `site:tradeindia.com ${base} product photo`,
+    `site:exportersindia.com ${base} wholesale`,
+  ];
+  if (sub) {
+    queries.push(`site:indiamart.com ${short} ${sub}`);
+    queries.push(`site:tradeindia.com ${short} ${sub}`);
   }
-  queries.push(`${base} wholesale product India export`);
-  queries.push(`${short} ${sub} bulk commodity photo`.trim());
-  queries.push(`${base} product packshot`);
   return [...new Set(queries.filter(Boolean))];
 }
 
 export function buildWebPriceQueries(productName, unit, categoryName = "") {
   const base = String(productName || "").trim();
-  const queries = [
-    `${base} wholesale price India INR ${unit}`,
-    `site:indiamart.com ${base} price`,
+  return [
+    `site:indiamart.com ${base} price ${unit}`,
     `site:tradeindia.com ${base} price per ${unit}`,
-    `site:exportersindia.com ${base} export price`,
-    `${base} bulk rate ${categoryName || "B2B"} India`,
+    `site:exportersindia.com ${base} export price INR`,
+    `site:indiamart.com ${base} rate ${categoryName || "B2B"}`,
+    `site:tradeindia.com ${base} wholesale price India`,
   ];
-  return [...new Set(queries)];
 }
 
 export async function googleImageSearch(query, env = process.env) {
@@ -94,9 +104,14 @@ async function duckDuckGoImages(query) {
 
 export async function findProductImageUrls(productName, subCategory = "", env = process.env) {
   const queries = buildProductImageQueries(productName, subCategory);
+  const collected = [];
   for (const query of queries) {
     const google = await googleImageSearch(query, env);
-    if (google?.length) return google;
+    if (google?.length) collected.push(...filterMarketplaceUrls(google));
+    if (collected.length >= 5) break;
+  }
+  if (collected.length) return [...new Set(collected)];
+  for (const query of queries) {
     const wiki = await wikiImageSearch(query);
     if (wiki.length) return wiki;
     const ddg = await duckDuckGoImages(query);

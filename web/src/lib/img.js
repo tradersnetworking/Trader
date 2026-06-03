@@ -127,26 +127,32 @@ export function categoryImageUrl(category) {
   return categoryPath(category);
 }
 
-/** Curated image for a product — subcategory/parent category asset (no random web scrapes). */
+/** Product image: marketplace/DB asset → category → default. */
 export function productImageUrl(product) {
+  const imgs = Array.isArray(product?.images) ? product.images : [];
+  const stored = imgs.find((u) => typeof u === "string" && u.startsWith("/"));
+  if (stored) return stored;
+  if (product?.name) return productPath(product.name);
   const cat = product?.category;
   if (cat?.image) return cat.image;
   if (cat?.name) return categoryPath(cat.name);
   const parent = cat?.parent;
   if (parent?.image) return parent.image;
   if (parent?.name) return categoryPath(parent.name);
-  const imgs = Array.isArray(product?.images) ? product.images : [];
-  const stored = imgs.find((u) => typeof u === "string" && u.startsWith("/assets/categories/"));
-  if (stored) return stored;
   return DEFAULT_CATEGORY_IMAGE;
 }
 
-/** Ordered fallbacks: category image → parent category → default trade. */
+/** Ordered fallbacks for cards & featured sections. */
 export function productImageCandidates(product) {
   const out = [];
   const push = (u) => {
     if (u && !out.includes(u)) out.push(u);
   };
+  const imgs = Array.isArray(product?.images) ? product.images : [];
+  imgs.forEach((u) => {
+    if (typeof u === "string" && u.startsWith("/")) push(u);
+  });
+  if (product?.name) push(productPath(product.name));
   if (product?.category?.image) push(product.category.image);
   if (product?.category?.name) push(categoryPath(product.category.name));
   if (product?.category?.parent?.image) push(product.category.parent.image);

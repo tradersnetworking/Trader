@@ -1,37 +1,30 @@
 import { Modal } from "../ui.jsx";
-import SecureUploadLink from "../invest/SecureUploadLink.jsx";
+import KycDocumentsList from "./KycDocumentsList.jsx";
+import { KYC_DOCUMENT_FIELDS } from "../../lib/kyc-document-fields.js";
+import { TRADE_KYC_DOCUMENT_FIELDS } from "../../lib/trade-kyc-document-fields.js";
 
-const DOC_FIELDS = [
-  ["photo", "Passport Photo"],
-  ["panDocument", "PAN"],
-  ["aadhaarFront", "Aadhaar Front"],
-  ["aadhaarBack", "Aadhaar Back"],
-  ["aadhaarDocument", "Aadhaar PDF"],
-  ["passportDocument", "Passport"],
-  ["addressProof", "Address Proof"],
-  ["companyRegDoc", "Company Registration"],
-  ["bankProof", "Bank Proof"],
-  ["selfie", "Selfie"],
-  ["signature", "Signature"],
-  ["cancelledCheque", "Cancelled Cheque"],
-];
-
-export default function KycDocumentViewer({ open, onClose, kyc, title, scope = "invest" }) {
+/** Admin modal — full KYC document review (Kuber-style list with View / Download). */
+export default function KycDocumentViewer({
+  open,
+  onClose,
+  kyc,
+  title,
+  scope = "invest",
+  showMissing = true,
+  wide = true,
+}) {
   if (!kyc) return null;
-  const docs = DOC_FIELDS.map(([field, label]) => ({ field, label, url: kyc[field] })).filter((d) => d.url);
+  const fields = scope === "main" ? TRADE_KYC_DOCUMENT_FIELDS : KYC_DOCUMENT_FIELDS;
 
   return (
-    <Modal open={open} onClose={onClose} title={title || `KYC documents — ${kyc.fullName || kyc.investor?.name || "Investor"}`} wide>
-      <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
-        {docs.length === 0 && <p className="text-sm text-muted-foreground">No documents uploaded.</p>}
-        {docs.map(({ field, label, url }) => (
-          <div key={field} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-            <SecureUploadLink url={url} previewTitle={label} scope={scope}>
-              View
-            </SecureUploadLink>
-          </div>
-        ))}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title || `KYC documents — ${kyc.fullName || kyc.investor?.name || "User"}`}
+      wide={wide}
+    >
+      <div className="max-h-[70vh] overflow-y-auto pr-1">
+        <KycDocumentsList kyc={kyc} fields={fields} showMissing={showMissing} scope={scope} />
       </div>
     </Modal>
   );

@@ -43,7 +43,9 @@ import {
 } from "../services/productPricing.js";
 import {
   applyCuratedProductImages,
+  fetchAndSyncProductImages,
   syncCategoryImageFields,
+  syncProductImageFields,
 } from "../services/productImageSync.js";
 
 const router = Router();
@@ -191,30 +193,41 @@ router.get(
   })
 );
 
-/** Sync product image files → DB (admin). Body: { fetch, limit, offset, force }. */
+/** Sync product images (admin). Body: { mode: "marketplace"|"fetch"|"curate", limit, offset, force }. */
 router.post(
   "/products/sync-images",
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (req, res) => {
-    const fetch = req.body?.fetch === true;
-    const limit = Number(req.body?.limit) || 0;
-    const offset = Number(req.body?.offset) || 0;
-    const force = req.body?.force === true;
-    let result;
-    if (fetch) {
-      result = await fetchAndSyncProductImages(mainDb, { limit, offset, force });
-    } else {
-      const products = await syncProductImageFields(mainDb);
-      const categories = await syncCategoryImageFields(mainDb);
-      result = { products, categories };
+    const mode = req.body?.mode || (req.body?.fetch ? "fetch" : "curate");
+    if (mode === "marketplace") {
+      const { runMarketplaceCatalogSyncJob } = await import("../jobs/marketplaceCatalogSync.js");
+      const result = await runMarketplaceCatalogSyncJob();
+      return res.json({
+        ok: true,
+        message: `IndiaMART/TradeIndia batch: ${result.batch} products (${result.imagesSaved} images, ${result.pricesUpdated} prices).`,
+        ...result,
+      });
     }
+    if (mode === "fetch") {
+      const result = await fetchAndSyncProductImages(mainDb, {
+        limit: Number(req.body?.limit) || 0,
+        offset: Number(req.body?.offset) || 0,
+        force: req.body?.force === true,
+      });
+      return res.json({
+        ok: true,
+        message: `Fetched ${result.fetched} images, updated ${result.dbUpdated} product rows.`,
+        ...result,
+      });
+    }
+    const products = await applyCuratedProductImages(mainDb);
+    const categories = await syncCategoryImageFields(mainDb);
     res.json({
       ok: true,
-      message: fetch
-        ? `Fetched/synced ${result.processed} products (${result.fetched} new images).`
-        : `Updated ${result.products.updated} product and ${result.categories.updated} category image paths.`,
-      ...result,
+      message: `Curated ${products.updated} product and ${categories.updated} category image paths.`,
+      products,
+      categories,
     });
   })
 );

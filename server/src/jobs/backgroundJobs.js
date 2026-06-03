@@ -4,6 +4,7 @@ import { runReconciliation } from "../services/treasury.js";
 import { syncSupportInbox } from "../services/supportMail.js";
 import { runReferralAutoPayoutJob } from "../services/referralPayoutJob.js";
 import { runRoiPayoutReminderJob } from "./roiPayoutReminders.js";
+import { runMarketplaceCatalogSyncJob } from "./marketplaceCatalogSync.js";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -50,4 +51,17 @@ export function startBackgroundJobs() {
 
   setInterval(() => safeRun("roi-payout-reminder", runRoiPayoutReminderJob), DAY);
   safeRun("roi-payout-reminder", runRoiPayoutReminderJob);
+
+  const marketplaceInterval = Number(process.env.MARKETPLACE_SYNC_INTERVAL_MS || 12 * HOUR);
+  let marketplaceRunning = false;
+  setInterval(async () => {
+    if (marketplaceRunning) return;
+    marketplaceRunning = true;
+    try {
+      await safeRun("marketplace-catalog", runMarketplaceCatalogSyncJob);
+    } finally {
+      marketplaceRunning = false;
+    }
+  }, marketplaceInterval);
+  safeRun("marketplace-catalog", runMarketplaceCatalogSyncJob);
 }

@@ -233,10 +233,14 @@ function ProductsAdmin() {
     }
   };
 
-  const syncImages = async () => {
-    if (!confirm("Apply curated category images to all products (removes mismatched web images)?")) return;
+  const syncImages = async (mode = "marketplace") => {
+    const msg =
+      mode === "marketplace"
+        ? "Run one IndiaMART/TradeIndia sync batch now? (requires Google CSE keys on server)"
+        : "Apply curated category images to all products?";
+    if (!confirm(msg)) return;
     try {
-      const res = await mainApi("/products/sync-images", { method: "POST", body: {} });
+      const res = await mainApi("/products/sync-images", { method: "POST", body: { mode } });
       alert(res.message || "Images synced");
       load();
     } catch (e2) {
@@ -251,8 +255,11 @@ function ProductsAdmin() {
         <button type="button" onClick={backfillPrices} className="btn-outline">
           Refresh catalog prices
         </button>
-        <button type="button" onClick={syncImages} className="btn-outline">
-          Sync curated product images
+        <button type="button" onClick={() => syncImages("marketplace")} className="btn-outline">
+          Sync from IndiaMART / TradeIndia
+        </button>
+        <button type="button" onClick={() => syncImages("curate")} className="btn-outline">
+          Apply category images
         </button>
       </div>
       <div className="overflow-x-auto card">

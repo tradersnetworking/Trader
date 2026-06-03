@@ -1,20 +1,5 @@
 import { Badge, Modal } from "../ui.jsx";
-import SecureUploadLink from "./SecureUploadLink.jsx";
-
-const DOC_FIELDS = [
-  ["photo", "Passport Photo"],
-  ["panDocument", "PAN"],
-  ["aadhaarFront", "Aadhaar Front"],
-  ["aadhaarBack", "Aadhaar Back"],
-  ["aadhaarDocument", "Aadhaar PDF"],
-  ["passportDocument", "Passport"],
-  ["addressProof", "Address Proof"],
-  ["selfie", "Selfie"],
-  ["signature", "Signature"],
-  ["cancelledCheque", "Cancelled Cheque"],
-  ["passbookDocument", "Bank Passbook"],
-  ["bankStatementDocument", "Bank Statement"],
-];
+import KycDocumentsList from "../shared/KycDocumentsList.jsx";
 
 const DETAIL_FIELDS = [
   ["Full name", (k) => k.fullName],
@@ -53,7 +38,6 @@ export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReje
   if (!kyc) return null;
 
   const title = kyc.fullName || kyc.investor?.name || "Investor";
-  const docs = DOC_FIELDS.map(([field, label]) => ({ field, label, url: kyc[field] })).filter((d) => d.url);
 
   return (
     <Modal open={open} onClose={onClose} title={`Full KYC — ${title}`} wide>
@@ -84,17 +68,12 @@ export default function KycFullViewModal({ open, onClose, kyc, onApprove, onReje
 
         <div>
           <h4 className="mb-3 text-sm font-bold text-foreground">Uploaded documents</h4>
-          {docs.length === 0 && <p className="text-sm text-muted-foreground">No documents uploaded.</p>}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {docs.map(({ field, label, url }) => (
-              <div key={field} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-                <SecureUploadLink url={url} previewTitle={label} scope="invest">
-                  View
-                </SecureUploadLink>
-              </div>
-            ))}
-          </div>
+          <KycDocumentsList
+            kyc={kyc}
+            showMissing
+            scope="invest"
+            locked={kyc.status === "APPROVED"}
+          />
         </div>
 
         {kyc.status === "PENDING" && (onApprove || onReject) && (
