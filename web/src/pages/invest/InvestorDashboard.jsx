@@ -86,17 +86,20 @@ export default function InvestorDashboard() {
   const [pendingPayoutChange, setPendingPayoutChange] = useState(null);
   const [pendingKycRevision, setPendingKycRevision] = useState(null);
   const [kycLoaded, setKycLoaded] = useState(false);
+  const [kycLoadError, setKycLoadError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const previewInvestor = sp.get("preview") === "investor";
 
   const dashboardUnlocked = canAccessInvestDashboard(kyc);
   const kycPendingPreview = isKycPendingPreview(kyc) && kycLoaded;
-  const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded });
+  const kycPhase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
 
   useEffect(() => {
-    if (invest && ["ADMIN", "SUPERADMIN"].includes(invest.role)) {
+    if (invest && ["ADMIN", "SUPERADMIN"].includes(invest.role) && !previewInvestor) {
       nav(investPath("/admin"), { replace: true });
     }
-  }, [invest, nav]);
+  }, [invest, nav, previewInvestor]);
 
   const syncPendingInvest = useCallback(() => {
     setPendingInvest(loadPendingInvest());
@@ -113,15 +116,25 @@ export default function InvestorDashboard() {
     setTab("money", { moneyTab: "deposit", resumePlan: "1" });
   }, [setTab]);
 
-  const fetchCore = useCallback(async () => {
-    setKycLoaded(false);
+  const fetchCore = useCallback(async ({ soft = false } = {}) => {
+    if (!soft) setKycLoaded(false);
+    setKycLoadError(null);
     refreshInvest();
     try {
-      const kycRes = await investApi("/kyc").catch(() => ({}));
-      setKyc(kycRes.kyc ?? null);
-      setPendingPayoutChange(kycRes.pendingPayoutChange || null);
-      setPendingKycRevision(kycRes.pendingKycRevision || null);
-      if (kycRes.kyc?.status === "APPROVED") refreshInvest();
+      try {
+        const kycRes = await investApi("/kyc");
+        setKyc(kycRes.kyc ?? null);
+        setPendingPayoutChange(kycRes.pendingPayoutChange || null);
+        setPendingKycRevision(kycRes.pendingKycRevision || null);
+        if (kycRes.kyc?.status === "APPROVED") refreshInvest();
+      } catch (e) {
+        setKycLoadError(e.message || "Could not load KYC status");
+        setKyc((prev) => {
+          if (prev) return prev;
+          const stub = invest?.kycStatus ? { status: invest.kycStatus } : null;
+          return stub;
+        });
+      }
 
       await Promise.all([
         investApi("/wallet").then((d) => setWallet(d.wallet)).catch(() => {}),
@@ -142,14 +155,17 @@ export default function InvestorDashboard() {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      await fetchCore();
+      await fetchCore({ soft: true });
       emitInvestRefresh();
     } finally {
       setRefreshing(false);
     }
   }, [fetchCore, refreshing]);
 
-  useEffect(() => { fetchCore(); }, [fetchCore]);
+  useEffect(() => {
+    fetchCore({ soft: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount; refresh uses handleRefresh
+  }, []);
 
   useEffect(() => {
     if (!kycLoaded || dashboardUnlocked || kycPendingPreview) return;
@@ -204,11 +220,23 @@ export default function InvestorDashboard() {
       <InvestKycGate
         kyc={kyc}
         kycLoaded={kycLoaded}
+        kycLoadError={kycLoadError}
+        investor={invest}
         pendingPayoutChange={pendingPayoutChange}
         pendingKycRevision={pendingKycRevision}
-        onRefresh={fetchCore}
+        onRefresh={() => fetchCore({ soft: true })}
       >
-      <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore(); emitInvestRefresh(); }} />
+      {previewInvestor && (
+        <div className="mb-4">
+          <Alert type="info">
+            Admin preview mode — viewing the investor dashboard.{" "}
+            <button type="button" className="font-bold underline" onClick={() => nav(investPath("/admin"))}>
+              Back to admin
+            </button>
+          </Alert>
+        </div>
+      )}
+      <MaturityChoiceModal subscriptions={maturityChoices} onDone={() => { fetchCore({ soft: true }); emitInvestRefresh(); }} />
       {!investEligibility(invest, kyc).canInvest && ["plans", "investments", "agreements"].includes(tab) && (
         <div className="mb-4">
           <Alert type="info">
@@ -310,7 +338,18 @@ export default function InvestorDashboard() {
   );
 }
 
-function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, onNeedDeposit, onDismissPending, onSignAgreement }) {
+function Plans({
+  wallet,
+  pendingInvest,
+  autoResume,
+  onResumeHandled,
+  onRefresh,
+  onNeedDeposit,
+  onDismissPending,
+  onSignAgreement,
+  investBlockedMessage = null,
+  onGoKyc,
+}) {
   const [plans, setPlans] = useState([]);
   const [sub, setSub] = useState(null);
   const [resume, setResume] = useState(null);
@@ -326,13 +365,7 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
   useEffect(() => { loadPlans(); }, [loadPlans]);
   useInvestRefresh(loadPlans);
 
-  const [investBlocked, setInvestBlocked] = useState(null);
-
-  useEffect(() => {
-    investApi("/kyc")
-      .then((d) => setInvestBlocked(d.eligibility?.canInvest === false ? d.eligibility.message : null))
-      .catch(() => {});
-  }, []);
+  const investBlocked = investBlockedMessage;
 
   const openPlan = useCallback((plan, opts = {}) => {
     if (investBlocked && !opts.forceWizard) return;
@@ -411,7 +444,7 @@ function Plans({ wallet, pendingInvest, autoResume, onResumeHandled, onRefresh, 
       {investBlocked && (
         <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
           {investBlocked}{" "}
-          <button type="button" className="font-bold underline" onClick={() => window.location.assign(investPath("/dashboard?tab=kyc"))}>
+          <button type="button" className="font-bold underline" onClick={() => onGoKyc?.()}>
             Complete KYC →
           </button>
         </div>

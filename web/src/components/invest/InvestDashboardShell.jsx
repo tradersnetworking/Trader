@@ -242,7 +242,7 @@ export default function InvestDashboardShell({
           </div>
           {role === "admin" && user?.role === "SUPERADMIN" && (
             <Link
-              to={investPath("/dashboard")}
+              to={investPath("/dashboard?preview=investor")}
               className="block rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
               onClick={() => setUserOpen(false)}
             >

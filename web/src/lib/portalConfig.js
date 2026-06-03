@@ -44,9 +44,15 @@ export function investShareBase() {
 
 export function investBrowseBase() {
   if (typeof window !== "undefined" && window.location.hostname) {
-    const h = window.location.hostname.toLowerCase().replace(/^www\./, "");
+    const h = window.location.hostname.toLowerCase().replace(/^www\./, "").split(":")[0];
     if (h.startsWith("invest.") || (cached?.additionalDomains || []).some((d) => d.hostname === h)) {
       return window.location.origin;
+    }
+    if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) {
+      const p = window.location.pathname || "";
+      if (p === "/invest" || p.startsWith("/invest/")) {
+        return `${window.location.origin}/invest`;
+      }
     }
   }
   return cached?.investPortalUrl || cached?.shareBaseUrl || "https://invest.akshayaexim.com";

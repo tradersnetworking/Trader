@@ -40,12 +40,19 @@ export function needsKycSetup(kyc) {
  * needs_fix — rejected (whole or sectional)
  * needs_submit — no submission yet
  */
-export function getKycUiPhase(kyc, { loaded = true } = {}) {
+export function getKycUiPhase(kyc, { loaded = true, loadError = null } = {}) {
   if (!loaded) return "loading";
+  if (loadError && !kyc) return "error";
   if (canAccessInvestDashboard(kyc)) return "approved";
   if (isKycPendingReview(kyc)) return "pending_review";
   if (kyc?.status === "REJECTED") return "needs_fix";
   return "needs_submit";
+}
+
+/** Minimal KYC shape from /auth/me when full /kyc fetch fails */
+export function kycStubFromInvestor(investor) {
+  if (!investor?.kycStatus) return null;
+  return { status: investor.kycStatus };
 }
 
 function buildEligibility(investor, kyc, { forWithdraw = false } = {}) {

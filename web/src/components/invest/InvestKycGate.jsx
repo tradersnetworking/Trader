@@ -1,5 +1,9 @@
 import { Alert } from "../ui.jsx";
-import { canAccessInvestDashboard, getKycUiPhase } from "../../lib/investCompliance.js";
+import {
+  canAccessInvestDashboard,
+  getKycUiPhase,
+  kycStubFromInvestor,
+} from "../../lib/investCompliance.js";
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 import KycPanel from "./KycPanel.jsx";
 
@@ -12,6 +16,25 @@ function KycGateLoading() {
   );
 }
 
+function KycLoadError({ message, onRetry, investor }) {
+  const stub = kycStubFromInvestor(investor);
+  return (
+    <div className="page-stack mx-auto max-w-lg">
+      <div className="card space-y-4 p-6 text-center">
+        <Alert type="error">{message || "Could not load your KYC status. Please try again."}</Alert>
+        {stub?.status === "APPROVED" && (
+          <p className="text-xs text-muted-foreground">
+            Your account shows KYC as approved — if this persists, refresh or contact support.
+          </p>
+        )}
+        <button type="button" className="btn-gold text-sm" onClick={() => onRetry?.()}>
+          Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * NOT_SUBMITTED → full KYC form
  * REJECTED → fix rejected sections only
@@ -20,16 +43,22 @@ function KycGateLoading() {
  */
 export default function InvestKycGate({
   kyc,
-  kycLoaded = true,
+  kycLoaded = false,
+  kycLoadError = null,
+  investor = null,
   pendingPayoutChange,
   pendingKycRevision,
   onRefresh,
   children,
 }) {
-  const phase = getKycUiPhase(kyc, { loaded: kycLoaded });
+  const phase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
 
   if (phase === "loading") {
     return <KycGateLoading />;
+  }
+
+  if (phase === "error") {
+    return <KycLoadError message={kycLoadError} onRetry={onRefresh} investor={investor} />;
   }
 
   if (canAccessInvestDashboard(kyc) || phase === "pending_review") {

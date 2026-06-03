@@ -303,17 +303,29 @@ router.get(
   "/kyc",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const [kyc, investor, pendingPayoutChange, pendingKycRevision] = await Promise.all([
-      investDb.kyc.findUnique({ where: { investorId: req.user.id } }),
+    let kyc;
+    try {
+      kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
+    } catch (err) {
+      console.error("[kyc] GET findUnique failed:", err?.message || err);
+      return res.status(503).json({
+        error: "KYC service temporarily unavailable. Run database migration (sectionReviews column) or contact support.",
+      });
+    }
+    const [investor, pendingPayoutChange, pendingKycRevision] = await Promise.all([
       investDb.investor.findUnique({ where: { id: req.user.id } }),
-      investDb.payoutDetailsChange.findFirst({
-        where: { investorId: req.user.id, status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-      }),
-      investDb.kycRevision.findFirst({
-        where: { investorId: req.user.id, status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-      }),
+      investDb.payoutDetailsChange
+        .findFirst({
+          where: { investorId: req.user.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+        })
+        .catch(() => null),
+      investDb.kycRevision
+        .findFirst({
+          where: { investorId: req.user.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+        })
+        .catch(() => null),
     ]);
     const { investEligibility, withdrawEligibility } = await import("../utils/investCompliance.js");
     const { canAccessInvestDashboard, needsKycSetup } = await import("../services/investProfileApprovals.js");
