@@ -32,8 +32,16 @@ export function needsKycSetup(kyc) {
   return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
 }
 
-/** Tabs investors may use before KYC is approved */
+/** Tabs investors may use before KYC is approved (Home, KYC, My Account, Security, Help) */
 export const INVESTOR_KYC_RESTRICTED_TABS = ["overview", "kyc", "profile", "account", "support"];
+
+export const INVESTOR_KYC_RESTRICTED_NAV_LABELS = {
+  overview: "Home",
+  kyc: "KYC",
+  profile: "My Account",
+  account: "Security",
+  support: "Help",
+};
 
 export function isInvestorTabAllowedBeforeApproval(tab) {
   return INVESTOR_KYC_RESTRICTED_TABS.includes(tab);

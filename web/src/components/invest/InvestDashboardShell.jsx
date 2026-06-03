@@ -4,6 +4,7 @@ import { Logo, Badge, UserAvatar } from "../ui.jsx";
 import BrandMark from "../BrandMark.jsx";
 import { ThemeToggle } from "../../lib/theme.jsx";
 import { getAdminNav, getNavLabel, navShortLabel, navIconBg, navIconFg, translateNavItem, translateNavShort } from "../../lib/invest-nav.js";
+import { INVESTOR_KYC_RESTRICTED_NAV_LABELS } from "../../lib/investCompliance.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { NavIcon } from "./NavIcons.jsx";
 import { inr } from "../../lib/format.js";
@@ -106,7 +107,8 @@ export default function InvestDashboardShell({
 
   const NavButton = ({ item, mobile }) => {
     const active = activeTab === item.id;
-    const label = translateNavItem(t, item);
+    const restrictedLabel = kycRestricted && INVESTOR_KYC_RESTRICTED_NAV_LABELS[item.id];
+    const label = restrictedLabel || translateNavItem(t, item);
     const badge = navBadges[item.id];
     return (
       <button
@@ -515,7 +517,8 @@ export default function InvestDashboardShell({
       <nav className="invest-mobile-nav fixed bottom-0 left-0 right-0 z-40 flex border-t backdrop-blur-xl md:hidden">
         {mobilePrimary.map((item) => {
           const active = activeTab === item.id;
-          const itemLabel = translateNavItem(t, item);
+          const itemLabel =
+            (kycRestricted && INVESTOR_KYC_RESTRICTED_NAV_LABELS[item.id]) || translateNavItem(t, item);
           return (
             <button
               key={item.id}
@@ -529,7 +532,11 @@ export default function InvestDashboardShell({
               >
                 <NavIcon name={item.icon} className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${navIconFg(item.color)}`} />
               </span>
-              <span className="max-w-[4.5rem] truncate">{translateNavShort(t, item)}</span>
+              <span className="max-w-[4.5rem] truncate">
+                {kycRestricted && INVESTOR_KYC_RESTRICTED_NAV_LABELS[item.id]
+                  ? INVESTOR_KYC_RESTRICTED_NAV_LABELS[item.id]
+                  : translateNavShort(t, item)}
+              </span>
             </button>
           );
         })}

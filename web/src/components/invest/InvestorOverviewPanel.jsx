@@ -29,7 +29,16 @@ import { buildStatsQuery } from "../../lib/finance-period.js";
 import { useAuth } from "../../lib/store.jsx";
 import { investEligibility } from "../../lib/investCompliance.js";
 
-export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userName, kycStatus, profilePicture, investor, kyc }) {
+export default function InvestorOverviewPanel({
+  onNavigate,
+  onOpenDetail,
+  userName,
+  kycStatus,
+  profilePicture,
+  investor,
+  kyc,
+  dashboardPreview = false,
+}) {
   const { invest: authInvest } = useAuth();
   const profile = investor || authInvest;
   const [data, setData] = useState(null);
@@ -92,7 +101,9 @@ export default function InvestorOverviewPanel({ onNavigate, onOpenDetail, userNa
         subtitle={new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
       />
 
-      <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
+      {!dashboardPreview && (
+        <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
+      )}
 
       <OverviewActionBar
         onDeposit={() => onNavigate("money", { moneyTab: "deposit" })}

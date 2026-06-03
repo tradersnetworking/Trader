@@ -141,6 +141,7 @@ export function validateKycSections(data, files, existing, requiredSections) {
       return { error: "Father / Mother / Husband name is required" };
     }
     if (!data.dob) return { error: "Date of birth is required" };
+    if (!String(data.phone || "").trim()) return { error: "Mobile number is required" };
   }
 
   if (need("identity")) {

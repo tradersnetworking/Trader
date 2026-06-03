@@ -49,6 +49,7 @@ import {
   isKycPendingPreview,
   isInvestorTabAllowedBeforeApproval,
 } from "../../lib/investCompliance.js";
+import InvestorKycHomeBanner from "../../components/invest/InvestorKycHomeBanner.jsx";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.jsx";
 import KycRestrictedPanel from "../../components/invest/KycRestrictedPanel.jsx";
@@ -179,10 +180,26 @@ export default function InvestorDashboard() {
   useEffect(() => {
     if (!kycLoaded || dashboardUnlocked) return;
     if (!isInvestorTabAllowedBeforeApproval(tab)) {
-      const fallback = kycPhase === "needs_fix" ? "kyc" : kycPendingPreview ? "overview" : "kyc";
+      const fallback = kycPhase === "needs_fix" ? "kyc" : "overview";
       setSp({ tab: fallback }, { replace: true });
     }
-  }, [kycLoaded, dashboardUnlocked, tab, setSp, kycPhase, kycPendingPreview]);
+  }, [kycLoaded, dashboardUnlocked, tab, setSp, kycPhase]);
+
+  const closeRestrictedView = useCallback(() => {
+    setSp({ tab: kycPendingPreview || kycPhase === "needs_submit" ? "overview" : "kyc" }, { replace: true });
+  }, [setSp, kycPendingPreview, kycPhase]);
+
+  const wrapRestricted = useCallback(
+    (title, subtitle, content) => {
+      if (!kycRestricted) return content;
+      return (
+        <KycRestrictedPanel title={title} subtitle={subtitle} onClose={closeRestrictedView}>
+          {content}
+        </KycRestrictedPanel>
+      );
+    },
+    [kycRestricted, closeRestrictedView]
+  );
 
   const displayName = kyc?.fullName || invest?.name || "Investor";
   const kycPageTitle =
@@ -276,15 +293,26 @@ export default function InvestorDashboard() {
         </div>
       )}
       {tab === "overview" && (
-        <InvestorOverviewPanel
-          userName={displayName}
-          profilePicture={invest?.profilePicture || kyc?.photo}
-          investor={invest}
-          kyc={kyc}
-          kycStatus={kyc?.status}
-          onNavigate={setTab}
-          onOpenDetail={(id) => setSubDetail(id)}
-        />
+        <div className="page-stack">
+          {kycRestricted && (
+            <InvestorKycHomeBanner
+              kyc={kyc}
+              kycLoadError={kycLoadError}
+              onGoKyc={() => setTab("kyc")}
+              onGoSupport={() => setTab("support")}
+            />
+          )}
+          <InvestorOverviewPanel
+            userName={displayName}
+            profilePicture={invest?.profilePicture || kyc?.photo}
+            investor={invest}
+            kyc={kyc}
+            kycStatus={kyc?.status}
+            onNavigate={setTab}
+            onOpenDetail={(id) => setSubDetail(id)}
+            dashboardPreview={kycRestricted}
+          />
+        </div>
       )}
       {tab === "plans" && (
         <Plans

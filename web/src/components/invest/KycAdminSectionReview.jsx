@@ -5,6 +5,7 @@ import {
   KYC_SECTION_LABELS,
   parseSectionReviews,
 } from "../../lib/kyc-sections.js";
+import KycRejectReasonDialog from "./KycRejectReasonDialog.jsx";
 
 const SECTION_HINTS = {
   personal: "Name, DOB, contact, full address",
@@ -15,19 +16,12 @@ const SECTION_HINTS = {
 
 export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalApprove, onFinalReject, busy }) {
   const reviews = parseSectionReviews(kyc) || {};
-  const [openSection, setOpenSection] = useState(null);
+  const [rejectDialog, setRejectDialog] = useState(null);
   const canReview = ["PENDING", "REJECTED"].includes(kyc?.status);
 
-  const act = async (section, status) => {
-    let remarks;
-    if (status === "REJECTED") {
-      remarks = window.prompt(
-        `Rejection reason for "${KYC_SECTION_LABELS[section]}" (shown to investor):\n\nExamples:\n- Document blurry — upload clear JPG/PNG or unlocked PDF\n- Details mismatch with PAN/Aadhaar\n- Bank proof unclear`
-      );
-      if (!remarks?.trim()) return;
-    }
-    await onSectionDecision?.(kyc.id, section, status, remarks?.trim());
-    setOpenSection(null);
+  const act = async (section, status, remarks) => {
+    await onSectionDecision?.(kyc.id, section, status, remarks);
+    setRejectDialog(null);
   };
 
   const allApproved = KYC_SECTIONS.every((id) => reviews[id]?.status === "APPROVED");
@@ -36,7 +30,8 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
     <div className="space-y-4 border-t border-border pt-4">
       <h4 className="text-sm font-bold text-foreground">Section review</h4>
       <p className="text-xs text-muted-foreground">
-        Approve or reject each part separately. When all four are approved, use final approval. Reject a section with a clear reason so the investor can fix only that part.
+        Approve or reject each part separately. When all four are approved, use final approval. Rejecting a section
+        requires a written reason shown to the investor.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -79,9 +74,16 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
                     type="button"
                     disabled={busy}
                     className="btn-outline px-2 py-1 text-xs text-rose-600"
-                    onClick={() => act(id, "REJECTED")}
+                    onClick={() =>
+                      setRejectDialog({
+                        type: "section",
+                        section: id,
+                        title: `Reject — ${KYC_SECTION_LABELS[id]}`,
+                        subtitle: "This reason is shown to the investor on their dashboard and KYC page.",
+                      })
+                    }
                   >
-                    Reject section
+                    Reject section…
                   </button>
                 </div>
               )}
@@ -109,13 +111,34 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
               type="button"
               disabled={busy}
               className="btn-outline text-sm text-rose-600"
-              onClick={() => onFinalReject?.(kyc)}
+              onClick={() =>
+                setRejectDialog({
+                  type: "final",
+                  title: "Final reject — entire application",
+                  subtitle:
+                    "Use when the whole KYC must be redone or is invalid. The investor will see this reason on Home and KYC.",
+                })
+              }
             >
-              Final reject (entire application)
+              Final reject…
             </button>
           </div>
         </div>
       )}
+
+      <KycRejectReasonDialog
+        open={Boolean(rejectDialog)}
+        title={rejectDialog?.title}
+        subtitle={rejectDialog?.subtitle}
+        busy={busy}
+        onClose={() => setRejectDialog(null)}
+        onConfirm={(remarks) => {
+          if (rejectDialog?.type === "section") {
+            return act(rejectDialog.section, "REJECTED", remarks);
+          }
+          return onFinalReject?.(kyc, remarks);
+        }}
+      />
     </div>
   );
 }

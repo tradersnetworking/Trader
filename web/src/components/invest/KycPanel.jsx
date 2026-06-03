@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { kycSubmitReadiness } from "../../lib/kyc-submit-readiness.js";
 
 import { investApi, investApiForm } from "../../lib/api.js";
 import { validateUploadFiles } from "../../lib/upload-limits.js";
@@ -166,7 +167,18 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
   const hasDoc = (key) => files[key] || kyc?.[key];
 
-
+  const submitReadiness = useMemo(
+    () =>
+      kycSubmitReadiness({
+        kyc,
+        form,
+        files,
+        signatureData,
+        signatureFile,
+        confirmed,
+      }),
+    [kyc, form, files, signatureData, signatureFile, confirmed]
+  );
 
   const validateStep = (s) => {
 
@@ -275,20 +287,18 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
     }
 
+    if (!submitReadiness.ready) {
+      setErr(submitReadiness.blockers[0] || "Complete all required details and document uploads before submitting.");
+      return;
+    }
+
     for (let i = 0; i < 3; i++) {
-
       const v = validateStep(i);
-
       if (v) {
-
         setErr(v);
-
         setStep(i);
-
         return;
-
       }
-
     }
 
     setSubmitting(true);
@@ -966,6 +976,17 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
               </label>
 
+              {!submitReadiness.ready && submitReadiness.blockers.length > 0 && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <p className="text-xs font-semibold text-foreground">Before you can submit:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-muted-foreground">
+                    {submitReadiness.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
             </div>
 
           )}
@@ -994,10 +1015,14 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
             ) : (
 
-              <button type="button" className="btn-gold flex-1 xs:flex-none" disabled={submitting} onClick={submit}>
-
+              <button
+                type="button"
+                className="btn-gold flex-1 xs:flex-none disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={submitting || !submitReadiness.ready}
+                title={!submitReadiness.ready ? submitReadiness.blockers[0] : undefined}
+                onClick={submit}
+              >
                 {submitting ? "Submitting…" : "Submit Application"}
-
               </button>
 
             )}

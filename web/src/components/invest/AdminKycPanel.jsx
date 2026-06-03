@@ -58,10 +58,7 @@ export default function AdminKycPanel({ onUpdated }) {
     setViewKyc(null);
   };
 
-  const handleFinalReject = (k) => {
-    const remarks = window.prompt(
-      "Final rejection reason (shown to investor):\n\nUse when the entire application must be redone or is fraudulent."
-    );
+  const handleFinalReject = (k, remarks) => {
     if (!remarks?.trim()) return;
     decideFinal(k.id, "REJECTED", remarks.trim());
     setViewKyc(null);
