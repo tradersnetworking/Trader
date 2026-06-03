@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import SignaturePad from "./SignaturePad.jsx";
 import CameraCaptureModal from "./CameraCaptureModal.jsx";
+import { Modal } from "../ui.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import { KYC_ACCEPT_DOCS, validateKycFile } from "../../lib/kyc-document-fields.js";
 
 const SIGNATURE_MODES = [
-  { id: "draw", label: "Draw signature", hint: "Use your finger or mouse on the pad below" },
+  { id: "draw", label: "Draw signature", hint: "Tap Open for a full-screen pad, then Confirm" },
   { id: "upload", label: "Upload file", hint: "Choose JPG, PNG, or PDF from your device" },
   { id: "camera", label: "Camera", hint: "Photo of signature on white paper" },
 ];
@@ -25,6 +26,9 @@ export default function KycSignatureField({
   const [sigErr, setSigErr] = useState("");
   const [previewUrl, setPreviewUrl] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [drawPadOpen, setDrawPadOpen] = useState(false);
+  const [draftDraw, setDraftDraw] = useState(null);
+  const drawPadRef = useRef(null);
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -66,6 +70,31 @@ export default function KycSignatureField({
   };
 
   const active = SIGNATURE_MODES.find((m) => m.id === signatureMode) || SIGNATURE_MODES[0];
+
+  const clearDrawnSignature = () => {
+    setSignatureData(null);
+    setDraftDraw(null);
+    setSigErr("");
+    drawPadRef.current?.clear();
+  };
+
+  const openDrawPad = () => {
+    setDraftDraw(signatureData);
+    setSigErr("");
+    setDrawPadOpen(true);
+  };
+
+  const confirmDrawPad = () => {
+    const data = draftDraw || drawPadRef.current?.getDataUrl?.();
+    const err = validateSignatureBase64(data);
+    if (err) {
+      setSigErr(err);
+      return;
+    }
+    onDraw(data);
+    setDrawPadOpen(false);
+    setSigErr("");
+  };
 
   return (
     <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-4">
@@ -110,11 +139,79 @@ export default function KycSignatureField({
       </p>
 
       {signatureMode === "draw" && (
-        <div role="tabpanel" className="space-y-2">
-          <SignaturePad onChange={onDraw} />
+        <div role="tabpanel" className="space-y-3">
+          <div className="rounded-lg border border-dashed border-border bg-[#0a1628] p-2">
+            {signatureData ? (
+              <img
+                src={signatureData}
+                alt="Your signature"
+                className="mx-auto h-24 max-w-full object-contain"
+              />
+            ) : (
+              <p className="py-8 text-center text-xs text-muted-foreground">
+                No signature yet — tap Open to sign
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className="btn-outline w-full text-sm font-semibold"
+              onClick={clearDrawnSignature}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="btn-gold w-full text-sm font-semibold shadow-sm"
+              onClick={openDrawPad}
+            >
+              Open
+            </button>
+          </div>
           {signatureData && !sigErr && (
-            <p className="text-xs text-emerald-600">Signature captured on pad.</p>
+            <p className="text-center text-xs text-emerald-600">Signature saved. Tap Open to change.</p>
           )}
+
+          <Modal
+            open={drawPadOpen}
+            onClose={() => setDrawPadOpen(false)}
+            title="Draw your signature"
+            wide
+          >
+            <p className="mb-3 text-xs text-muted-foreground">
+              Sign with your finger or stylus. Use Clear to start over, then Confirm when finished.
+            </p>
+            <SignaturePad
+              key={drawPadOpen ? `pad-${signatureData || "new"}` : "pad-closed"}
+              ref={drawPadRef}
+              width={560}
+              height={260}
+              showClear={false}
+              initialDataUrl={signatureData}
+              onChange={setDraftDraw}
+              className="[&_canvas]:min-h-[min(50vh,260px)]"
+            />
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="btn-outline w-full text-sm font-semibold"
+                onClick={() => {
+                  drawPadRef.current?.clear();
+                  setDraftDraw(null);
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="btn-gold w-full text-sm font-semibold shadow-sm"
+                onClick={confirmDrawPad}
+              >
+                Confirm
+              </button>
+            </div>
+          </Modal>
         </div>
       )}
 
