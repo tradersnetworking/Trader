@@ -37,7 +37,17 @@ export const INVESTOR_NAV = [
 
 ];
 
-
+/** Investor sidebar before KYC approval — Home, KYC, My Account, Security, Help */
+export const INVESTOR_KYC_NAV = [
+  { section: "Investing" },
+  { id: "overview", label: "Home", icon: "home", color: "blue" },
+  { id: "kyc", label: "KYC", icon: "kyc", color: "blue" },
+  { section: "Account & Records" },
+  { id: "profile", label: "My Account", icon: "profile", color: "slate" },
+  { id: "account", label: "Security", icon: "kyc", color: "amber" },
+  { section: "Help & Rewards" },
+  { id: "support", label: "Help", icon: "support", color: "cyan" },
+];
 
 /** Admin sidebar — grouped by role workflow to reduce confusion */
 

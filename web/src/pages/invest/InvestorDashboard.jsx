@@ -10,7 +10,7 @@ import InvestDashboardShell from "../../components/invest/InvestDashboardShell.j
 import MaturityChoiceModal from "../../components/invest/MaturityChoiceModal.jsx";
 import InvestorOverviewPanel from "../../components/invest/InvestorOverviewPanel.jsx";
 import { TabPanel, DashboardTabFallback } from "../../components/invest/DashboardTabFallback.jsx";
-import { INVESTOR_NAV, translateNavLabel } from "../../lib/invest-nav.js";
+import { INVESTOR_NAV, INVESTOR_KYC_NAV, translateNavLabel } from "../../lib/invest-nav.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { PLAN_TYPES, LOCK_IN_SUB_CATEGORIES, sortPlansByTier } from "../../lib/plan-types.js";
 import { INVEST_STAT_GRID } from "../../lib/invest-dashboard-ui.js";
@@ -48,7 +48,7 @@ import {
   getKycUiPhase,
   isKycPendingPreview,
   isInvestorTabAllowedBeforeApproval,
-  INVESTOR_KYC_OVERLAY_UNLOCK_TABS,
+  INVESTOR_KYC_RESTRICTED_NAV_LABELS,
 } from "../../lib/investCompliance.js";
 import { refreshInvestClientState } from "../../lib/browserStorage.js";
 import InvestorKycHomeBanner from "../../components/invest/InvestorKycHomeBanner.jsx";
@@ -277,7 +277,6 @@ export default function InvestorDashboard() {
         pendingPayoutChange={pendingPayoutChange}
         pendingKycRevision={pendingKycRevision}
         onRefresh={() => fetchCore({ soft: true })}
-        onCloseRestricted={closeRestrictedView}
       >
       {previewInvestor && (
         <div className="mb-4">
@@ -385,13 +384,13 @@ export default function InvestorDashboard() {
       )}
       {tab === "profile" &&
         wrapRestricted(
-          "Profile & payout details",
-          "Prefilled from your submitted KYC where available",
+          "My Account",
+          "Profile and payout details — prefilled from your KYC where available",
           <Profile kyc={kyc} investor={invest} />
         )}
       {tab === "account" &&
         wrapRestricted(
-          "Security settings",
+          "Security",
           "Password, email, Google sign-in, and 2FA",
           <div className="space-y-6">
             <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>

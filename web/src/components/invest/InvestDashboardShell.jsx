@@ -87,6 +87,7 @@ export default function InvestDashboardShell({
     : kycRestricted
       ? links.filter((n) => INVESTOR_KYC_NAV_TAB_IDS.includes(n.id))
       : links.filter((n) => ["overview", "money", "investments", "referral", "plans"].includes(n.id));
+  const mobileMore = links.filter((n) => !mobilePrimary.some((m) => m.id === n.id));
 
   const sectionLabel = (section) => {
     const map = {
@@ -541,6 +542,7 @@ export default function InvestDashboardShell({
             </button>
           );
         })}
+        {mobileMore.length > 0 && (
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
@@ -553,6 +555,7 @@ export default function InvestDashboardShell({
           </span>
           <span>{t("nav.more")}</span>
         </button>
+        )}
       </nav>
       )}
 

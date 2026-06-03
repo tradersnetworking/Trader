@@ -6,9 +6,6 @@ import {
   INVESTOR_KYC_ALLOWED_TABS,
 } from "../../lib/investCompliance.js";
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
-import KycPanel from "./KycPanel.jsx";
-import InvestorKycSubmissionPanel from "./InvestorKycSubmissionPanel.jsx";
-import KycRestrictedPanel from "./KycRestrictedPanel.jsx";
 
 function KycGateLoading() {
   return (
@@ -40,42 +37,9 @@ function KycLoadError({ message, onRetry, investor }) {
 
 const LIMITED_TABS = new Set(INVESTOR_KYC_ALLOWED_TABS);
 
-function KycTabContent({ kyc, phase, pendingPayoutChange, pendingKycRevision, onRefresh, onCloseRestricted }) {
-  const body = (
-    <div className="page-stack space-y-4">
-      {kyc && kyc.status !== "NOT_SUBMITTED" && (
-        <InvestorKycSubmissionPanel
-          kyc={kyc}
-          phase={phase === "pending_review" ? "pending_review" : phase === "needs_fix" ? "needs_fix" : "needs_submit"}
-        />
-      )}
-      <KycPanel
-        kyc={kyc}
-        pendingPayoutChange={pendingPayoutChange}
-        pendingKycRevision={pendingKycRevision}
-        onRefresh={onRefresh}
-        forced={phase === "needs_submit"}
-      />
-    </div>
-  );
-
-  if (!onCloseRestricted) return body;
-
-  return (
-    <KycRestrictedPanel
-      title="My KYC"
-      subtitle="Complete details and upload all required documents before submitting"
-      onClose={onCloseRestricted}
-    >
-      {body}
-    </KycRestrictedPanel>
-  );
-}
-
 /**
- * NOT_SUBMITTED → limited dashboard (Home message + KYC form)
- * REJECTED → fix form + limited tabs
- * PENDING → blurred dashboard preview + overlay
+ * NOT_SUBMITTED / REJECTED → Home preview + status banner + limited tabs
+ * PENDING → blurred Home + review overlay + limited tabs
  * APPROVED → full dashboard
  */
 export default function InvestKycGate({
@@ -84,10 +48,7 @@ export default function InvestKycGate({
   kycLoadError = null,
   investor = null,
   activeTab = "overview",
-  pendingPayoutChange,
-  pendingKycRevision,
   onRefresh,
-  onCloseRestricted,
   children,
 }) {
   const phase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
@@ -105,18 +66,6 @@ export default function InvestKycGate({
   }
 
   if (LIMITED_TABS.has(activeTab)) {
-    if (activeTab === "kyc") {
-      return (
-        <KycTabContent
-          kyc={kyc}
-          phase={phase}
-          pendingPayoutChange={pendingPayoutChange}
-          pendingKycRevision={pendingKycRevision}
-          onRefresh={onRefresh}
-          onCloseRestricted={onCloseRestricted}
-        />
-      );
-    }
     return children;
   }
 
@@ -130,13 +79,12 @@ export default function InvestKycGate({
           ? `Please correct: ${rejectedSections.map((id) => KYC_SECTION_LABELS[id]).join(", ")}.`
           : "Complete KYC from the KYC tab to unlock the full dashboard."}
       </Alert>
-      <KycTabContent
-        kyc={kyc}
-        phase={phase}
-        pendingPayoutChange={pendingPayoutChange}
-        pendingKycRevision={pendingKycRevision}
-        onRefresh={onRefresh}
-      />
+      <p className="text-center text-sm text-muted-foreground">
+        <button type="button" className="font-semibold text-primary underline" onClick={() => onRefresh?.()}>
+          Reload
+        </button>{" "}
+        or open <strong>Home</strong> from the menu.
+      </p>
     </div>
   );
 }
