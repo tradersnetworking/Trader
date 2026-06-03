@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { kycSubmitReadiness } from "../../lib/kyc-submit-readiness.js";
 
 import { investApi, investApiForm } from "../../lib/api.js";
@@ -120,6 +120,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
   const [payoutProofFiles, setPayoutProofFiles] = useState({});
 
   const [step, setStep] = useState(0);
+  const stepTopRef = useRef(null);
 
   const [form, setForm] = useState(() => initForm(kyc));
 
@@ -287,6 +288,12 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
+  const goToStep = (target) => {
+    if (target < 0 || target >= STEPS.length || target === step) return;
+    setErr("");
+    setStep(target);
+  };
+
   const goNext = () => {
 
     const v = validateStep(step);
@@ -304,6 +311,12 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
     setStep((s) => s + 1);
 
   };
+
+  const goBack = () => goToStep(step - 1);
+
+  useEffect(() => {
+    stepTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step]);
 
 
 
@@ -539,7 +552,9 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
-          <Stepper step={step} />
+          <div ref={stepTopRef} className="scroll-mt-4">
+          <Stepper step={step} onStepClick={goToStep} />
+          </div>
 
 
 
@@ -1022,25 +1037,30 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
-          <div className="mt-6 flex flex-col-reverse gap-2 xs:flex-row xs:justify-between">
+          <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4">
+            <p className="text-center text-xs text-muted-foreground">
+              Step {step + 1} of {STEPS.length} — {STEPS[step].title}
+              <span className="hidden sm:inline"> · Tap a step above to jump</span>
+            </p>
+          <div className="flex flex-col-reverse gap-2 xs:flex-row xs:justify-between">
 
             {step > 0 ? (
 
-              <button type="button" className="btn-outline flex-1 xs:flex-none" onClick={() => { setErr(""); setStep((s) => s - 1); }}>
+              <button type="button" className="btn-outline flex-1 xs:flex-none" onClick={goBack}>
 
-                Back
+                ← Previous step
 
               </button>
 
             ) : (
 
-              <span />
+              <span className="hidden xs:block xs:flex-1" aria-hidden />
 
             )}
 
             {step < 3 ? (
 
-              <button type="button" className="btn-gold flex-1 xs:flex-none" onClick={goNext}>Next Step</button>
+              <button type="button" className="btn-gold flex-1 xs:flex-none" onClick={goNext}>Next step →</button>
 
             ) : (
 
@@ -1056,6 +1076,7 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
             )}
 
+          </div>
           </div>
 
 
@@ -1084,51 +1105,64 @@ export default function KycPanel({ kyc, onRefresh, pendingPayoutChange, pendingK
 
 
 
-function Stepper({ step }) {
+function Stepper({ step, onStepClick }) {
 
   return (
 
-    <div className="overflow-x-auto scrollbar-none -mx-1 px-1 pb-1">
+    <nav className="overflow-x-auto scrollbar-none -mx-1 px-1 pb-1" aria-label="KYC steps">
 
       <div className="relative z-0 flex min-w-[280px] justify-between px-2">
 
         <div className="absolute left-0 top-5 z-0 h-0.5 w-full bg-border" aria-hidden />
 
-        {STEPS.map((s) => (
-
-          <div key={s.n} className="relative z-[1] flex shrink-0 flex-col items-center gap-2 bg-card px-0.5">
+        {STEPS.map((s) => {
+          const done = step > s.n;
+          const active = step === s.n;
+          return (
+          <button
+            key={s.n}
+            type="button"
+            onClick={() => onStepClick?.(s.n)}
+            className={`relative z-[1] flex shrink-0 flex-col items-center gap-2 rounded-lg bg-card px-1 py-1 transition hover:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "ring-2 ring-primary/30" : ""}`}
+            aria-current={active ? "step" : undefined}
+            aria-label={`${s.title}${done ? ", completed" : ""}${active ? ", current" : ""}`}
+          >
 
             <div
 
               className={`relative z-[1] flex h-10 w-10 items-center justify-center rounded-full border-2 bg-card text-sm font-bold transition ${
 
-                step >= s.n
+                active
 
                   ? "border-primary bg-primary text-primary-foreground"
 
-                  : "border-border bg-card text-muted-foreground"
+                  : done
+
+                    ? "border-primary/60 bg-primary/15 text-accent-tone"
+
+                    : "border-border text-muted-foreground"
 
               }`}
 
             >
 
-              {step > s.n ? "✓" : s.n + 1}
+              {done ? "✓" : s.n + 1}
 
             </div>
 
-            <span className={`text-[10px] font-bold uppercase tracking-wider ${step >= s.n ? "text-accent-tone" : "text-muted-foreground"}`}>
+            <span className={`text-[10px] font-bold uppercase tracking-wider ${active || done ? "text-accent-tone" : "text-muted-foreground"}`}>
 
               {s.title}
 
             </span>
 
-          </div>
-
-        ))}
+          </button>
+          );
+        })}
 
       </div>
 
-    </div>
+    </nav>
 
   );
 
