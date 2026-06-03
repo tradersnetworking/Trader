@@ -38,9 +38,13 @@ import {
 } from "../services/mailboxConfig.js";
 import {
   enrichProductForDisplay,
-  backfillZeroProductPrices,
+  refreshProductPrices,
   estimateBasePrice,
 } from "../services/productPricing.js";
+import {
+  applyCuratedProductImages,
+  syncCategoryImageFields,
+} from "../services/productImageSync.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -187,14 +191,44 @@ router.get(
   })
 );
 
-/** Set indicative prices on catalog rows still at ₹0 (admin; optional Google CSE). */
+/** Sync product image files → DB (admin). Body: { fetch, limit, offset, force }. */
+router.post(
+  "/products/sync-images",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const fetch = req.body?.fetch === true;
+    const limit = Number(req.body?.limit) || 0;
+    const offset = Number(req.body?.offset) || 0;
+    const force = req.body?.force === true;
+    let result;
+    if (fetch) {
+      result = await fetchAndSyncProductImages(mainDb, { limit, offset, force });
+    } else {
+      const products = await syncProductImageFields(mainDb);
+      const categories = await syncCategoryImageFields(mainDb);
+      result = { products, categories };
+    }
+    res.json({
+      ok: true,
+      message: fetch
+        ? `Fetched/synced ${result.processed} products (${result.fetched} new images).`
+        : `Updated ${result.products.updated} product and ${result.categories.updated} category image paths.`,
+      ...result,
+    });
+  })
+);
+
+/** Refresh indicative prices (admin; optional Google CSE). Body: { useGoogle, refreshAll }. */
 router.post(
   "/products/backfill-prices",
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (req, res) => {
     const useGoogle = req.body?.useGoogle === true || req.query?.useGoogle === "true";
-    const result = await backfillZeroProductPrices(mainDb, { useGoogle });
+    const refreshAll =
+      req.body?.refreshAll === true || req.query?.refreshAll === "true" || useGoogle;
+    const result = await refreshProductPrices(mainDb, { useGoogle, onlyZero: !refreshAll });
     res.json({
       ok: true,
       message: `Updated ${result.updated} of ${result.total} products with indicative prices.`,
@@ -775,6 +809,19 @@ router.put(
     const user = await mainDb.user.update({ where: { id: req.params.id }, data: { role, isActive } });
     const { passwordHash, ...u } = user;
     res.json({ user: u });
+  })
+);
+
+router.get(
+  "/admin/users/:id/trade-kyc",
+  authRequired(SCOPE),
+  isAdmin,
+  asyncH(async (req, res) => {
+    const kyc = await mainDb.tradeKyc.findUnique({
+      where: { userId: req.params.id },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+    res.json({ kyc });
   })
 );
 

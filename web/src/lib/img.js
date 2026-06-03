@@ -127,44 +127,29 @@ export function categoryImageUrl(category) {
   return categoryPath(category);
 }
 
+/** Curated image for a product — subcategory/parent category asset (no random web scrapes). */
 export function productImageUrl(product) {
-  const imgs = Array.isArray(product?.images) ? product.images : [];
-  if (imgs.length && imgs[0]) return imgs[0];
-
-  const name = product?.name;
-  if (name) return productPath(name);
-
   const cat = product?.category;
   if (cat?.image) return cat.image;
   if (cat?.name) return categoryPath(cat.name);
-
   const parent = cat?.parent;
   if (parent?.image) return parent.image;
   if (parent?.name) return categoryPath(parent.name);
-
+  const imgs = Array.isArray(product?.images) ? product.images : [];
+  const stored = imgs.find((u) => typeof u === "string" && u.startsWith("/assets/categories/"));
+  if (stored) return stored;
   return DEFAULT_CATEGORY_IMAGE;
 }
 
-/** Ordered fallbacks for product cards (slug image → category → default). */
-/** Stable CDN image from product/category name (no API key). */
-function internetFallbackUrl(product) {
-  const seed = slug(product?.name || product?.category?.name || "trade");
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/480/480`;
-}
-
+/** Ordered fallbacks: category image → parent category → default trade. */
 export function productImageCandidates(product) {
   const out = [];
   const push = (u) => {
     if (u && !out.includes(u)) out.push(u);
   };
-  const imgs = Array.isArray(product?.images) ? product.images : [];
-  imgs.forEach((u) => {
-    if (typeof u === "string" && (u.startsWith("http") || u.startsWith("/"))) push(u);
-  });
-  if (product?.name) push(productPath(product.name));
-  push(internetFallbackUrl(product));
   if (product?.category?.image) push(product.category.image);
   if (product?.category?.name) push(categoryPath(product.category.name));
+  if (product?.category?.parent?.image) push(product.category.parent.image);
   if (product?.category?.parent?.name) push(categoryPath(product.category.parent.name));
   push(DEFAULT_CATEGORY_IMAGE);
   return out;

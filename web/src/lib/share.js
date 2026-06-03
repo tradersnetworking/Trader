@@ -8,7 +8,6 @@ import {
 } from "./shareMeta.js";
 
 /** Social / referral share links — uses additional domain when enabled, else invest subdomain. */
-/** Referral invite URL — invest home with ?ref= so link previews match homepage OG meta. */
 export function buildReferralLink(code) {
   const raw = String(code || "").trim().toUpperCase();
   if (!raw) return "";
@@ -26,39 +25,75 @@ export function buildPlanShareLink(planId, referralCode) {
   return buildPlanShareUrl(planId, referralCode);
 }
 
-export function buildShareText({ type, amount, planName, plan, userName, referralCode, planId }) {
-  const link = referralCode ? buildReferralLink(referralCode) : "";
-  const planLink = planId || plan?.id ? buildPlanShareUrl(planId || plan?.id, referralCode) : link;
-  const joinLine = planLink || link;
+/** Default share URL for current portal page. */
+export function currentPageShareUrl(fallback = "") {
+  if (typeof window !== "undefined" && window.location?.href) {
+    return window.location.href.split("#")[0];
+  }
+  return fallback;
+}
+
+/** Ensure message includes the share link (WhatsApp/Telegram need URL in text or url param). */
+export function composeShareMessage(text, url = "") {
+  const base = String(text || "").trim();
+  const link = String(url || "").trim();
+  if (!link) return base;
+  if (base.includes(link)) return base;
+  return base ? `${base}\n\n🔗 ${link}` : link;
+}
+
+export function buildShareText({ type, amount, planName, plan, userName, referralCode, planId, pageUrl }) {
+  const referralLink = referralCode ? buildReferralLink(referralCode) : "";
+  const planLink = planId || plan?.id ? buildPlanShareUrl(planId || plan?.id, referralCode) : referralLink;
+  const page = String(pageUrl || "").trim();
+  const joinLine = planLink || referralLink || page;
 
   if (plan && (type === "investment" || type === "profit")) {
     const body = buildPlanShareDescription(plan, { amount, userName });
-    return `${body}${joinLine ? `\n\n🔗 View plan & register:\n${joinLine}` : ""}`;
+    return composeShareMessage(body, planLink || page);
   }
 
   if (type === "deposit") {
-    return `I deposited ${amount} to my ${BRAND_INVEST} wallet! 💳 Secure KYC, transparent ledger & monthly ROI plans.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `I deposited ${amount} to my ${BRAND_INVEST} wallet! 💳 Secure KYC, transparent ledger & monthly ROI plans.`,
+      joinLine || investShareUrl("/")
+    );
   }
   if (type === "withdrawal") {
-    return `Withdrawal of ${amount} completed on ${BRAND_INVEST}! ✅ Payout sent to my registered account.${joinLine ? `\n\nExplore plans:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `Withdrawal of ${amount} completed on ${BRAND_INVEST}! ✅ Payout sent to my registered account.`,
+      joinLine || investShareUrl("/")
+    );
   }
   if (type === "investment") {
     const planLine = planName ? ` — ${planName}` : "";
-    return `I'm earning with ${BRAND_INVEST}${planLine} — invested ${amount}! 📈 Published monthly ROI, KYC-verified accounts & transparent ledger.${joinLine ? `\n\nView plans & join:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `I'm earning with ${BRAND_INVEST}${planLine} — invested ${amount}! 📈 Published monthly ROI, KYC-verified accounts & transparent ledger.`,
+      planLink || page || investShareUrl("/#plans")
+    );
   }
   if (type === "profit") {
-    return `${userName || "I"} earned ${amount} profit on ${BRAND_INVEST}! 💰${planName ? ` Plan: ${planName}.` : ""} Published monthly ROI, KYC-verified wallet & transparent ledger.${joinLine ? `\n\nView plans:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `${userName || "I"} earned ${amount} profit on ${BRAND_INVEST}! 💰${planName ? ` Plan: ${planName}.` : ""} Published monthly ROI, KYC-verified wallet & transparent ledger.`,
+      planLink || referralLink || page || investShareUrl("/")
+    );
   }
   if (type === "achievement") {
-    return `${userName || "I"} unlocked "${planName || "an achievement"}" on ${BRAND_INVEST}! 🏆${joinLine ? `\n\nJoin:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `${userName || "I"} unlocked "${planName || "an achievement"}" on ${BRAND_INVEST}! 🏆`,
+      joinLine || investShareUrl("/")
+    );
   }
   if (type === "referral") {
-    return `${INVEST_HOME_DEFAULT.description}${joinLine ? `\n\nUse my invite link:\n${joinLine}` : ""}`;
+    return composeShareMessage(
+      `${INVEST_HOME_DEFAULT.description}${referralCode ? `\n\nReferral code: ${String(referralCode).toUpperCase()}` : ""}`,
+      referralLink || page || investShareUrl("/")
+    );
   }
   if (type === "main") {
-    return `${MAIN_HOME_DEFAULT.description}${joinLine ? `\n\n${joinLine}` : ""}`;
+    return composeShareMessage(MAIN_HOME_DEFAULT.description, page || "https://akshayaexim.com/");
   }
-  return `${INVEST_HOME_DEFAULT.description}${joinLine ? `\n\n${joinLine}` : ""}`;
+  return composeShareMessage(INVEST_HOME_DEFAULT.description, joinLine || page || investShareUrl("/"));
 }
 
 export const SHARE_PLATFORMS = [
@@ -66,22 +101,26 @@ export const SHARE_PLATFORMS = [
     id: "whatsapp",
     label: "WhatsApp",
     icon: "💬",
-    href: (text, url) => `https://wa.me/?text=${encodeURIComponent(text)}`,
+    href: (text, url) => `https://wa.me/?text=${encodeURIComponent(composeShareMessage(text, url))}`,
   },
   {
     id: "telegram",
     label: "Telegram",
     icon: "✈️",
-    href: (text, url) =>
-      `https://t.me/share/url?url=${encodeURIComponent(url || "")}&text=${encodeURIComponent(text)}`,
+    href: (text, url) => {
+      const link = String(url || "").trim() || currentPageShareUrl();
+      const message = composeShareMessage(text, link);
+      return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(message)}`;
+    },
   },
   {
     id: "twitter",
     label: "X / Twitter",
     icon: "𝕏",
     href: (text, url) => {
-      const u = url ? `&url=${encodeURIComponent(url)}` : "";
-      return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}${u}`;
+      const link = String(url || "").trim();
+      const u = link ? `&url=${encodeURIComponent(link)}` : "";
+      return `https://twitter.com/intent/tweet?text=${encodeURIComponent(composeShareMessage(text, link))}${u}`;
     },
   },
   {
@@ -89,7 +128,7 @@ export const SHARE_PLATFORMS = [
     label: "Facebook",
     icon: "📘",
     href: (text, url) => {
-      const shareUrl = url || "https://invest.akshayaexim.com";
+      const shareUrl = String(url || "").trim() || currentPageShareUrl("https://invest.akshayaexim.com/");
       return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`;
     },
   },
@@ -102,7 +141,7 @@ export const SHARE_PLATFORMS = [
         url && url.includes("invest")
           ? INVEST_HOME_DEFAULT.title
           : "AKSHAYA EXIM TRADERS";
-      return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(composeShareMessage(text, url))}`;
     },
   },
 ];
@@ -111,7 +150,8 @@ export const SHARE_PLATFORMS = [
 export function openShare(platform, text, url = "") {
   const p = SHARE_PLATFORMS.find((x) => x.id === platform);
   if (!p) return;
-  const href = p.href(text, url);
+  const link = String(url || "").trim() || currentPageShareUrl();
+  const href = p.href(text, link);
   const a = document.createElement("a");
   a.href = href;
   a.target = "_blank";
@@ -121,39 +161,22 @@ export function openShare(platform, text, url = "") {
   a.remove();
 }
 
-/** Share personal milestone (profit / withdrawal / deposit) — text only so link previews stay off the marketing banner. */
-export function openTransactionShare(platform, text) {
-  const p = SHARE_PLATFORMS.find((x) => x.id === platform);
-  if (!p) return;
-  let href;
-  if (platform === "whatsapp") {
-    href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-  } else if (platform === "telegram") {
-    href = `https://t.me/share/url?url=${encodeURIComponent("https://t.me")}&text=${encodeURIComponent(text)}`;
-  } else if (platform === "email") {
-    href = `mailto:?subject=${encodeURIComponent(BRAND_INVEST)}&body=${encodeURIComponent(text)}`;
-  } else if (platform === "twitter") {
-    href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-  } else {
-    href = p.href(text, "");
-  }
-  const a = document.createElement("a");
-  a.href = href;
-  a.target = "_blank";
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+/** Share personal milestone — includes invite/page link in text for WhatsApp/Telegram. */
+export function openTransactionShare(platform, text, url = "") {
+  const link = String(url || "").trim() || investShareUrl("/");
+  openShare(platform, text, link);
 }
 
 /** Native share with generated PNG (mobile WhatsApp / Telegram attach). */
-export async function nativeShareImage({ title, text, blob, fileName = "akshaya-invest-milestone.png" }) {
+export async function nativeShareImage({ title, text, blob, fileName = "akshaya-invest-milestone.png", url }) {
   if (!navigator.share || !blob) return false;
   try {
     const file = new File([blob], fileName, { type: "image/png" });
+    const link = String(url || "").trim() || investShareUrl("/");
     const payload = { files: [file] };
-    if (text) payload.text = text;
+    if (text) payload.text = composeShareMessage(text, link);
     if (title) payload.title = title;
+    if (link && navigator.canShare?.({ ...payload, url: link })) payload.url = link;
     if (navigator.canShare && !navigator.canShare(payload)) {
       return false;
     }
@@ -169,10 +192,11 @@ export async function nativeShareImage({ title, text, blob, fileName = "akshaya-
 export async function nativeShare({ title, text, url }) {
   if (!navigator.share) return false;
   try {
+    const link = String(url || "").trim() || currentPageShareUrl();
     await navigator.share({
       title: title || BRAND_INVEST,
-      text,
-      url: url || undefined,
+      text: composeShareMessage(text, link),
+      url: link || undefined,
     });
     return true;
   } catch (err) {

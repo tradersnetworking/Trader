@@ -40,11 +40,14 @@ export default function InvestShareWidget() {
   const [open, setOpen] = useState(false);
 
   const shareUrl =
-    (invest?.referralCode ? buildReferralLink(invest.referralCode) : null) || investShareUrl("/");
+    (invest?.referralCode ? buildReferralLink(invest.referralCode) : null) ||
+    (typeof window !== "undefined" ? window.location.href.split("#")[0] : null) ||
+    investShareUrl("/");
   const shareText = buildShareText({
     type: "referral",
     referralCode: invest?.referralCode,
     userName: invest?.name,
+    pageUrl: shareUrl,
   });
 
   const close = () => setOpen(false);

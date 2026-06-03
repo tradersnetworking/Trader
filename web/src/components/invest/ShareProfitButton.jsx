@@ -63,7 +63,12 @@ export default function ShareProfitButton({
 
   const referralLink = referralCode ? buildReferralLink(referralCode) : "";
   const planLink = resolvedPlanId ? buildPlanShareLink(resolvedPlanId, referralCode) : referralLink;
-  const shareUrl = isLinkShare ? planLink || referralLink : "";
+  const defaultLink =
+    planLink ||
+    referralLink ||
+    (typeof window !== "undefined" ? window.location.href.split("#")[0] : "") ||
+    investShareUrl("/");
+  const shareUrl = isLinkShare ? defaultLink : referralLink || defaultLink;
 
   const text = buildShareText({
     type,
@@ -73,6 +78,7 @@ export default function ShareProfitButton({
     userName: invest?.name,
     referralCode,
     planId: resolvedPlanId,
+    pageUrl: shareUrl,
   });
 
   const shareTitle = resolvedPlanName
@@ -138,7 +144,7 @@ export default function ShareProfitButton({
     if (isTransaction) {
       const blob = await getCardBlob();
       if (blob) {
-        const ok = await nativeShareImage({ title: shareTitle, text, blob });
+        const ok = await nativeShareImage({ title: shareTitle, text, blob, url: shareUrl });
         if (ok) return;
       }
     }
@@ -173,10 +179,10 @@ export default function ShareProfitButton({
     setShareErr("");
     if (isTransaction) {
       const blob = await getCardBlob();
-      const imageOk = blob && (await nativeShareImage({ text, blob }));
+      const imageOk = blob && (await nativeShareImage({ text, blob, url: shareUrl }));
       if (!imageOk) {
         await downloadCard();
-        openTransactionShare(platform, `${text}\n\n(Attach the downloaded image)`);
+        openTransactionShare(platform, composeShareMessage(`${text}\n\n(Attach the downloaded image)`, shareUrl), shareUrl);
         setShareErr("Image saved — attach it in WhatsApp/Telegram if it did not open with the picture.");
       }
       return;

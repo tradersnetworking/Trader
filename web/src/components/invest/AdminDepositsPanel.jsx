@@ -123,13 +123,13 @@ export default function AdminDepositsPanel({ onUpdated }) {
                 </td>
                 <td className="p-3"><Badge status={d.status} /></td>
                 <td className="p-3 text-right whitespace-nowrap">
+                  {d.proofImage && (
+                    <button type="button" onClick={() => setReview(d)} className="btn-outline mr-2 px-2 py-1 text-xs">
+                      View
+                    </button>
+                  )}
                   {d.status === "PENDING" && (
                     <>
-                      {d.proofImage && (
-                        <button type="button" onClick={() => setReview(d)} className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          Review
-                        </button>
-                      )}
                       <button onClick={() => decide(d.id, "approve")} className="ml-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400" disabled={isManual(d) && !d.proofImage}>
                         Approve
                       </button>

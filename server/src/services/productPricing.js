@@ -4,11 +4,13 @@
  * otherwise category / keyword heuristics (India wholesale benchmarks).
  */
 
+import { buildWebPriceQueries, googleWebSearch } from "./marketplaceMedia.js";
+
 const priceCache = new Map();
 let googleCallsThisRun = 0;
 
 /** Max Google lookups per process (seed/script); avoids quota burn. */
-const GOOGLE_MAX_PER_RUN = Number(process.env.PRODUCT_PRICE_GOOGLE_LIMIT || 40);
+const GOOGLE_MAX_PER_RUN = Number(process.env.PRODUCT_PRICE_GOOGLE_LIMIT || 80);
 
 /** Indicative INR per metric ton by sub-category (wholesale / FOB India). */
 const SUB_MT_INR = {
@@ -102,7 +104,27 @@ const NAME_FACTORS = [
   { re: /cotton/i, mtMult: 1.0 },
   { re: /steel|iron|copper|aluminium|aluminum/i, mtMult: 1.25 },
   { re: /solar|panel|inverter/i, mtMult: 1.4 },
+  { re: /onion|potato|tomato/i, mtMult: 0.88 },
+  { re: /mango|banana|apple/i, mtMult: 1.12 },
+  { re: /maize|corn/i, mtMult: 0.92 },
+  { re: /barley|sorghum|millet/i, mtMult: 0.85 },
+  { re: /chickpea|gram|dal|lentil/i, mtMult: 1.08 },
+  { re: /mustard|sesame|groundnut/i, mtMult: 1.05 },
+  { re: /pharma|tablet|capsule|api/i, mtMult: 1.65 },
+  { re: /ore|scrap|ingot/i, mtMult: 1.18 },
 ];
+
+/** Stable per-product multiplier so siblings in a subcategory do not share one price. */
+export function productNameVariationFactor(name) {
+  const s = String(name || "");
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const t = (h >>> 0) % 1000;
+  return 0.72 + t / 1000 * 0.66;
+}
 
 function normUnit(unit) {
   const u = String(unit || "MT").trim().toLowerCase();
@@ -141,9 +163,10 @@ function estimateMtInr({ name, categoryName, subCategoryName, listingType }) {
 
 export function estimateBasePrice({ name, unit, listingType, categoryName, subCategoryName }) {
   const u = String(unit || "MT").trim();
-  if (FIXED_UNIT_INR[u]) return roundPrice(FIXED_UNIT_INR[u]);
+  const variation = productNameVariationFactor(name);
+  if (FIXED_UNIT_INR[u]) return roundPrice(FIXED_UNIT_INR[u] * variation);
   const mt = estimateMtInr({ name, categoryName, subCategoryName, listingType });
-  return roundPrice(mtToUnit(mt, u));
+  return roundPrice(mtToUnit(mt, u) * variation);
 }
 
 function parseInrFromText(text) {
@@ -163,43 +186,49 @@ function parseInrFromText(text) {
   return found;
 }
 
+function normalizeParsedPrice(mid, unit) {
+  const u = normUnit(unit);
+  let price = mid;
+  if (u === "kg" && mid > 5000) price = mid;
+  else if (u === "kg" && mid > 500) price = mid;
+  else if (u === "mt" && mid < 5000 && mid > 50) price = mid * 1000;
+  else if (u === "quintal" && mid < 8000) price = mid * 10;
+  return roundPrice(price);
+}
+
 async function fetchGooglePriceInr({ name, unit, categoryName }) {
-  const key = process.env.GOOGLE_CSE_API_KEY;
-  const cx = process.env.GOOGLE_CSE_CX;
-  if (!key || !cx || googleCallsThisRun >= GOOGLE_MAX_PER_RUN) return 0;
+  if (googleCallsThisRun >= GOOGLE_MAX_PER_RUN) return 0;
 
   const cacheKey = `g:${name}|${unit}`;
   if (priceCache.has(cacheKey)) return priceCache.get(cacheKey);
 
-  googleCallsThisRun += 1;
-  const q = `${name} wholesale price India ${unit} INR ${categoryName || "export"}`.slice(0, 120);
-  try {
-    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(cx)}&num=5&q=${encodeURIComponent(q)}`;
-    const res = await fetch(url);
-    if (!res.ok) return 0;
-    const data = await res.json();
-    const nums = [];
-    for (const item of data.items || []) {
-      nums.push(...parseInrFromText(`${item.title || ""} ${item.snippet || ""}`));
+  const queries = buildWebPriceQueries(name, unit, categoryName);
+  const nums = [];
+
+  for (const q of queries) {
+    if (googleCallsThisRun >= GOOGLE_MAX_PER_RUN) break;
+    googleCallsThisRun += 1;
+    try {
+      const data = await googleWebSearch(q);
+      if (!data) break;
+      for (const item of data.items || []) {
+        nums.push(...parseInrFromText(`${item.title || ""} ${item.snippet || ""}`));
+      }
+      if (nums.length >= 3) break;
+    } catch {
+      /* try next query */
     }
-    if (!nums.length) {
-      priceCache.set(cacheKey, 0);
-      return 0;
-    }
-    nums.sort((a, b) => a - b);
-    const mid = nums[Math.floor(nums.length / 2)];
-    const u = normUnit(unit);
-    let price = mid;
-    if (u === "kg" && mid > 5000) price = mid;
-    else if (u === "kg" && mid > 500) price = mid;
-    else if (u === "mt" && mid < 5000 && mid > 50) price = mid * 1000;
-    else if (u === "quintal" && mid < 8000) price = mid * 10;
-    price = roundPrice(price);
-    priceCache.set(cacheKey, price);
-    return price;
-  } catch {
+  }
+
+  if (!nums.length) {
+    priceCache.set(cacheKey, 0);
     return 0;
   }
+  nums.sort((a, b) => a - b);
+  const mid = nums[Math.floor(nums.length / 2)];
+  const price = normalizeParsedPrice(mid, unit);
+  priceCache.set(cacheKey, price);
+  return price;
 }
 
 /**
@@ -257,10 +286,19 @@ export function resetPricingRunState() {
 
 /** Persist indicative prices for products still at ₹0. */
 export async function backfillZeroProductPrices(db, { useGoogle = false } = {}) {
+  return refreshProductPrices(db, { useGoogle, onlyZero: true });
+}
+
+/**
+ * Refresh listing prices (all products or only ₹0).
+ * Re-applies Google (when configured) and per-product heuristic variation.
+ */
+export async function refreshProductPrices(db, { useGoogle = false, onlyZero = false } = {}) {
   resetPricingRunState();
   const products = await db.product.findMany({
-    where: { basePrice: { lte: 0 } },
+    where: onlyZero ? { basePrice: { lte: 0 } } : undefined,
     include: { category: { include: { parent: true } } },
+    orderBy: { name: "asc" },
   });
   let updated = 0;
   for (const p of products) {
@@ -275,7 +313,7 @@ export async function backfillZeroProductPrices(db, { useGoogle = false } = {}) 
       },
       { useGoogle }
     );
-    if (basePrice > 0) {
+    if (basePrice > 0 && Math.abs(basePrice - Number(p.basePrice)) > 0.01) {
       await db.product.update({ where: { id: p.id }, data: { basePrice } });
       updated += 1;
     }

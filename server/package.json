@@ -13,6 +13,10 @@
     "seed": "node src/seed.js",
     "seed:plans": "node src/seed.js --plans-only",
     "backfill-prices": "node scripts/backfill-product-prices.mjs",
+    "enrich-marketplace": "node scripts/enrich-marketplace.mjs",
+    "sync-images": "node scripts/sync-marketplace-images.mjs",
+    "sync-all-images": "node scripts/sync-all-product-images.mjs",
+    "curate-images": "node scripts/curate-product-images.mjs",
     "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs"
   },
   "dependencies": {

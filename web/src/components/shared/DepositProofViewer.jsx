@@ -9,7 +9,7 @@ function accountLabel(acct) {
 }
 
 /** Admin popup to review deposit proof before approve/reject. */
-export default function DepositProofViewer({ open, deposit, onClose, onApprove, onReject, busy }) {
+export default function DepositProofViewer({ open, deposit, onClose, onApprove, onReject, busy, scope = "invest" }) {
   if (!deposit) return null;
   const proof = deposit.proofImage;
 
@@ -30,7 +30,7 @@ export default function DepositProofViewer({ open, deposit, onClose, onApprove, 
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Payment proof</p>
           {!proof && <p className="text-sm text-rose-500">No proof uploaded.</p>}
           {proof && (
-            <SecureUploadLink url={proof} previewTitle="Deposit payment proof" scope="invest" className="btn-gold text-sm">
+            <SecureUploadLink url={proof} previewTitle="Deposit payment proof" scope={scope} className="btn-gold text-sm">
               View payment proof
             </SecureUploadLink>
           )}

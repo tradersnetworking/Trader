@@ -1,25 +1,34 @@
 /**
  * Download category & product images via image search (Google CSE if configured,
- * otherwise Wikimedia Commons + DuckDuckGo). Resize to consistent dimensions.
+ * otherwise Wikimedia Commons + DuckDuckGo). Biases queries toward India B2B sites.
  *
  * Usage:
- *   node scripts/fetch-marketplace-images.mjs
- *
- * Optional .env (repo root server/.env):
- *   GOOGLE_CSE_API_KEY=...
- *   GOOGLE_CSE_CX=...
+ *   npm run fetch-images --workspace web
+ *   npm run fetch-images --workspace web -- --force
+ *   npm run fetch-images --workspace web -- --products-only --limit 100
  */
 import sharp from "sharp";
 import { mkdirSync, writeFileSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { readFileSync } from "fs";
+import {
+  buildProductImageQueries,
+  findProductImageUrls,
+} from "../../server/src/services/marketplaceMedia.js";
+import { flattenCatalogProducts, TAXONOMY } from "../../server/src/data/categories.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(__dirname, "..");
 const assetsRoot = join(webRoot, "public", "assets");
 const catDir = join(assetsRoot, "categories");
 const prodDir = join(assetsRoot, "products");
+
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const productsOnly = args.includes("--products-only");
+const limitIdx = args.indexOf("--limit");
+const productLimit = limitIdx >= 0 ? Number(args[limitIdx + 1]) || 0 : 0;
 
 mkdirSync(catDir, { recursive: true });
 mkdirSync(prodDir, { recursive: true });
@@ -100,7 +109,7 @@ async function duckDuckGoImages(query) {
   }
 }
 
-async function findImageUrls(query) {
+async function findCategoryImageUrls(query) {
   const google = await googleImageSearch(query);
   if (google?.length) return google;
   const wiki = await wikiImageSearch(query);
@@ -143,24 +152,36 @@ function searchQuery(name, kind) {
   return `${name} product wholesale export`;
 }
 
-async function fetchOne(name, kind, size, { force = false, altQueries = [] } = {}) {
+async function fetchOne(name, kind, size, { force: forceFetch = false, altQueries = [] } = {}) {
   const dir = kind === "category" ? catDir : prodDir;
   const dest = join(dir, `${slug(name)}.webp`);
-  if (!force && existsSync(dest)) {
+  if (!forceFetch && existsSync(dest)) {
     console.log(`  skip (exists) ${kind}: ${name}`);
     return dest;
   }
-  const queries = [searchQuery(name, kind), ...altQueries, name.split(/[&/]/)[0].trim(), name.split(" ")[0]];
-  for (const query of [...new Set(queries.filter(Boolean))]) {
-    console.log(`  fetch ${kind}: ${name} (${query})…`);
-    const urls = await findImageUrls(query);
-    if (!urls.length) continue;
-    const ok = await saveImage(urls, dest, size);
-    if (ok) {
-      console.log(`  ✓ ${dest.replace(assetsRoot, "")}`);
-      return dest;
+  if (kind === "product") {
+    console.log(`  fetch product: ${name} (B2B marketplaces)…`);
+    const urls = await findProductImageUrls(name, altQueries[0] || "", env);
+    if (urls.length) {
+      const ok = await saveImage(urls, dest, size);
+      if (ok) {
+        console.log(`  ✓ ${dest.replace(assetsRoot, "")}`);
+        return dest;
+      }
     }
-    await sleep(200);
+  } else {
+    const queries = [searchQuery(name, kind), ...altQueries, name.split(/[&/]/)[0].trim()];
+    for (const query of [...new Set(queries.filter(Boolean))]) {
+      console.log(`  fetch ${kind}: ${name} (${query.slice(0, 70)}…)…`);
+      const urls = await findCategoryImageUrls(query);
+      if (!urls.length) continue;
+      const ok = await saveImage(urls, dest, size);
+      if (ok) {
+        console.log(`  ✓ ${dest.replace(assetsRoot, "")}`);
+        return dest;
+      }
+      await sleep(200);
+    }
   }
   console.warn(`  ! download failed: ${name}`);
   return null;
@@ -174,50 +195,55 @@ async function copyFallback(name, kind, fallbackPath) {
   console.log(`  ↳ fallback copy for ${name}`);
 }
 
-// Categories from server EXIM taxonomy
-const { TAXONOMY, flattenCatalogProducts } = await import("../../server/src/data/categories.js");
-
 console.log("Fetching marketplace images…");
 console.log(env.GOOGLE_CSE_API_KEY ? "Using Google Custom Search API" : "Using Wikimedia + DuckDuckGo image search");
 
 const manifest = { categories: {}, subcategories: {}, products: {}, generatedAt: new Date().toISOString() };
 
-for (const c of TAXONOMY) {
-  await fetchOne(c.name, "category", { width: 800, height: 600 });
-  manifest.categories[c.name] = `/assets/categories/${slug(c.name)}.webp`;
-  await sleep(350);
+if (!productsOnly) {
+  for (const c of TAXONOMY) {
+    await fetchOne(c.name, "category", { width: 800, height: 600 }, { force });
+    manifest.categories[c.name] = `/assets/categories/${slug(c.name)}.webp`;
+    await sleep(350);
+  }
+
+  for (const c of TAXONOMY) {
+    for (const sub of c.sub) {
+      await fetchOne(sub.name, "category", { width: 800, height: 600 }, { force });
+      manifest.subcategories[sub.name] = `/assets/categories/${slug(sub.name)}.webp`;
+      await sleep(280);
+    }
+  }
 }
 
-// Fetch images for a representative sample of subcategories (first sub per top category)
-for (const c of TAXONOMY) {
-  const firstSub = c.sub[0];
-  if (!firstSub) continue;
-  await fetchOne(firstSub.name, "category", { width: 800, height: 600 });
-  manifest.subcategories[firstSub.name] = `/assets/categories/${slug(firstSub.name)}.webp`;
-  await sleep(300);
+const catalog = flattenCatalogProducts();
+let productCount = 0;
+for (const row of catalog) {
+  if (productLimit > 0 && productCount >= productLimit) break;
+  await fetchOne(row.name, "product", { width: 800, height: 800 }, {
+    force,
+    altQueries: [row.subCategory],
+  });
+  manifest.products[row.name] = `/assets/products/${slug(row.name)}.webp`;
+  productCount += 1;
+  await sleep(320);
 }
 
-// Fetch a small sample of product images (first product per top category)
-const sampleProducts = TAXONOMY.map((c) => c.sub[0]?.products?.[0]).filter(Boolean);
-for (const p of sampleProducts) {
-  await fetchOne(p, "product", { width: 800, height: 800 });
-  manifest.products[p] = `/assets/products/${slug(p)}.webp`;
-  await sleep(300);
-}
+if (!productsOnly) {
+  const defaultDest = join(catDir, "default-trade.webp");
+  if (!existsSync(defaultDest) || force) {
+    const urls = await findCategoryImageUrls("global trade shipping containers port");
+    await saveImage(urls, defaultDest, { width: 800, height: 600 });
+  }
+  manifest.default = "/assets/categories/default-trade.webp";
 
-// Fill any remaining parent category gaps from default
-const defaultDest = join(catDir, "default-trade.webp");
-if (!existsSync(defaultDest)) {
-  const urls = await findImageUrls("global trade shipping containers port");
-  await saveImage(urls, defaultDest, { width: 800, height: 600 });
-}
-manifest.default = "/assets/categories/default-trade.webp";
-
-for (const c of TAXONOMY) {
-  const p = join(catDir, `${slug(c.name)}.webp`);
-  if (!existsSync(p) && existsSync(defaultDest)) await copyFallback(c.name, "category", defaultDest);
+  for (const c of TAXONOMY) {
+    const p = join(catDir, `${slug(c.name)}.webp`);
+    if (!existsSync(p) && existsSync(defaultDest)) await copyFallback(c.name, "category", defaultDest);
+  }
 }
 
 writeFileSync(join(assetsRoot, "image-manifest.json"), JSON.stringify(manifest, null, 2));
-console.log(`\nDone. ${Object.keys(manifest.categories).length} category images. Manifest: public/assets/image-manifest.json`);
-console.log(`Catalog has ${flattenCatalogProducts().length} products (most use category/default image fallback).`);
+console.log(
+  `\nDone. ${Object.keys(manifest.products).length} product images processed. Catalog: ${catalog.length} products.`
+);

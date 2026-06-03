@@ -5,7 +5,9 @@ import {
   buildPlanShareLink,
   openShare,
   nativeShare,
+  currentPageShareUrl,
 } from "../../lib/share.js";
+import { investShareUrl } from "../../lib/portalConfig.js";
 import { copyTextToClipboard } from "../../lib/clipboard.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr } from "../../lib/format.js";
@@ -73,9 +75,10 @@ export default function PlanShareIcons({
   const displayAmount = amount ?? (resolvedPlan ? inr(resolvedPlan.minInvestment) : "");
 
   const referralLink = invest?.referralCode ? buildReferralLink(invest.referralCode) : "";
-  const shareUrl = resolvedPlanId
-    ? buildPlanShareLink(resolvedPlanId, invest?.referralCode)
-    : referralLink;
+  const shareUrl =
+    (resolvedPlanId ? buildPlanShareLink(resolvedPlanId, invest?.referralCode) : null) ||
+    referralLink ||
+    currentPageShareUrl(investShareUrl("/#plans"));
 
   const text = buildShareText({
     type: "investment",
@@ -85,6 +88,7 @@ export default function PlanShareIcons({
     userName: invest?.name,
     referralCode: invest?.referralCode,
     planId: resolvedPlanId,
+    pageUrl: shareUrl,
   });
 
   const shareTitle = resolvedPlan?.name
@@ -115,8 +119,6 @@ export default function PlanShareIcons({
     onAction?.();
     openShare(platform, text, shareUrl);
   };
-
-  if (!shareUrl) return null;
 
   return (
     <div

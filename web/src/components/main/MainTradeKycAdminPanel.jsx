@@ -41,7 +41,7 @@ export default function MainTradeKycAdminPanel() {
             <Badge status={k.status} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className="btn-outline text-xs" onClick={() => setViewDocs(k)}>View documents</button>
+            <button type="button" className="btn-outline text-xs" onClick={() => setViewDocs(k)}>View</button>
             {k.status === "PENDING" && (
               <>
                 <button type="button" className="btn-gold text-xs" onClick={() => decide(k.id, "APPROVED")}>Approve</button>

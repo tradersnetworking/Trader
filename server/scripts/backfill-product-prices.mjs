@@ -1,14 +1,16 @@
 /**
- * Backfill marketplace product basePrice where still ₹0.
+ * Backfill / refresh marketplace product basePrice.
  * Usage: npm run backfill-prices --workspace server
  *        npm run backfill-prices --workspace server -- --google
+ *        npm run backfill-prices --workspace server -- --all --google
  */
 import { mainDb } from "../src/db.js";
-import { backfillZeroProductPrices } from "../src/services/productPricing.js";
+import { refreshProductPrices } from "../src/services/productPricing.js";
 
 const useGoogle = process.argv.includes("--google");
+const onlyZero = !process.argv.includes("--all");
 
-const result = await backfillZeroProductPrices(mainDb, { useGoogle });
+const result = await refreshProductPrices(mainDb, { useGoogle, onlyZero });
 console.log(
   JSON.stringify({
     ok: true,

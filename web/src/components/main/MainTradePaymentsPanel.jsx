@@ -68,6 +68,7 @@ export default function MainTradePaymentsPanel() {
       <DepositProofViewer
         open={Boolean(review)}
         deposit={proofDeposit}
+        scope="main"
         onClose={() => setReview(null)}
         onApprove={(id) => setStatus(id, "PAID")}
         onReject={(id) => setStatus(id, "REJECTED")}

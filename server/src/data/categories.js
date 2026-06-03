@@ -3,6 +3,8 @@
  * Structure: top-level category → subcategory → product listings (seeded as Product rows).
  */
 
+import { expansionForSub } from "./catalogExpansion.js";
+
 export const BULK_QUANTITY_UNITS = [
   "Kg",
   "MT",
@@ -816,12 +818,19 @@ export function unitForSub(topCategory, subCategory) {
   return subCategory.unit || topCategory.defaultUnit || "MT";
 }
 
+/** Product names for a subcategory (core + expansion, deduped). */
+export function productsForSub(topCategory, subCategory) {
+  const core = subCategory.products || [];
+  const extra = expansionForSub(subCategory.name, core);
+  return [...core, ...extra];
+}
+
 /** Flat list of all catalog products for seeding / image scripts. */
 export function flattenCatalogProducts() {
   const out = [];
   for (const top of TAXONOMY) {
     for (const sub of top.sub) {
-      for (const name of sub.products) {
+      for (const name of productsForSub(top, sub)) {
         out.push({
           name,
           parentCategory: top.name,

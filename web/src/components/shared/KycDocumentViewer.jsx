@@ -9,6 +9,8 @@ const DOC_FIELDS = [
   ["aadhaarDocument", "Aadhaar PDF"],
   ["passportDocument", "Passport"],
   ["addressProof", "Address Proof"],
+  ["companyRegDoc", "Company Registration"],
+  ["bankProof", "Bank Proof"],
   ["selfie", "Selfie"],
   ["signature", "Signature"],
   ["cancelledCheque", "Cancelled Cheque"],

@@ -35,8 +35,9 @@ const pillBase =
 export default function MainShareWidget() {
   const [open, setOpen] = useState(false);
 
-  const shareUrl = typeof window !== "undefined" ? window.location.href : "https://akshayaexim.com/";
-  const shareText = buildShareText({ type: "main" });
+  const shareUrl =
+    typeof window !== "undefined" ? window.location.href.split("#")[0] : "https://akshayaexim.com/";
+  const shareText = buildShareText({ type: "main", pageUrl: shareUrl });
 
   const close = () => setOpen(false);
 

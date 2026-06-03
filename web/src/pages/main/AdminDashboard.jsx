@@ -15,6 +15,7 @@ import DataPortabilityPanel from "../../components/shared/DataPortabilityPanel.j
 import MainSiteSettingsPanel from "../../components/main/MainSiteSettingsPanel.jsx";
 import MainCommunicationPanel from "../../components/main/MainCommunicationPanel.jsx";
 import MainTradeKycAdminPanel from "../../components/main/MainTradeKycAdminPanel.jsx";
+import KycDocumentViewer from "../../components/shared/KycDocumentViewer.jsx";
 import MainTradePaymentsPanel from "../../components/main/MainTradePaymentsPanel.jsx";
 
 export default function AdminDashboard() {
@@ -219,10 +220,24 @@ function ProductsAdmin() {
   };
   const del = async (id) => { if (confirm("Delete product?")) { await mainApi(`/products/${id}`, { method: "DELETE" }); load(); } };
   const backfillPrices = async () => {
-    if (!confirm("Fill indicative prices for all products still at ₹0? You can edit any price afterward.")) return;
+    if (!confirm("Refresh indicative prices for the full catalog?")) return;
     try {
-      const res = await mainApi("/products/backfill-prices", { method: "POST", body: {} });
+      const res = await mainApi("/products/backfill-prices", {
+        method: "POST",
+        body: { refreshAll: true },
+      });
       alert(res.message || "Prices updated");
+      load();
+    } catch (e2) {
+      alert(e2.message);
+    }
+  };
+
+  const syncImages = async () => {
+    if (!confirm("Apply curated category images to all products (removes mismatched web images)?")) return;
+    try {
+      const res = await mainApi("/products/sync-images", { method: "POST", body: {} });
+      alert(res.message || "Images synced");
       load();
     } catch (e2) {
       alert(e2.message);
@@ -234,7 +249,10 @@ function ProductsAdmin() {
       <div className="mb-4 flex flex-wrap gap-2">
         <button type="button" onClick={openNew} className="btn-primary">+ Add Product</button>
         <button type="button" onClick={backfillPrices} className="btn-outline">
-          Fill missing prices (indicative)
+          Refresh catalog prices
+        </button>
+        <button type="button" onClick={syncImages} className="btn-outline">
+          Sync curated product images
         </button>
       </div>
       <div className="overflow-x-auto card">
@@ -340,6 +358,13 @@ function UsersAdmin({ isSuper }) {
   };
   return (
     <div>
+      <KycDocumentViewer
+        open={Boolean(viewKyc)}
+        kyc={viewKyc}
+        onClose={() => setViewKyc(null)}
+        scope="main"
+        title={viewKyc ? `Trade KYC — ${viewKyc.fullName || viewKyc.user?.name || "User"}` : ""}
+      />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">Manage buyer/seller accounts. Super Admin can change roles.</p>
         <button onClick={() => { setCreateOpen(true); setErr(""); setMsg(""); }} className="btn-primary">+ Create User</button>

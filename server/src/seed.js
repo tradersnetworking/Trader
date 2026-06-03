@@ -2,7 +2,7 @@ import { mainDb, investDb } from "./db.js";
 import { hashPassword } from "./utils/auth.js";
 import { config } from "./config.js";
 import { nanoid } from "nanoid";
-import { TAXONOMY, unitForSub, getCatalogStats } from "./data/categories.js";
+import { TAXONOMY, unitForSub, getCatalogStats, productsForSub } from "./data/categories.js";
 import { imageForProduct, imageForCategory } from "./data/productImages.js";
 import { generateReferralCode } from "./services/referral.js";
 import { seedDefaultPaymentGateways, ensureMissingPaymentGateways, ensureDefaultBankAccounts } from "./services/paymentGateways.js";
@@ -299,7 +299,7 @@ async function seedMain() {
 
       const unit = unitForSub(c, s);
       const listingType = s.listingType || c.listingType || "EXPORT";
-      for (const productName of s.products) {
+      for (const productName of productsForSub(c, s)) {
         const img = imageForProduct(productName, s.name, c.name);
         const basePrice = estimateBasePrice({
           name: productName,
