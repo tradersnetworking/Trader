@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { mainApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
+import BrandMark from "../../components/BrandMark.jsx";
+import { MAIN_SITE_TAGLINE } from "../../lib/brand.js";
 import QuoteModal from "../../components/QuoteModal.jsx";
 import ProductImage from "../../components/ProductImage.jsx";
 import CategoryImage from "../../components/CategoryImage.jsx";
@@ -49,7 +51,21 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-12 sm:py-16">
           <div className="grid gap-8 md:grid-cols-2 md:items-center">
             <div>
-              <h1 className="text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
+              <BrandMark
+                to="/"
+                line1="Akshaya"
+                line2="EXIM TRADERS"
+                line1Silver
+                line2Gold
+                brand="main"
+                showLogoImage
+                titleBesideLogo
+                brandSize="hero"
+                subtitle={MAIN_SITE_TAGLINE}
+                onDark
+                className="mb-4"
+              />
+              <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
                 Trade Agricultural, FMCG, Medical, Metals & Chemicals <span className="gold-text">across the globe</span>
               </h1>
               <p className="mt-4 max-w-lg text-slate-300">Bulk B2B export & import across agriculture, metals, chemicals, medical, and pharma categories. Trade with verified suppliers in India and abroad.</p>
