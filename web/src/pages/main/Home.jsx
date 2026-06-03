@@ -58,13 +58,13 @@ export default function Home() {
                 line1Silver
                 line2Gold
                 brand="main"
+                brandStacked
                 showLogoImage
-                titleBesideLogo
                 brandSize="hero"
                 subtitle={MAIN_SITE_TAGLINE}
                 subtitleGold
                 onDark
-                className="mb-4"
+                className="mb-4 w-full"
               />
               <h1 className="mt-4 text-3xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
                 <span className="text-white">Trade Agricultural, FMCG, Medical, Metals & Chemicals</span>{" "}

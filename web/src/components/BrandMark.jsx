@@ -38,6 +38,8 @@ export default function BrandMark({
   titleBesideLogo = false,
   /** Mobile header: span full width with larger mark + title (fixed bar height). */
   mobileBarFill = false,
+  /** Logo on top, site title, then tagline — centered (main marketplace header/hero). */
+  brandStacked = false,
   className = "",
 }) {
   const useLogoImage = showLogoImage;
@@ -65,8 +67,21 @@ export default function BrandMark({
   const silver2 = investSiteTitle || line2Silver;
   const gold2 = !silver2 && line2Gold;
   const logoBrand = investFullLogo || investSiteTitle ? "invest" : brand;
-  const useBeside = !investFullLogo && (titleBesideLogo || !fullLogo);
-  const showSubtitle = subtitle && !(compact && !mobileFill);
+  const useStacked = brandStacked && !investFullLogo;
+  const useBeside = !investFullLogo && !useStacked && (titleBesideLogo || !fullLogo);
+  const showSubtitle = subtitle && (useStacked || !(compact && !mobileFill));
+  const stackedLogoClass =
+    scale === "hero"
+      ? "max-h-16 w-auto max-w-[min(100%,12rem)] object-contain sm:max-h-20 sm:max-w-[14rem] md:max-h-24 md:max-w-[16rem]"
+      : scale === "lg"
+        ? "max-h-11 w-auto max-w-[min(100%,10rem)] object-contain sm:max-h-12"
+        : "max-h-9 w-auto max-w-[min(100%,8.5rem)] object-contain sm:max-h-10 sm:max-w-[9.5rem]";
+  const stackedTitleClass =
+    scale === "hero"
+      ? "text-base font-extrabold leading-tight sm:text-lg md:text-xl"
+      : scale === "lg"
+        ? "text-sm font-extrabold leading-tight sm:text-base"
+        : "text-xs font-extrabold leading-tight sm:text-sm";
   const taglineClass = `truncate text-[8px] font-semibold uppercase tracking-[0.14em] sm:text-[9px] ${
     subtitleGold ? "gold-text" : onDark ? "text-slate-300" : "text-muted-foreground"
   }`;
@@ -92,9 +107,49 @@ export default function BrandMark({
           ? "h-9 w-9 shrink-0 sm:h-10 sm:w-10 md:h-11 md:w-11"
           : "h-7 w-7 shrink-0 sm:h-8 sm:w-8";
 
+  const taglineEl =
+    showSubtitle &&
+    (subtitleGold ? (
+      <span className="badge max-w-full truncate border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 sm:text-xs">
+        {subtitle}
+      </span>
+    ) : (
+      <div className={`${taglineClass} max-w-full`}>{subtitle}</div>
+    ));
+
   const inner = investFullLogo ? (
     <div className={`flex min-w-0 max-w-full items-center justify-center ${mobileFill ? "w-full" : ""} ${className}`}>
       <Logo brand="invest" variant="full" className={fullLogoClass} />
+    </div>
+  ) : useStacked ? (
+    <div
+      className={`flex w-full min-w-0 max-w-full flex-col items-center gap-1 text-center sm:gap-1.5 ${
+        scale === "hero" ? "sm:gap-2" : ""
+      } ${className}`}
+    >
+      <Logo brand={logoBrand} variant="full" className={stackedLogoClass} />
+      {investSiteTitle ? (
+        <InvestSiteTitle size={titleSize} className="text-center" />
+      ) : (
+        <div className={`${stackedTitleClass} max-w-full`}>
+          <span className={gold1 ? "gold-text" : silver1 ? "silver-text" : onDark ? "text-white" : "text-foreground"}>
+            {title1}
+          </span>
+          {title2 && (
+            <>
+              <br />
+              <span
+                className={
+                  silver2 ? "silver-text" : gold2 ? "gold-text" : onDark ? "text-slate-300" : "text-muted-foreground"
+                }
+              >
+                {title2}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      {taglineEl}
     </div>
   ) : !useBeside ? (
     <div className={`flex min-w-0 max-w-full flex-col gap-0.5 ${className}`}>
@@ -176,9 +231,11 @@ export default function BrandMark({
       <Link
         to={to}
         className={`no-underline ${
-          mobileFill
-            ? `flex w-full max-w-full min-w-0 items-center justify-start ${investFullLogo ? "min-h-11 py-0.5" : "py-0.5"}`
-            : `inline-flex w-max max-w-full shrink-0 items-center ${grow ? "min-w-0 flex-1" : ""}`
+          useStacked
+            ? `flex w-full max-w-full min-w-0 items-center justify-center py-0.5`
+            : mobileFill
+              ? `flex w-full max-w-full min-w-0 items-center justify-start ${investFullLogo ? "min-h-11 py-0.5" : "py-0.5"}`
+              : `inline-flex w-max max-w-full shrink-0 items-center ${grow ? "min-w-0 flex-1" : ""}`
         }`}
       >
         {inner}

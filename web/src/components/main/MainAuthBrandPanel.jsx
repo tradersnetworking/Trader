@@ -45,13 +45,15 @@ export function MainAuthMobileBrand() {
         line1="Akshaya"
         line2="EXIM TRADERS"
         line1Silver
+        line2Gold
         showLogoImage
         brand="main"
+        brandStacked
         brandSize="lg"
-        titleBesideLogo
         subtitle={MAIN_SITE_TAGLINE}
         subtitleGold
         onDark
+        className="w-full"
       />
     </div>
   );
