@@ -66,8 +66,9 @@ export default function Home() {
                 onDark
                 className="mb-4"
               />
-              <h1 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
-                Trade Agricultural, FMCG, Medical, Metals & Chemicals <span className="gold-text">across the globe</span>
+              <h1 className="mt-4 text-3xl font-extrabold leading-tight text-white sm:text-4xl md:text-5xl">
+                <span className="text-white">Trade Agricultural, FMCG, Medical, Metals & Chemicals</span>{" "}
+                <span className="gold-text">across the globe</span>
               </h1>
               <p className="mt-4 max-w-lg text-slate-300">Bulk B2B export & import across agriculture, metals, chemicals, medical, and pharma categories. Trade with verified suppliers in India and abroad.</p>
               <form onSubmit={onSearch} className="mt-6 flex flex-col gap-2 sm:flex-row">

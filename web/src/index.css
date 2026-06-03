@@ -574,6 +574,11 @@
   .invest-page-main h3,
   .invest-page-main h4 { color: hsl(var(--foreground)); }
 
+  /* Main marketplace hero headline — always white on navy gradient (light + dark theme) */
+  .app-content .hero-gradient h1 {
+    color: #ffffff;
+  }
+
   .app-content .text-navy,
   .invest-page-main .text-navy,
   .invest-shell .text-navy { color: hsl(var(--foreground)); }
