@@ -1,12 +1,12 @@
-const CACHE = "aex-invest-v14";
+const CACHE = "aex-invest-v15";
 const SHELL = [
-  "/favicon.png",
-  "/favicon.ico",
-  "/assets/favicon.png",
+  "/assets/favicon-invest.png",
+  "/assets/favicon-invest.ico",
   "/assets/logo.png",
   "/assets/logo-mark.png",
-  "/assets/icon-192.png",
-  "/assets/icon-512.png",
+  "/assets/icon-invest-192.png",
+  "/assets/icon-invest-512.png",
+  "/assets/apple-touch-icon-invest.png",
 ];
 
 function isNavigationRequest(request) {

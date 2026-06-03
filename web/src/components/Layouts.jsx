@@ -16,26 +16,24 @@ import { MAIN_SUPPORT_PHONE, MAIN_SUPPORT_PHONE_TEL } from "../lib/mainContact.j
 import { investHash, investPath } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
-function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, investSiteTitle = false, useBrandImage = false }) {
+function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, investSiteTitle = false }) {
   const [open, setOpen] = useState(false);
 
-  const brandProps = useBrandImage
-    ? { fullLogo: true, subtitle: brandSub, onDark: true }
-    : investSiteTitle
-      ? { investSiteTitle: true, subtitle: brandSub, onDark: true, fullLogo: false, titleBesideLogo: true }
-      : {
-          line1: brandLine1,
-          line2: brandLine2,
-          subtitle: brandSub,
-          onDark: true,
-          fullLogo: !investSiteTitle,
-          titleBesideLogo: investSiteTitle,
-        };
+  const brandProps = investSiteTitle
+    ? { investSiteTitle: true, subtitle: brandSub, onDark: true, fullLogo: false, titleBesideLogo: true }
+    : {
+        line1: brandLine1,
+        line2: brandLine2,
+        subtitle: brandSub,
+        onDark: true,
+        fullLogo: !investSiteTitle,
+        titleBesideLogo: investSiteTitle,
+      };
 
   return (
     <header className="hero-gradient sticky top-0 z-50 overflow-x-clip overflow-y-visible text-white shadow-md [&_a]:text-inherit">
-      {/* Mobile — logo + site title above the nav bar */}
-      {(investSiteTitle || useBrandImage) && (
+      {/* Mobile — invest: mark + site title in one row above nav icons */}
+      {investSiteTitle && (
         <div className="border-b border-white/10 md:hidden">
           <div className="mx-auto w-full max-w-7xl px-2 py-1.5">
             <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full" />
@@ -86,9 +84,9 @@ function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, inves
       <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-3 md:flex lg:px-6">
         <BrandMark
           to={homeTo}
-          brandSize={investSiteTitle || useBrandImage ? "md" : undefined}
+          brandSize={investSiteTitle ? "md" : undefined}
           {...brandProps}
-          className={investSiteTitle || useBrandImage ? "max-w-[min(100%,18rem)]" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
+          className={investSiteTitle ? "max-w-[min(100%,18rem)]" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
         />
         <nav className="flex items-center gap-5">{links}</nav>
         <div className="flex shrink-0 items-center gap-2">
@@ -160,7 +158,8 @@ export function MarketplaceLayout({ children }) {
     <div className="app-shell site-main-shell overflow-x-clip">
       <Shell
         homeTo="/"
-        useBrandImage
+        brandLine1="AKSHAYA Exim"
+        brandLine2="Traders"
         brandSub="Global Export & Import"
         links={links}
         actions={actions}
@@ -225,7 +224,7 @@ export function InvestLayout({ children }) {
     <div className="app-shell site-invest-shell">
       <Shell
         homeTo={home}
-        useBrandImage
+        investSiteTitle
         brandSub=""
         links={links}
         actions={actions}

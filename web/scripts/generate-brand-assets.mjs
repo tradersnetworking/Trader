@@ -146,11 +146,10 @@ async function buildFromSourceLogo() {
     .png()
     .toFile(fullLogo);
 
-  const markW = Math.round(w * 0.42);
-  const size = Math.min(markW, h);
-  const top = Math.round((h - size) / 2);
+  const markSide = Math.min(w, Math.round(h * 0.48));
+  const left = Math.max(0, Math.round((w - markSide) / 2));
   await sharp(SOURCE_LOGO)
-    .extract({ left: 0, top, width: size, height: size })
+    .extract({ left, top: 0, width: markSide, height: markSide })
     .resize(512, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 1 } })
     .png()
     .toFile(markLogo);
@@ -167,8 +166,6 @@ async function buildFromSourceLogo() {
 
   const publicRoot = join(root, "public");
   for (const [from, name] of [
-    [favicon, "favicon.png"],
-    [faviconIco, "favicon.ico"],
     [faviconIco, "favicon-invest.ico"],
     [favicon, "favicon-invest.png"],
   ]) {
