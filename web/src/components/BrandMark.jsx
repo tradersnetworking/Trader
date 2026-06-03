@@ -173,6 +173,7 @@ export default function BrandMark({
         )}
         {showSubtitle && !mobileFill && <div className={taglineClass}>{subtitle}</div>}
       </div>
+      </div>
       {showSubtitle && mobileFill && (
         <div className={`w-full text-center ${taglineClass}`}>{subtitle}</div>
       )}
