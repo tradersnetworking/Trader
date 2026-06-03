@@ -1,20 +1,25 @@
 /**
- * Cron job: sync product images & prices from IndiaMART / TradeIndia listings.
- * Uses Google Custom Search (site:indiamart.com / site:tradeindia.com) when GOOGLE_CSE_* is set.
+ * Cron / HTTP maintenance: IndiaMART & TradeIndia images, new catalog products, price refresh.
+ * Uses Google Custom Search (site:indiamart.com / site:tradeindia.com) when GOOGLE_CSE_* is set;
+ * falls back to DuckDuckGo / Wikimedia image search.
  */
 import { existsSync } from "fs";
 import { mainDb } from "../db.js";
+import { syncNewCatalogProducts, dedupeCatalogProducts } from "../services/catalogSync.js";
 import { resolveBasePrice, resetPricingRunState } from "../services/productPricing.js";
 import {
   ensureProductImageFile,
   productAssetFile,
   syncCategoryImageFields,
+  syncProductImageFields,
+  syncMissingCategoryImages,
 } from "../services/productImageSync.js";
 import { productImagePath } from "../data/imageSlugs.js";
 
 const CURSOR_KEY = "marketplace_catalog_sync_offset";
 const BATCH_SIZE = Number(process.env.MARKETPLACE_SYNC_BATCH || 25);
 const DELAY_MS = Number(process.env.MARKETPLACE_SYNC_DELAY_MS || 400);
+const CATEGORY_BATCH = Number(process.env.MARKETPLACE_CATEGORY_BATCH || 6);
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -41,6 +46,7 @@ function categoryContext(product) {
   return { categoryName: cat.name, subCategoryName: cat.name };
 }
 
+/** Rotate through products: fetch marketplace image + refresh indicative price. */
 export async function runMarketplaceCatalogSyncJob() {
   const total = await mainDb.product.count({ where: { isActive: true } });
   if (!total) return { ok: true, skipped: true, reason: "no products" };
@@ -118,4 +124,46 @@ export async function runMarketplaceCatalogSyncJob() {
     pricesUpdated,
     googleConfigured: Boolean(process.env.GOOGLE_CSE_API_KEY && process.env.GOOGLE_CSE_CX),
   };
+}
+
+/**
+ * Full maintenance pass: new listings, category images, product batch, DB path sync.
+ * Safe to call from cron (GET) or background interval.
+ */
+export async function runMarketplaceMaintenanceJob() {
+  const dedupe = await dedupeCatalogProducts(mainDb);
+  const catalog = await syncNewCatalogProducts(mainDb);
+  const categories = await syncMissingCategoryImages(mainDb, {
+    limit: CATEGORY_BATCH,
+    force: false,
+    delayMs: DELAY_MS,
+  });
+  const batch = await runMarketplaceCatalogSyncJob();
+  const productPaths = await syncProductImageFields(mainDb);
+  const categoryPaths = await syncCategoryImageFields(mainDb);
+
+  return {
+    ok: true,
+    dedupeRemoved: dedupe.removed,
+    newProducts: catalog.created,
+    categories,
+    batch,
+    productPaths,
+    categoryPaths,
+    googleConfigured: Boolean(process.env.GOOGLE_CSE_API_KEY && process.env.GOOGLE_CSE_CX),
+  };
+}
+
+/** One-time after deploy: fill missing category + product assets (bounded). */
+export async function bootstrapMarketplaceMedia() {
+  const categories = await syncMissingCategoryImages(mainDb, {
+    limit: Number(process.env.MARKETPLACE_BOOTSTRAP_CATEGORIES || 18),
+    force: false,
+    delayMs: DELAY_MS,
+  });
+  const catalog = await syncNewCatalogProducts(mainDb);
+  const batch = await runMarketplaceCatalogSyncJob();
+  await syncProductImageFields(mainDb);
+  await syncCategoryImageFields(mainDb);
+  return { categories, catalog, batch };
 }

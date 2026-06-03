@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, copyFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
-import { findProductImageUrls, googleImageSearch } from "./marketplaceMedia.js";
+import { findProductImageUrls, findCategoryImageUrls } from "./marketplaceMedia.js";
 import { productImagePath, categoryImagePath, resolveCategorySlug } from "../data/imageSlugs.js";
 import { flattenCatalogProducts, TAXONOMY } from "../data/categories.js";
 
@@ -68,19 +68,11 @@ export function categoryAssetFile(name) {
   return join(catDir, `${slug(name)}.webp`);
 }
 
-async function fetchCategoryImageUrls(name) {
-  const q = `${name} products trade export wholesale India`;
-  const google = await googleImageSearch(`site:tradeindia.com ${name} products`);
-  if (google?.length) return google;
-  const google2 = await googleImageSearch(q);
-  return google2 || [];
-}
-
 export async function ensureCategoryImageFile(name, { force = false } = {}) {
   const dest = categoryAssetFile(name);
   const publicPath = categoryImagePath(name);
   if (!force && existsSync(dest)) return { ok: true, path: publicPath, dest };
-  const urls = await fetchCategoryImageUrls(name);
+  const urls = await findCategoryImageUrls(name);
   if (!urls.length) return { ok: existsSync(dest), path: publicPath, dest };
   const ok = await saveWebpFromUrls(urls, dest, { width: 800, height: 600 });
   return { ok, path: publicPath, dest };
@@ -229,6 +221,28 @@ export async function fetchAndSyncProductImages(db, opts = {}) {
   }
 
   return report;
+}
+
+/** Download marketplace images for categories that lack a local .webp file. */
+export async function syncMissingCategoryImages(db, opts = {}) {
+  const { limit = 12, force = false, delayMs = 400 } = opts;
+  mkdirSync(catDir, { recursive: true });
+  const cats = await db.category.findMany({ select: { id: true, name: true, image: true } });
+  const missing = cats.filter((c) => {
+    const dest = categoryAssetFile(c.name);
+    const legacy = join(catDir, `${slug(c.name)}.webp`);
+    return force || (!existsSync(dest) && !existsSync(legacy));
+  });
+  const batch = limit > 0 ? missing.slice(0, limit) : missing;
+
+  let fetched = 0;
+  for (const c of batch) {
+    const { ok } = await ensureCategoryImageFile(c.name, { force });
+    if (ok && existsSync(categoryAssetFile(c.name))) fetched += 1;
+    await sleep(delayMs);
+  }
+  const sync = await syncCategoryImageFields(db);
+  return { attempted: batch.length, missingTotal: missing.length, fetched, ...sync };
 }
 
 /** Fetch category images for taxonomy + sync DB. */

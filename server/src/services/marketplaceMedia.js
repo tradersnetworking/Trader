@@ -43,6 +43,36 @@ export function buildProductImageQueries(productName, subCategory = "") {
   return [...new Set(queries.filter(Boolean))];
 }
 
+export function buildCategoryImageQueries(categoryName) {
+  const base = String(categoryName || "").trim();
+  const short = base.split(/[&/]/)[0].trim();
+  return [
+    `site:indiamart.com ${base} products wholesale India`,
+    `site:tradeindia.com ${base} export manufacturers`,
+    `site:indiamart.com ${short} B2B product photo`,
+    `site:tradeindia.com ${short} suppliers India`,
+    `site:exportersindia.com ${base} products`,
+  ];
+}
+
+export async function findCategoryImageUrls(categoryName, env = process.env) {
+  const queries = buildCategoryImageQueries(categoryName);
+  const collected = [];
+  for (const query of queries) {
+    const google = await googleImageSearch(query, env);
+    if (google?.length) collected.push(...filterMarketplaceUrls(google));
+    if (collected.length >= 6) break;
+  }
+  if (collected.length) return [...new Set(collected)];
+
+  const fallbackQuery = `${categoryName} export wholesale India B2B products`;
+  const wiki = await wikiImageSearch(fallbackQuery);
+  if (wiki.length) return wiki;
+  const ddg = await duckDuckGoImages(`site:indiamart.com ${categoryName} products`);
+  if (ddg.length) return filterMarketplaceUrls(ddg).length ? filterMarketplaceUrls(ddg) : ddg;
+  return duckDuckGoImages(fallbackQuery);
+}
+
 export function buildWebPriceQueries(productName, unit, categoryName = "") {
   const base = String(productName || "").trim();
   return [

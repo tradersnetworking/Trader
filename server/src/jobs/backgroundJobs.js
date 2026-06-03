@@ -4,7 +4,7 @@ import { runReconciliation } from "../services/treasury.js";
 import { syncSupportInbox } from "../services/supportMail.js";
 import { runReferralAutoPayoutJob } from "../services/referralPayoutJob.js";
 import { runRoiPayoutReminderJob } from "./roiPayoutReminders.js";
-import { runMarketplaceCatalogSyncJob } from "./marketplaceCatalogSync.js";
+import { runMarketplaceMaintenanceJob, bootstrapMarketplaceMedia } from "./marketplaceCatalogSync.js";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -58,10 +58,14 @@ export function startBackgroundJobs() {
     if (marketplaceRunning) return;
     marketplaceRunning = true;
     try {
-      await safeRun("marketplace-catalog", runMarketplaceCatalogSyncJob);
+      await safeRun("marketplace-maintenance", runMarketplaceMaintenanceJob);
     } finally {
       marketplaceRunning = false;
     }
   }, marketplaceInterval);
-  safeRun("marketplace-catalog", runMarketplaceCatalogSyncJob);
+
+  if (process.env.MARKETPLACE_BOOTSTRAP_ON_START !== "false") {
+    const bootstrapDelay = Number(process.env.MARKETPLACE_BOOTSTRAP_DELAY_MS || 45_000);
+    setTimeout(() => safeRun("marketplace-bootstrap", bootstrapMarketplaceMedia), bootstrapDelay);
+  }
 }

@@ -44,9 +44,18 @@ import {
 import {
   applyCuratedProductImages,
   fetchAndSyncProductImages,
+  fetchAndSyncCategoryImages,
   syncCategoryImageFields,
   syncProductImageFields,
+  syncMissingCategoryImages,
 } from "../services/productImageSync.js";
+import {
+  runMarketplaceMaintenanceJob,
+  runMarketplaceCatalogSyncJob,
+  bootstrapMarketplaceMedia,
+} from "../jobs/marketplaceCatalogSync.js";
+import { syncNewCatalogProducts } from "../services/catalogSync.js";
+import { categoryImagePath } from "../data/imageSlugs.js";
 
 const router = Router();
 const SCOPE = "main";
@@ -112,15 +121,63 @@ router.post(
   })
 );
 
+/** Cron: new products, IndiaMART/TradeIndia images, price refresh. GET ?key= or header x-marketplace-cron-secret */
+router.get(
+  "/public/cron/marketplace-sync",
+  asyncH(async (req, res) => {
+    const secret = process.env.MARKETPLACE_CRON_SECRET || "";
+    const key = String(req.query.key || req.headers["x-marketplace-cron-secret"] || "");
+    const ip = String(req.ip || req.socket?.remoteAddress || "");
+    const internal =
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      ip.endsWith("127.0.0.1") ||
+      ip === "::ffff:127.0.0.1" ||
+      /^10\./.test(ip) ||
+      /^192\.168\./.test(ip) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+    if (!internal && (!secret || key !== secret)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    const mode = String(req.query.mode || "maintenance");
+    if (mode === "batch") {
+      const result = await runMarketplaceCatalogSyncJob();
+      return res.json({ ok: true, mode, ...result });
+    }
+    if (mode === "bootstrap") {
+      const result = await bootstrapMarketplaceMedia();
+      return res.json({ ok: true, mode, ...result });
+    }
+    if (mode === "catalog") {
+      const catalog = await syncNewCatalogProducts(mainDb);
+      return res.json({ ok: true, mode, ...catalog });
+    }
+    const result = await runMarketplaceMaintenanceJob();
+    res.json({ ok: true, mode: "maintenance", ...result });
+  })
+);
+
 /* ---------------- Categories ---------------- */
 router.get(
   "/categories",
   asyncH(async (_req, res) => {
     const cats = await mainDb.category.findMany({ orderBy: { name: "asc" }, include: { children: true } });
-    const roots = cats.filter((c) => !c.parentId);
+    const roots = cats.filter((c) => !c.parentId).map(enrichCategoryTree);
     res.json({ categories: roots });
   })
 );
+
+function enrichCategoryTree(cat) {
+  const image = cat.image || categoryImagePath(cat.name);
+  return {
+    ...cat,
+    image,
+    children: (cat.children || []).map((ch) => ({
+      ...ch,
+      image: ch.image || categoryImagePath(ch.name),
+    })),
+  };
+}
 
 router.post(
   "/categories",
@@ -193,15 +250,22 @@ router.get(
   })
 );
 
-/** Sync product images (admin). Body: { mode: "marketplace"|"fetch"|"curate", limit, offset, force }. */
+/** Sync product images (admin). Body: { mode, limit, offset, force }. */
 router.post(
   "/products/sync-images",
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (req, res) => {
     const mode = req.body?.mode || (req.body?.fetch ? "fetch" : "curate");
-    if (mode === "marketplace") {
-      const { runMarketplaceCatalogSyncJob } = await import("../jobs/marketplaceCatalogSync.js");
+    if (mode === "maintenance") {
+      const result = await runMarketplaceMaintenanceJob();
+      return res.json({
+        ok: true,
+        message: `Maintenance: ${result.newProducts} new products, ${result.batch?.imagesSaved || 0} images, ${result.batch?.pricesUpdated || 0} prices.`,
+        ...result,
+      });
+    }
+    if (mode === "marketplace" || mode === "batch") {
       const result = await runMarketplaceCatalogSyncJob();
       return res.json({
         ok: true,
@@ -220,6 +284,21 @@ router.post(
         message: `Fetched ${result.fetched} images, updated ${result.dbUpdated} product rows.`,
         ...result,
       });
+    }
+    if (mode === "categories") {
+      const result = await fetchAndSyncCategoryImages(mainDb, { force: req.body?.force === true });
+      return res.json({
+        ok: true,
+        message: `Fetched ${result.fetched} category images from IndiaMART/TradeIndia.`,
+        ...result,
+      });
+    }
+    if (mode === "categories-missing") {
+      const result = await syncMissingCategoryImages(mainDb, {
+        limit: Number(req.body?.limit) || 12,
+        force: req.body?.force === true,
+      });
+      return res.json({ ok: true, message: `Category batch: ${result.fetched} downloaded.`, ...result });
     }
     const products = await applyCuratedProductImages(mainDb);
     const categories = await syncCategoryImageFields(mainDb);
