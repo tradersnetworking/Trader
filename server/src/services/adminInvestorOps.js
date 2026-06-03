@@ -127,7 +127,7 @@ export async function updateInvestorFull(investorId, body, actor) {
         upiId: k.upiId || body.upiId,
         address: k.address,
         status: k.status || "APPROVED",
-        verifiedAt: k.status === "REJECTED" ? null : new Date(),
+        verifiedAt: k.status === "APPROVED" ? new Date() : null,
       },
       update: {
         ...(k.fullName != null && { fullName: k.fullName }),
@@ -139,7 +139,11 @@ export async function updateInvestorFull(investorId, body, actor) {
         ...(k.ifscCode != null && { ifscCode: k.ifscCode }),
         ...(k.upiId != null && { upiId: k.upiId }),
         ...(k.address != null && { address: k.address }),
-        ...(k.status != null && { status: k.status, verifiedAt: k.status === "APPROVED" ? new Date() : null }),
+        ...(k.status != null && {
+          status: k.status,
+          verifiedAt: k.status === "APPROVED" ? new Date() : null,
+          remarks: k.status === "NOT_SUBMITTED" ? null : undefined,
+        }),
       },
     });
     if (k.status === "APPROVED") {
@@ -449,8 +453,79 @@ export async function cancelScheduledPayout(payoutId, actor) {
   return updated;
 }
 
+export async function adminResetKyc(investorId, actor) {
+  const inv = await investDb.investor.findUnique({ where: { id: investorId }, include: { kyc: true } });
+  if (!inv || inv.role !== "INVESTOR") throw new Error("Investor not found");
+  if (inv.kyc) {
+    await investDb.kyc.delete({ where: { investorId } });
+  }
+  await logAudit({
+    actorId: actor?.id,
+    actorRole: actor?.role,
+    actorName: actor?.name,
+    action: "KYC_RESET",
+    entity: "Kyc",
+    entityId: investorId,
+  });
+  await notifyInvestor(investorId, "KYC reset", "Your KYC record was reset by the team. Please complete KYC again.", { type: "INFO", link: "kyc" });
+  return { ok: true };
+}
+
+export async function adminCancelSubscription(subscriptionId, actor, { reason, refundPrincipal = true } = {}) {
+  const sub = await investDb.subscription.findUnique({
+    where: { id: subscriptionId },
+    include: { plan: true, investor: true },
+  });
+  if (!sub) throw new Error("Subscription not found");
+  if (sub.status !== "ACTIVE") throw new Error("Only active plans can be cancelled (opt-out)");
+
+  const principal = sub.amount;
+  await investDb.subscription.update({
+    where: { id: sub.id },
+    data: { status: "CANCELLED", maturityAction: "ADMIN_CANCEL", maturityActionAt: new Date() },
+  });
+  await purgeAgreementsForSubscription(sub.id, reason || "Plan cancelled by admin");
+
+  await investDb.wallet.update({
+    where: { investorId: sub.investorId },
+    data: {
+      invested: { decrement: principal },
+      ...(refundPrincipal ? { available: { increment: principal } } : {}),
+    },
+  });
+
+  if (refundPrincipal) {
+    await addLedger(sub.investorId, {
+      type: "REFUND",
+      direction: "CREDIT",
+      amount: principal,
+      reference: sub.id,
+      note: reason || `Admin cancelled ${sub.plan?.name || "plan"} — principal returned`,
+    });
+  }
+
+  await notifyInvestor(
+    sub.investorId,
+    "Investment plan cancelled",
+    `${sub.plan?.name || "Your plan"} was cancelled by admin.${refundPrincipal ? ` ${fmtInr(principal)} returned to your wallet.` : ""}`,
+    { type: "INFO", link: "plans" }
+  );
+
+  await logAudit({
+    actorId: actor?.id,
+    actorRole: actor?.role,
+    actorName: actor?.name,
+    action: "SUBSCRIPTION_ADMIN_CANCEL",
+    entity: "Subscription",
+    entityId: sub.id,
+    meta: JSON.stringify({ refundPrincipal, principal }),
+  });
+
+  return sub;
+}
+
 export async function adminWalletOperation(body, actor) {
-  const { investorId, amount, direction, bucket, note, sendNotice } = body;
+  const { investorId, amount, direction, bucket, note, sendNotice, transactionType } = body;
   const amt = Number(amount);
   if (!investorId || !Number.isFinite(amt) || amt <= 0) throw new Error("Invalid adjustment");
 
