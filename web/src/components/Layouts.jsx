@@ -60,8 +60,8 @@ function Shell({
       {/* Mobile — invest: full logo or mark + title above nav icons */}
       {mobileBrandBar && (
         <div className="border-b border-white/10 md:hidden">
-          <div className="mx-auto w-full max-w-7xl px-2 py-2">
-            <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full" />
+          <div className="mx-auto flex w-full max-w-7xl items-center px-3 py-2">
+            <BrandMark to={homeTo} brandSize="lg" mobileBarFill {...brandProps} className="w-full max-w-full" />
           </div>
         </div>
       )}
@@ -106,12 +106,12 @@ function Shell({
       </div>
 
       {/* Tablet / desktop — logo mark with site title beside */}
-      <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-3 md:flex lg:px-6">
+      <div className="mx-auto hidden max-w-7xl items-center justify-between gap-4 px-4 py-2.5 md:flex lg:px-6">
         <BrandMark
           to={homeTo}
           brandSize={mobileBrandBar ? "md" : undefined}
           {...brandProps}
-          className={mobileBrandBar ? "max-w-[min(100%,20rem)]" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
+          className={mobileBrandBar ? "max-w-[min(100%,22rem)] shrink-0" : "max-w-[min(100%,14rem)] lg:max-w-xs"}
         />
         <nav className="flex items-center gap-5">{links}</nav>
         <div className="flex shrink-0 items-center gap-2">

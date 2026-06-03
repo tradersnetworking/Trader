@@ -109,46 +109,39 @@ export default function BrandMark({
     </div>
   ) : (
     <div
-      className={`${
-        mobileFill ? "flex w-full max-w-full min-w-0 flex-col gap-0.5 px-0.5" : "flex items-center"
-      } ${
-        mobileFill
-          ? ""
-          : `w-max max-w-full shrink-0 ${
-              scale === "lg" ? "gap-1.5" : scale === "hero" ? "gap-2 sm:gap-3 md:gap-4" : "gap-2 sm:gap-2.5"
-            }`
+      className={`flex items-center ${
+        mobileFill ? "w-full min-w-0 gap-2" : `w-max max-w-full shrink-0 ${
+          scale === "lg" ? "gap-1.5" : scale === "hero" ? "gap-2 sm:gap-3 md:gap-4" : "gap-2 sm:gap-2.5"
+        }`
       } ${className}`}
     >
-      <div
-        className={`flex items-center ${
-          mobileFill ? "h-9 w-full min-w-0 gap-1.5" : "min-w-0"
-        }`}
-      >
       {useLogoImage ? (
         <Logo
           brand={logoBrand}
           variant="full"
           className={
             mobileFill
-              ? "max-h-9 w-auto max-w-[4.25rem] shrink-0 object-contain"
+              ? "max-h-10 w-auto max-w-[4.75rem] shrink-0 self-center object-contain"
               : scale === "hero"
                 ? "max-h-16 w-auto max-w-[5.5rem] shrink-0 object-contain sm:max-h-20 sm:max-w-[7rem]"
                 : "max-h-9 w-auto max-w-[4.25rem] shrink-0 object-contain"
           }
         />
       ) : (
-        <Logo brand={logoBrand} variant="mark" className={markClass} />
+        <Logo brand={logoBrand} variant="mark" className={`${markClass} self-center`} />
       )}
       <div
-        className={`min-w-0 leading-none ${
-          mobileFill ? `flex-1 overflow-hidden ${useLogoImage ? "text-left" : "text-center"}` : "shrink-0 leading-tight"
+        className={`flex min-w-0 flex-col justify-center leading-none ${
+          mobileFill ? "flex-1 gap-0.5 overflow-hidden" : "shrink-0 gap-0.5"
         }`}
       >
         {investSiteTitle ? (
           <InvestSiteTitle size={titleSize} />
         ) : (
           <div
-            className={`truncate font-extrabold leading-none ${compact ? "text-[11px] sm:text-xs" : "text-sm sm:text-base"}`}
+            className={`truncate font-extrabold leading-tight ${
+              mobileFill ? "text-sm leading-none" : compact ? "text-[11px] leading-none sm:text-xs" : "text-sm sm:text-base"
+            }`}
           >
             <span
               className={
@@ -171,12 +164,8 @@ export default function BrandMark({
             )}
           </div>
         )}
-        {showSubtitle && !mobileFill && <div className={taglineClass}>{subtitle}</div>}
+        {showSubtitle && <div className={`${taglineClass} text-left`}>{subtitle}</div>}
       </div>
-      </div>
-      {showSubtitle && mobileFill && (
-        <div className={`w-full text-center ${taglineClass}`}>{subtitle}</div>
-      )}
     </div>
   );
 
@@ -184,10 +173,10 @@ export default function BrandMark({
     return (
       <Link
         to={to}
-        className={`items-center no-underline ${
+        className={`no-underline ${
           mobileFill
-            ? `flex w-full max-w-full min-w-0 items-center justify-center ${investFullLogo ? "h-11" : "h-9"}`
-            : `inline-flex w-max max-w-full shrink-0 ${grow ? "min-w-0 flex-1" : ""}`
+            ? `flex w-full max-w-full min-w-0 items-center justify-start ${investFullLogo ? "min-h-11 py-0.5" : "py-0.5"}`
+            : `inline-flex w-max max-w-full shrink-0 items-center ${grow ? "min-w-0 flex-1" : ""}`
         }`}
       >
         {inner}
