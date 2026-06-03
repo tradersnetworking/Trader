@@ -36,6 +36,8 @@ export function getMainAdminNav(isSuper, role) {
   const isMailAdmin = isSuper || role === "ADMIN";
   const items = MAIN_ADMIN_NAV.filter((item) => !item.superOnly || isSuper);
   if (isSuper) {
+    items.push({ section: "Platform Settings" });
+    items.push({ id: "platform-update", label: "Platform Update", icon: "settings", color: "amber" });
     items.push({ section: "Super Admin" });
     items.push({ id: "site-settings", label: "Site & SEO", icon: "settings", color: "violet" });
     items.push({ id: "staff", label: "Staff & Roles", icon: "profile", color: "cyan" });
@@ -55,3 +57,5 @@ export function mainNavLabel(navItems, tab) {
 
 export const MAIN_USER_MOBILE_PRIMARY = ["overview", "rfq-buy", "quotes", "orders"];
 export const MAIN_ADMIN_MOBILE_PRIMARY = ["overview", "products", "quotes", "orders"];
+
+export const MAIN_SUPER_MOBILE_PRIMARY = ["overview", "platform-update", "products", "orders"];

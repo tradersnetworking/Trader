@@ -14,6 +14,9 @@ services:
     volumes:
       - app_data:/data
       - uploads:/app/server/uploads
+      # Platform Update (super admin one-click deploy) — required on VPS:
+      # - ${HOST_REPO_PATH:-/opt/akshaya-exim}:/host-repo
+      # - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:

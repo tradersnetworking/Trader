@@ -34,3 +34,4 @@ export const DepositsAdmin = lazy(() => import("../../components/invest/AdminDep
 export const KycAdmin = lazy(() => import("../../components/invest/AdminKycPanel.jsx"));
 export const ProfileApprovalsAdmin = lazy(() => import("../../components/invest/AdminProfileApprovalsPanel.jsx"));
 export const StaffAdmin = lazy(() => import("../../components/invest/AdminStaffPanel.jsx"));
+export const PlatformUpdatePanel = lazy(() => import("../../components/shared/PlatformUpdatePanel.jsx"));

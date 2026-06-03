@@ -17,6 +17,7 @@ import MainCommunicationPanel from "../../components/main/MainCommunicationPanel
 import MainTradeKycAdminPanel from "../../components/main/MainTradeKycAdminPanel.jsx";
 import TradeKycFullViewModal from "../../components/main/TradeKycFullViewModal.jsx";
 import MainTradePaymentsPanel from "../../components/main/MainTradePaymentsPanel.jsx";
+import PlatformUpdatePanel from "../../components/shared/PlatformUpdatePanel.jsx";
 
 export default function AdminDashboard() {
   const { main, logoutMain } = useAuth();
@@ -46,7 +47,7 @@ export default function AdminDashboard() {
       onTabChange={setTab}
       pageTitle={mainNavLabel(navItems, tab)}
       pageSubtitle={`${isSuper ? "Super Admin" : main?.role === "STAFF" ? "Staff" : "Admin"} • akshayaexim.com`}
-      mobilePrimaryIds={MAIN_ADMIN_MOBILE_PRIMARY}
+      mobilePrimaryIds={isSuper ? MAIN_SUPER_MOBILE_PRIMARY : MAIN_ADMIN_MOBILE_PRIMARY}
       onLogout={logoutMain}
       onRefresh={handleRefresh}
       refreshing={refreshing}
@@ -66,6 +67,9 @@ export default function AdminDashboard() {
           loadSettings={isSuper ? () => mainApi("/admin/settings") : undefined}
           saveSettings={isSuper ? (body) => mainApi("/admin/settings", { method: "PUT", body }) : undefined}
         />
+      )}
+      {tab === "platform-update" && isSuper && (
+        <PlatformUpdatePanel api={mainApi} key={refreshKey} />
       )}
       {tab === "staff" && isSuper && <StaffAdmin key={refreshKey} />}
       {tab === "site-settings" && isSuper && <MainSiteSettingsPanel key={refreshKey} />}

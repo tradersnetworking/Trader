@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { registerPlatformDeployRoutes } from "./platformDeployRoutes.js";
 import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
@@ -2277,5 +2278,7 @@ router.post(
     res.json(await runRoiEngineCycle());
   })
 );
+
+registerPlatformDeployRoutes(router, { authRequired, asyncH, superOnly, scope: "invest" });
 
 export default router;

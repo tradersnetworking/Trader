@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { registerPlatformDeployRoutes } from "./platformDeployRoutes.js";
 import { nanoid } from "nanoid";
 import { mainDb } from "../db.js";
 import { asyncH, authRequired, requireRole, optionalAuth } from "../middleware.js";
@@ -1265,5 +1266,7 @@ router.get(
     });
   })
 );
+
+registerPlatformDeployRoutes(router, { authRequired, asyncH, superOnly, scope: "main" });
 
 export default router;

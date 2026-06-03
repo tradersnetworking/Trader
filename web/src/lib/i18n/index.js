@@ -33,6 +33,7 @@ export const en = {
     "notifications-admin": "Notifications",
     kyc: "My KYC & Accounts",
     kycReview: "User KYC & Accounts",
+    "platform-update": "Platform Update",
     profile: "Profile",
     ledger: "Ledger",
     agreements: "Agreements",

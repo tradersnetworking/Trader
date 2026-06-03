@@ -13,7 +13,7 @@ RUN npm --workspace web run build
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache openssl wget
+RUN apk add --no-cache openssl wget git docker-cli docker-cli-compose
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 COPY server/package.json server/
@@ -24,6 +24,7 @@ COPY --from=build /app/node_modules/.prisma /app/node_modules/.prisma
 RUN npm --workspace server run prisma:generate
 COPY deploy/entrypoint.sh /entrypoint.sh
 COPY deploy/entrypoint-postgres.sh /app/deploy/entrypoint-postgres.sh
-RUN chmod +x /entrypoint.sh /app/deploy/entrypoint-postgres.sh
+COPY deploy/vps-update.sh /app/deploy/vps-update.sh
+RUN chmod +x /entrypoint.sh /app/deploy/entrypoint-postgres.sh /app/deploy/vps-update.sh
 EXPOSE 4000
 ENTRYPOINT ["/entrypoint.sh"]

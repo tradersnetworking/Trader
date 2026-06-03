@@ -117,6 +117,8 @@ export const ADMIN_NAV = [
 
   { section: "Platform Settings" },
 
+  { id: "platform-update", label: "Platform Update", icon: "settings", color: "amber", superOnly: true },
+
   { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan", superOnly: true },
 
   { id: "rbac", label: "Permissions", icon: "staff", color: "blue", superOnly: true },
@@ -267,6 +269,7 @@ export function navShortLabel(label) {
     "My KYC & Accounts": "KYC",
     "User KYC & Accounts": "Users KYC",
     "KYC Review": "KYC",
+    "Platform Update": "Update",
 
     "Today's Payments": "Today",
 

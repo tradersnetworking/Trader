@@ -42,6 +42,7 @@ import {
   ProfileApprovalsAdmin,
   StaffAdmin,
   AccountSecurityPanel,
+  PlatformUpdatePanel,
 } from "./lazyAdminPanels.js";
 
 export default function InvestAdminDashboard() {
@@ -225,6 +226,18 @@ export default function InvestAdminDashboard() {
         return gate("manage_settings", "Site Settings", <TabPanel><InvestSettingsPanel /></TabPanel>);
       case "staff":
         return gate("manage_staff", "Admin Accounts", <TabPanel><StaffAdmin /></TabPanel>);
+      case "platform-update":
+        return isSuper ? (
+          <TabPanel>
+            <PlatformUpdatePanel api={investApi} />
+          </TabPanel>
+        ) : (
+          <DashboardTabFallback
+            title="Platform Update"
+            message="Only Super Admin can run platform updates."
+            onGoOverview={() => setTab("overview")}
+          />
+        );
       default:
         return (
           <DashboardTabFallback
