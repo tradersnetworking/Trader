@@ -13,7 +13,7 @@ import { Logo } from "./ui.jsx";
 import MainSupportWidget from "./main/MainSupportWidget.jsx";
 import MainShareWidget from "./main/MainShareWidget.jsx";
 import { MAIN_SUPPORT_PHONE, MAIN_SUPPORT_PHONE_TEL } from "../lib/mainContact.js";
-import { investHash, investPath, investUrl, mainUrl } from "../lib/site.js";
+import { investHash, investPath } from "../lib/site.js";
 import { useI18n } from "../lib/i18n/context.jsx";
 
 function Shell({ homeTo, brandLine1, brandLine2, brandSub, links, actions, investSiteTitle = false, useBrandImage = false }) {
@@ -330,10 +330,7 @@ function MarketplaceFooter() {
               {MAIN_SUPPORT_PHONE}
             </a>
             <br />
-            akshayaexim.com · akshayaexim.in ·{" "}
-            <a href={investUrl("")} className="hover:text-gold">
-              invest.akshayaexim.com
-            </a>
+            akshayaexim.com · akshayaexim.in
           </p>
         </div>
       </div>

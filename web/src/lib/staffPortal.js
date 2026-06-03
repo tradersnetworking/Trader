@@ -7,6 +7,11 @@ export function applyStaffSiblingLogin(res, { loginMain, loginInvest }) {
   if (res?.investToken && res?.investUser && loginInvest) loginInvest(res.investToken, res.investUser);
 }
 
+/** Cross-portal dashboard switch is hidden — investors and marketplace users stay on their host. */
+export function showCrossPortalSwitch() {
+  return false;
+}
+
 /** True when switching between production subdomains (separate localStorage). */
 export function needsStaffHandoff(fromPortal, toPortal) {
   if (isLocalDev() || fromPortal === toPortal) return false;

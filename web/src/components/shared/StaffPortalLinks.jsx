@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { investPath } from "../../lib/site.js";
-import { openStaffPortal } from "../../lib/staffPortal.js";
+import { openStaffPortal, showCrossPortalSwitch } from "../../lib/staffPortal.js";
 
-/** Quick links between marketplace and investment dashboards for admin / super admin. */
+/** Quick links between marketplace and investment dashboards (disabled for end-user isolation). */
 export default function StaffPortalLinks({ portal = "invest", className = "" }) {
   const [busy, setBusy] = useState(null);
+
+  if (!showCrossPortalSwitch()) return null;
 
   const go = async (toPortal, next, label) => {
     setBusy(label);

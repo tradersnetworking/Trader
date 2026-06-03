@@ -53,6 +53,7 @@
               for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) el.setAttribute(k, extra[k]);
             }
           }
+          setLink("manifest", "/manifest.invest.webmanifest");
           setLink("icon", "/assets/favicon.ico", { sizes: "any" });
           setLink("shortcut icon", "/assets/favicon.png", { type: "image/png" });
           setLink("apple-touch-icon", "/assets/apple-touch-icon.png", { sizes: "180x180" });

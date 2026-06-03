@@ -8,7 +8,7 @@ import { useI18n } from "../../lib/i18n/context.jsx";
 import { NavIcon } from "./NavIcons.jsx";
 import { inr } from "../../lib/format.js";
 import { investPath } from "../../lib/site.js";
-import { openStaffPortal } from "../../lib/staffPortal.js";
+import { openStaffPortal, showCrossPortalSwitch } from "../../lib/staffPortal.js";
 import ErrorBoundary from "../ErrorBoundary.jsx";
 import LanguageSelector from "./LanguageSelector.jsx";
 import SupportWidget from "./SupportWidget.jsx";
@@ -255,7 +255,7 @@ export default function InvestDashboardShell({
               Admin Portal
             </Link>
           )}
-          {["ADMIN", "SUPERADMIN"].includes(user?.role) && (
+          {showCrossPortalSwitch() && ["ADMIN", "SUPERADMIN"].includes(user?.role) && (
             <button
               type="button"
               className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"

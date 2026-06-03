@@ -40,9 +40,13 @@ export default function PwaInstallBanner() {
       aria-label="Install app"
     >
       <div className="flex items-start gap-2.5">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy to-brand-blue text-lg text-white">
-          📱
-        </span>
+        <img
+          src="/assets/logo-mark.png"
+          alt=""
+          width={36}
+          height={36}
+          className="h-9 w-9 shrink-0 rounded-lg object-contain bg-black"
+        />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-foreground">Install {BRAND_INVEST}</p>
           <p className="text-[11px] leading-snug text-muted-foreground">
