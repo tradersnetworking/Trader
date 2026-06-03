@@ -1,46 +1,16 @@
-import { useState } from "react";
 import SecureUploadLink from "../invest/SecureUploadLink.jsx";
-import { KYC_DOCUMENT_FIELDS, filenameFromUrl } from "../../lib/kyc-document-fields.js";
-import { fetchSecureUpload, openSecureUploadInTab } from "../../lib/secure-upload.js";
+import { KYC_DOCUMENT_FIELDS, filenameFromUrl, sectionForDocumentKey } from "../../lib/kyc-document-fields.js";
+import { KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
+import { parseSectionReviews } from "../../lib/kyc-sections.js";
 
-function DownloadDocButton({ url, label, scope, compact }) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-
-  const download = async () => {
-    setBusy(true);
-    setErr("");
-    try {
-      const data = await fetchSecureUpload(url, scope);
-      const a = document.createElement("a");
-      a.href = data.blobUrl;
-      a.download = data.filename || filenameFromUrl(url) || label;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(data.blobUrl), 60_000);
-    } catch (e) {
-      setErr(e.message || "Download failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        type="button"
-        className={`btn-outline shrink-0 ${compact ? "px-2 py-1 text-xs" : "text-xs"}`}
-        disabled={busy}
-        onClick={download}
-      >
-        {busy ? "…" : "Download"}
-      </button>
-      {err && <span className="text-[10px] text-rose-500">{err}</span>}
-    </div>
-  );
+function sectionStatusClass(status) {
+  if (status === "APPROVED") return "bg-emerald-500/15 text-emerald-600";
+  if (status === "REJECTED") return "bg-rose-500/15 text-rose-600";
+  return "bg-amber-500/15 text-amber-700";
 }
 
 /**
- * Kuber-style KYC document list with View + Download per upload.
+ * KYC document list — View (+ optional admin Approve / Reject per document).
  */
 export default function KycDocumentsList({
   kyc,
@@ -49,7 +19,14 @@ export default function KycDocumentsList({
   compact = false,
   scope = "invest",
   locked = false,
+  adminReview = false,
+  canReview = false,
+  reviewBusy = false,
+  onApproveSection,
+  onRejectSection,
 }) {
+  const reviews = parseSectionReviews(kyc) || {};
+
   if (!kyc) return null;
 
   let rows = showMissing
@@ -73,47 +50,100 @@ export default function KycDocumentsList({
     return <p className="py-4 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>;
   }
 
+  const showDocActions = adminReview && canReview && !locked && onApproveSection && onRejectSection;
+
   return (
     <div
       className={`divide-y divide-border rounded-lg border border-border bg-muted/30 ${
         compact ? "text-xs" : "text-sm"
       }`}
     >
-      {rows.map((row) => (
-        <div
-          key={row.key}
-          className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${compact ? "px-3 py-2" : "px-3 py-2.5"}`}
-        >
-          <div className="min-w-0 flex-1">
-            <p className="font-medium text-foreground">{row.label}</p>
-            {row.url ? (
-              <p className="truncate text-[11px] text-muted-foreground" title={filenameFromUrl(row.url)}>
-                {filenameFromUrl(row.url)}
-              </p>
-            ) : (
-              <p className="text-[11px] italic text-muted-foreground">Not uploaded</p>
-            )}
-            {locked && row.url && (
-              <p className="text-[10px] text-amber-600">Approved — locked</p>
+      {rows.map((row) => {
+        const sectionId = sectionForDocumentKey(row.key);
+        const sectionStatus = reviews[sectionId]?.status || "PENDING";
+        const isDataUrl = row.url?.startsWith("data:");
+
+        return (
+          <div
+            key={row.key}
+            className={`flex flex-col gap-2 ${compact ? "px-3 py-2.5" : "px-3 py-3"}`}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">{row.label}</p>
+              {adminReview && (
+                <p className="mt-0.5 text-[10px] text-muted-foreground">
+                  Section: {KYC_SECTION_LABELS[sectionId]}{" "}
+                  <span className={`ml-1 rounded px-1.5 py-0.5 font-bold uppercase ${sectionStatusClass(sectionStatus)}`}>
+                    {sectionStatus}
+                  </span>
+                </p>
+              )}
+              {row.url && !isDataUrl ? (
+                <p className="truncate text-[11px] text-muted-foreground" title={filenameFromUrl(row.url)}>
+                  {filenameFromUrl(row.url)}
+                </p>
+              ) : row.url && isDataUrl ? (
+                <p className="text-[11px] text-muted-foreground">Drawn signature on file</p>
+              ) : (
+                <p className="text-[11px] italic text-muted-foreground">Not uploaded</p>
+              )}
+              {locked && row.url && (
+                <p className="text-[10px] text-amber-600">Approved — locked</p>
+              )}
+            </div>
+
+            {row.url && (
+              <div
+                className={
+                  showDocActions
+                    ? "grid w-full grid-cols-3 gap-1.5"
+                    : "flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end"
+                }
+              >
+                {isDataUrl ? (
+                  <a
+                    href={row.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold"
+                  >
+                    View
+                  </a>
+                ) : (
+                  <SecureUploadLink
+                    url={row.url}
+                    previewTitle={row.label}
+                    scope={scope}
+                    className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold"
+                  >
+                    View
+                  </SecureUploadLink>
+                )}
+                {showDocActions && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={reviewBusy || sectionStatus === "APPROVED"}
+                      className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-emerald-600 disabled:opacity-50"
+                      onClick={() => onApproveSection(sectionId)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reviewBusy}
+                      className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-rose-600"
+                      onClick={() => onRejectSection(sectionId, row.label)}
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
-          {row.url && (
-            <div className="flex w-full flex-wrap gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
-              <SecureUploadLink url={row.url} previewTitle={row.label} scope={scope} className="btn-outline text-xs">
-                View
-              </SecureUploadLink>
-              <button
-                type="button"
-                className="btn-outline text-xs"
-                onClick={() => openSecureUploadInTab(row.url, scope)}
-              >
-                Open
-              </button>
-              <DownloadDocButton url={row.url} label={row.label} scope={scope} compact={compact} />
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

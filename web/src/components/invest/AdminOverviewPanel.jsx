@@ -54,7 +54,7 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
     { icon: "payments", color: "amber", label: "Today's Payments", onClick: () => onNavigate("pending-payments") },
     { icon: "calendar", color: "violet", label: "Upcoming", onClick: () => onNavigate("upcoming-payments") },
     { icon: "deposit", color: "cyan", label: "Deposits", onClick: () => onNavigate("deposits") },
-    { icon: "kyc", color: "violet", label: "KYC Review", onClick: () => onNavigate("kyc") },
+    { icon: "kyc", color: "violet", label: "User KYC & Accounts", onClick: () => onNavigate("kyc") },
     { icon: "payouts", color: "pink", label: "Payouts", onClick: () => onNavigate("payouts") },
     { icon: "investors", color: "emerald", label: "Investors", onClick: () => onNavigate("investors") },
     { icon: "support", color: "cyan", label: "Support Tickets", onClick: () => onNavigate("tickets") },

@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Badge, Modal } from "../ui.jsx";
 import KycDocumentsList from "../shared/KycDocumentsList.jsx";
 import KycAdminSectionReview from "./KycAdminSectionReview.jsx";
+import KycRejectReasonDialog from "./KycRejectReasonDialog.jsx";
 import { KYC_DETAIL_FIELDS } from "../../lib/kyc-detail-display.js";
+import { KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 
 export default function KycFullViewModal({
   open,
@@ -16,10 +19,21 @@ export default function KycFullViewModal({
   onReject,
   reviewBusy = false,
 }) {
+  const [docReject, setDocReject] = useState(null);
+
   if (!kyc) return null;
 
   const title = investorTitle || kyc.fullName || kyc.investor?.name || "Investor";
-  const modalTitle = readOnly ? `Submitted KYC — ${title}` : `Full KYC — ${title}`;
+  const modalTitle = readOnly ? `Submitted KYC — ${title}` : `Review KYC — ${title}`;
+  const canReview = !readOnly && ["PENDING", "REJECTED"].includes(kyc.status) && onSectionDecision;
+
+  const approveSection = (sectionId) => onSectionDecision?.(kyc.id, sectionId, "APPROVED");
+
+  const confirmDocReject = async (remarks) => {
+    if (!docReject) return;
+    await onSectionDecision?.(kyc.id, docReject.section, "REJECTED", remarks);
+    setDocReject(null);
+  };
 
   return (
     <Modal open={open} onClose={onClose} title={modalTitle} wide>
@@ -48,15 +62,7 @@ export default function KycFullViewModal({
           </p>
         )}
 
-        <div>
-          <h4 className="mb-3 text-sm font-bold text-foreground">Uploaded documents</h4>
-          <p className="mb-2 text-xs text-muted-foreground">
-            Check each document is clear (not blurry). Reject the related section if unreadable or password-protected PDF.
-          </p>
-          <KycDocumentsList kyc={kyc} showMissing scope="invest" locked={kyc.status === "APPROVED"} />
-        </div>
-
-        {["PENDING", "REJECTED"].includes(kyc.status) && onSectionDecision && (
+        {canReview && (
           <KycAdminSectionReview
             kyc={kyc}
             busy={reviewBusy}
@@ -65,6 +71,31 @@ export default function KycFullViewModal({
             onFinalReject={onFinalReject}
           />
         )}
+
+        <div>
+          <h4 className="mb-2 text-sm font-bold text-foreground">Uploaded documents</h4>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Use <strong>View</strong> to preview each file. <strong>Approve</strong> or <strong>Reject</strong> updates
+            that document&apos;s KYC section for the investor.
+          </p>
+          <KycDocumentsList
+            kyc={kyc}
+            showMissing
+            scope="invest"
+            locked={kyc.status === "APPROVED"}
+            adminReview={canReview}
+            canReview={canReview}
+            reviewBusy={reviewBusy}
+            onApproveSection={approveSection}
+            onRejectSection={(section, docLabel) =>
+              setDocReject({
+                section,
+                title: `Reject — ${docLabel}`,
+                subtitle: `This rejects the "${KYC_SECTION_LABELS[section]}" section. Reason is shown to the investor.`,
+              })
+            }
+          />
+        </div>
 
         {!readOnly && kyc.status === "PENDING" && onApprove && !onSectionDecision && (
           <div className="flex flex-wrap gap-2 border-t border-border pt-4">
@@ -79,6 +110,15 @@ export default function KycFullViewModal({
           </div>
         )}
       </div>
+
+      <KycRejectReasonDialog
+        open={Boolean(docReject)}
+        title={docReject?.title}
+        subtitle={docReject?.subtitle}
+        busy={reviewBusy}
+        onClose={() => setDocReject(null)}
+        onConfirm={confirmDocReject}
+      />
     </Modal>
   );
 }

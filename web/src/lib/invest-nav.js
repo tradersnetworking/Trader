@@ -65,7 +65,7 @@ export const ADMIN_NAV = [
 
   { id: "payouts", label: "Withdrawals", icon: "payouts", color: "pink" },
 
-  { id: "kyc", label: "KYC Review", icon: "kyc", color: "violet" },
+  { id: "kyc", label: "User KYC & Accounts", icon: "kyc", color: "violet" },
 
   { id: "platform-investments", label: "Platform Investments", icon: "investments", color: "blue" },
 
@@ -136,9 +136,10 @@ export const ADMIN_NAV = [
 
 
 export function getAdminNav(isSuper) {
-
-  return ADMIN_NAV.filter((item) => !item.superOnly || isSuper);
-
+  return ADMIN_NAV.filter((item) => !item.superOnly || isSuper).map((item) => ({
+    ...item,
+    adminNav: true,
+  }));
 }
 
 
@@ -280,6 +281,8 @@ export function navShortLabel(label) {
     "My Transactions": "Txns",
 
     "My KYC & Accounts": "KYC",
+    "User KYC & Accounts": "Users KYC",
+    "KYC Review": "KYC",
 
     "Today's Payments": "Today",
 

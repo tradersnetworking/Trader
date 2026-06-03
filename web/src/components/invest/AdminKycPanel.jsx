@@ -75,6 +75,12 @@ export default function AdminKycPanel({ onUpdated }) {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h3 className="text-lg font-bold text-foreground">User KYC review</h3>
+        <p className="text-sm text-muted-foreground">
+          Review each investor&apos;s submission — approve or reject by section and per document.
+        </p>
+      </div>
       <KycFullViewModal
         open={Boolean(viewKyc)}
         kyc={viewKyc}
@@ -142,7 +148,7 @@ export default function AdminKycPanel({ onUpdated }) {
                 <td className="p-3 text-xs text-muted-foreground">{sectionSummary(k)}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap justify-end gap-2">
-                    <button type="button" className="btn-outline px-3 py-1 text-xs" onClick={() => setViewKyc(k)}>
+                    <button type="button" className="btn-gold px-3 py-1.5 text-xs" onClick={() => setViewKyc(k)}>
                       Review KYC
                     </button>
                   </div>

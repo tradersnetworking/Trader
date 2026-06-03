@@ -1,4 +1,26 @@
 /** KYC document slots — aligned with server Kyc model */
+/** Which KYC review section a document belongs to (admin per-document actions). */
+export const KYC_DOCUMENT_SECTION = {
+  photo: "identity",
+  panDocument: "identity",
+  aadhaarFront: "identity",
+  aadhaarBack: "identity",
+  aadhaarDocument: "identity",
+  passportDocument: "identity",
+  driversLicenseDocument: "identity",
+  addressProof: "personal",
+  selfie: "identity",
+  signature: "signature",
+  signatureData: "signature",
+  cancelledCheque: "banking",
+  passbookDocument: "banking",
+  bankStatementDocument: "banking",
+};
+
+export function sectionForDocumentKey(key) {
+  return KYC_DOCUMENT_SECTION[key] || "identity";
+}
+
 export const KYC_DOCUMENT_FIELDS = [
   { key: "photo", label: "Passport Size Photo", imageOnly: true },
   { key: "panDocument", label: "PAN Card (photocopy)" },

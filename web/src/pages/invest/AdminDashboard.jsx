@@ -139,7 +139,7 @@ export default function InvestAdminDashboard() {
           </TabPanel>
         ));
       case "kyc":
-        return gate("review_kyc", "KYC Review", (
+        return gate("review_kyc", "User KYC & Accounts", (
           <TabPanel>
             <div className="space-y-8">
               <KycAdmin onUpdated={(list) => setNavBadges((b) => ({ ...b, kyc: (list || []).filter((k) => k.status === "PENDING").length }))} />

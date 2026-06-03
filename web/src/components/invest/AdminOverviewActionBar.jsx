@@ -4,7 +4,7 @@ export default function AdminOverviewActionBar({ onNavigate }) {
     { label: "Today's Payments", tab: "pending-payments", tone: "amber" },
     { label: "Deposits", tab: "deposits", tone: "cyan" },
     { label: "Payouts", tab: "payouts", tone: "pink" },
-    { label: "KYC Review", tab: "kyc", tone: "violet" },
+    { label: "User KYC & Accounts", tab: "kyc", tone: "violet" },
   ];
 
   const toneClass = {

@@ -61,19 +61,19 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
                 <p className="mt-2 text-xs text-rose-600 dark:text-rose-400">Reason: {r.remarks}</p>
               )}
               {canReview && (
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     disabled={busy}
-                    className="btn-outline px-2 py-1 text-xs text-emerald-600"
+                    className="btn-outline px-2 py-2 text-xs font-semibold text-emerald-600"
                     onClick={() => act(id, "APPROVED")}
                   >
-                    Approve section
+                    Approve
                   </button>
                   <button
                     type="button"
                     disabled={busy}
-                    className="btn-outline px-2 py-1 text-xs text-rose-600"
+                    className="btn-outline px-2 py-2 text-xs font-semibold text-rose-600"
                     onClick={() =>
                       setRejectDialog({
                         type: "section",
@@ -83,7 +83,7 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
                       })
                     }
                   >
-                    Reject section…
+                    Reject
                   </button>
                 </div>
               )}
