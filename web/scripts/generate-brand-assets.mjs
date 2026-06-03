@@ -104,52 +104,20 @@ async function writeSvgPng(svg, dest, w, h) {
   await sharp(Buffer.from(svg)).resize(w, h, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(dest);
 }
 
+const SOURCE_LOGO = join(outDir, "source", "akshaya-investments-logo.png");
 const fullLogo = join(outDir, "logo.png");
 const markLogo = join(outDir, "logo-mark.png");
 const favicon = join(outDir, "favicon.png");
+const favicon16 = join(outDir, "favicon-16.png");
+const favicon32 = join(outDir, "favicon-32.png");
+const favicon48 = join(outDir, "favicon-48.png");
+const faviconIco = join(outDir, "favicon.ico");
+const appleTouch = join(outDir, "apple-touch-icon.png");
 const icon192 = join(outDir, "icon-192.png");
 const icon512 = join(outDir, "icon-512.png");
 const defaultTrade = join(catDir, "default-trade.webp");
 
-if (!existsSync(fullLogo)) {
-  await writeSvgPng(logoSvg(), fullLogo, 960, 240);
-  console.log("Created logo.png");
-}
-if (!existsSync(markLogo)) {
-  await writeSvgPng(logoSvg({ compact: true }), markLogo, 512, 512);
-  console.log("Created logo-mark.png");
-}
-if (!existsSync(favicon)) {
-  await sharp(markLogo).resize(32, 32).png().toFile(favicon);
-  copyFileSync(favicon, join(root, "public", "favicon.png"));
-  console.log("Created favicon.png");
-}
-if (!existsSync(icon192)) {
-  await sharp(markLogo).resize(192, 192).png().toFile(icon192);
-  console.log("Created icon-192.png");
-}
-if (!existsSync(icon512)) {
-  await sharp(markLogo).resize(512, 512).png().toFile(icon512);
-  console.log("Created icon-512.png");
-}
-
-/** Invest favicons — always refresh so tab / home-screen label artwork matches Akshaya Investments */
-const investIcon512 = join(outDir, "icon-invest-512.png");
-const investIcon192 = join(outDir, "icon-invest-192.png");
-const investFavicon = join(outDir, "favicon-invest.png");
-const investApple = join(outDir, "apple-touch-icon-invest.png");
-const investSvg512 = investFaviconSvg({ showText: true });
-const investSvgCompact = investFaviconSvg({ showText: false });
-
-await writeSvgPng(investSvg512, investIcon512, 512, 512);
-await writeSvgPng(investSvg512, investIcon192, 192, 192);
-await writeSvgPng(investSvg512, investApple, 180, 180);
-await writeSvgPng(investSvgCompact, investFavicon, 32, 32);
-copyFileSync(investFavicon, join(root, "public", "favicon-invest.png"));
-for (const size of [16, 32, 48]) {
-  await writeSvgPng(investSvgCompact, join(outDir, `favicon-invest-${size}.png`), size, size);
-}
-function writeIcoFromPngInvest(pngPath, icoPath) {
+function writeIcoFromPng(pngPath, icoPath) {
   const png = readFileSync(pngPath);
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
@@ -164,9 +132,100 @@ function writeIcoFromPngInvest(pngPath, icoPath) {
   dir.writeUInt32LE(22, 12);
   writeFileSync(icoPath, Buffer.concat([header, dir, png]));
 }
-writeIcoFromPngInvest(investFavicon, join(outDir, "favicon-invest.ico"));
-copyFileSync(join(outDir, "favicon-invest.ico"), join(root, "public", "favicon-invest.ico"));
-console.log("Invest favicons ready (Akshaya Investments)");
+
+/** Build logo + favicons from web/public/assets/source/akshaya-investments-logo.png */
+async function buildFromSourceLogo() {
+  if (!existsSync(SOURCE_LOGO)) return false;
+
+  const meta = await sharp(SOURCE_LOGO).metadata();
+  const w = meta.width || 1024;
+  const h = meta.height || 1024;
+
+  await sharp(SOURCE_LOGO)
+    .resize(720, 220, { fit: "inside", withoutEnlargement: true })
+    .png()
+    .toFile(fullLogo);
+
+  const markW = Math.round(w * 0.42);
+  const size = Math.min(markW, h);
+  const top = Math.round((h - size) / 2);
+  await sharp(SOURCE_LOGO)
+    .extract({ left: 0, top, width: size, height: size })
+    .resize(512, 512, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 1 } })
+    .png()
+    .toFile(markLogo);
+
+  const markBuf = await sharp(markLogo).toBuffer();
+  await sharp(markBuf).resize(32, 32).png().toFile(favicon);
+  await sharp(markBuf).resize(16, 16).png().toFile(favicon16);
+  await sharp(markBuf).resize(32, 32).png().toFile(favicon32);
+  await sharp(markBuf).resize(48, 48).png().toFile(favicon48);
+  await sharp(markBuf).resize(180, 180).png().toFile(appleTouch);
+  await sharp(markBuf).resize(192, 192).png().toFile(icon192);
+  await sharp(markBuf).resize(512, 512).png().toFile(icon512);
+  writeIcoFromPng(favicon, faviconIco);
+
+  const publicRoot = join(root, "public");
+  for (const [from, name] of [
+    [favicon, "favicon.png"],
+    [faviconIco, "favicon.ico"],
+    [faviconIco, "favicon-invest.ico"],
+    [favicon, "favicon-invest.png"],
+  ]) {
+    copyFileSync(from, join(publicRoot, name));
+  }
+  for (const size of [16, 32, 48]) {
+    copyFileSync(join(outDir, `favicon-${size}.png`), join(outDir, `favicon-invest-${size}.png`));
+  }
+  copyFileSync(appleTouch, join(outDir, "apple-touch-icon-invest.png"));
+  copyFileSync(icon192, join(outDir, "icon-invest-192.png"));
+  copyFileSync(icon512, join(outDir, "icon-invest-512.png"));
+  copyFileSync(faviconIco, join(outDir, "favicon-invest.ico"));
+
+  console.log("Brand assets built from akshaya-investments-logo.png (all subdomains)");
+  return true;
+}
+
+const builtFromSource = await buildFromSourceLogo();
+
+if (!builtFromSource) {
+  if (!existsSync(fullLogo)) {
+    await writeSvgPng(logoSvg(), fullLogo, 960, 240);
+    console.log("Created logo.png");
+  }
+  if (!existsSync(markLogo)) {
+    await writeSvgPng(logoSvg({ compact: true }), markLogo, 512, 512);
+    console.log("Created logo-mark.png");
+  }
+  if (!existsSync(favicon)) {
+    await sharp(markLogo).resize(32, 32).png().toFile(favicon);
+    copyFileSync(favicon, join(root, "public", "favicon.png"));
+    console.log("Created favicon.png");
+  }
+  if (!existsSync(icon192)) {
+    await sharp(markLogo).resize(192, 192).png().toFile(icon192);
+    console.log("Created icon-192.png");
+  }
+  if (!existsSync(icon512)) {
+    await sharp(markLogo).resize(512, 512).png().toFile(icon512);
+    console.log("Created icon-512.png");
+  }
+
+  const investFavicon = join(outDir, "favicon-invest.png");
+  const investSvg512 = investFaviconSvg({ showText: true });
+  const investSvgCompact = investFaviconSvg({ showText: false });
+  await writeSvgPng(investSvg512, join(outDir, "icon-invest-512.png"), 512, 512);
+  await writeSvgPng(investSvg512, join(outDir, "icon-invest-192.png"), 192, 192);
+  await writeSvgPng(investSvg512, join(outDir, "apple-touch-icon-invest.png"), 180, 180);
+  await writeSvgPng(investSvgCompact, investFavicon, 32, 32);
+  copyFileSync(investFavicon, join(root, "public", "favicon-invest.png"));
+  for (const size of [16, 32, 48]) {
+    await writeSvgPng(investSvgCompact, join(outDir, `favicon-invest-${size}.png`), size, size);
+  }
+  writeIcoFromPng(investFavicon, join(outDir, "favicon-invest.ico"));
+  copyFileSync(join(outDir, "favicon-invest.ico"), join(root, "public", "favicon-invest.ico"));
+  console.log("Invest favicons ready (SVG fallback)");
+}
 if (!existsSync(defaultTrade)) {
   await sharp(Buffer.from(defaultTradeSvg())).webp({ quality: 82 }).toFile(defaultTrade);
   console.log("Created default-trade.webp");

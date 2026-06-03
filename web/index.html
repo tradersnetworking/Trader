@@ -15,7 +15,7 @@
             "Invest with AKSHYA INVESTMENTS and earn consistent monthly returns in INR. Flexible lock-in periods, transparent profit sharing, and 100% capital secure.";
           var invSite = "Akshya Investments";
           var invAppName = "Akshya Investments";
-          var ogImg = location.origin + "/assets/share/invest-plans.png";
+          var ogImg = location.origin + "/assets/logo.png";
           var pageUrl = location.origin + "/";
           document.title = invAppName;
           function setMeta(attr, name, val) {
@@ -53,9 +53,10 @@
               for (var k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) el.setAttribute(k, extra[k]);
             }
           }
-          setLink("icon", "/assets/favicon-invest.ico", { sizes: "any" });
-          setLink("shortcut icon", "/assets/favicon-invest.png", { type: "image/png" });
-          setLink("apple-touch-icon", "/assets/apple-touch-icon-invest.png", { sizes: "180x180" });
+          setLink("icon", "/assets/favicon.ico", { sizes: "any" });
+          setLink("shortcut icon", "/assets/favicon.png", { type: "image/png" });
+          setLink("apple-touch-icon", "/assets/apple-touch-icon.png", { sizes: "180x180" });
+          setMeta("name", "theme-color", "#000000");
         } else {
           root.classList.add("site-main");
           root.classList.remove("site-invest");

@@ -53,7 +53,7 @@ export default function BrandMark({
   const useBeside = titleBesideLogo || !fullLogo;
   const fullLogoClass = compact
     ? "h-8 w-auto max-w-[5.5rem] sm:h-9 sm:max-w-[6.5rem]"
-    : "h-14 w-auto max-w-[8.5rem] sm:h-16 sm:max-w-[10rem] lg:max-w-[11rem]";
+    : "h-12 w-auto max-w-[11rem] sm:h-14 sm:max-w-[13rem] lg:max-w-[15rem]";
   const markClass =
     scale === "hero"
       ? "h-10 w-10 shrink-0 sm:h-12 sm:w-12 md:h-14 md:w-14 lg:h-16 lg:w-16"
