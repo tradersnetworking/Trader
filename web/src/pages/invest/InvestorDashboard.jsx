@@ -51,6 +51,7 @@ import {
 } from "../../lib/investCompliance.js";
 import InvestKycGate from "../../components/invest/InvestKycGate.jsx";
 import InvestorKycViewModal from "../../components/invest/InvestorKycViewModal.jsx";
+import KycRestrictedPanel from "../../components/invest/KycRestrictedPanel.jsx";
 
 const INVESTOR_TAB_IDS = INVESTOR_NAV.filter((n) => n.id).map((n) => n.id);
 
@@ -251,6 +252,7 @@ export default function InvestorDashboard() {
         pendingPayoutChange={pendingPayoutChange}
         pendingKycRevision={pendingKycRevision}
         onRefresh={() => fetchCore({ soft: true })}
+        onCloseRestricted={closeRestrictedView}
       >
       {previewInvestor && (
         <div className="mb-4">
@@ -322,7 +324,8 @@ export default function InvestorDashboard() {
         </TabPanel>
       )}
       {tab === "referral" && <TabPanel><ReferralPanel /></TabPanel>}
-      {tab === "support" && <TabPanel><SupportPanel /></TabPanel>}
+      {tab === "support" &&
+        wrapRestricted("Support", "Tickets, WhatsApp, and Telegram", <TabPanel><SupportPanel /></TabPanel>)}
       {tab === "notifications" && (
         <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
       )}
@@ -344,18 +347,22 @@ export default function InvestorDashboard() {
           />
         </TabPanel>
       )}
-      {tab === "profile" && (
-        <div className="mt-6">
-          <Profile kyc={kyc} />
-        </div>
-      )}
-      {tab === "account" && (
-        <div className="mt-6 space-y-6">
-          <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>
-          <TabPanel><SecuritySettingsPanel /></TabPanel>
-          <TabPanel><PushNotificationsToggle /></TabPanel>
-        </div>
-      )}
+      {tab === "profile" &&
+        wrapRestricted(
+          "Profile & payout details",
+          "Prefilled from your submitted KYC where available",
+          <Profile kyc={kyc} investor={invest} />
+        )}
+      {tab === "account" &&
+        wrapRestricted(
+          "Security settings",
+          "Password, email, Google sign-in, and 2FA",
+          <div className="space-y-6">
+            <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>
+            <TabPanel><SecuritySettingsPanel /></TabPanel>
+            <TabPanel><PushNotificationsToggle /></TabPanel>
+          </div>
+        )}
       {!INVESTOR_TAB_IDS.includes(tab) && (
         <DashboardTabFallback title="Dashboard" onGoOverview={() => setTab("overview")} />
       )}
@@ -558,30 +565,29 @@ function Investments({ subs, onNavigate, onOpenDetail }) {
   );
 }
 
-function Profile({ kyc }) {
+function profileFormFromSources(invest, kyc) {
+  const fromKyc = kyc && kyc.status && kyc.status !== "NOT_SUBMITTED";
+  return {
+    name: (fromKyc && kyc?.fullName) || invest?.name || "",
+    phone: (fromKyc && kyc?.phone) || invest?.phone || "",
+    upiId: (fromKyc && kyc?.upiId) || invest?.upiId || "",
+    bankName: (fromKyc && kyc?.bankName) || invest?.bankName || "",
+    accountNumber: (fromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
+    ifsc: (fromKyc && kyc?.ifscCode) || invest?.ifsc || "",
+  };
+}
+
+function Profile({ kyc, investor: investorProp }) {
   const { invest, refreshInvest } = useAuth();
-  const seedFromKyc = kyc?.status === "APPROVED";
-  const [form, setForm] = useState({
-    name: (seedFromKyc && kyc?.fullName) || invest?.name || "",
-    phone: (seedFromKyc && kyc?.phone) || invest?.phone || "",
-    upiId: (seedFromKyc && kyc?.upiId) || invest?.upiId || "",
-    bankName: (seedFromKyc && kyc?.bankName) || invest?.bankName || "",
-    accountNumber: (seedFromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
-    ifsc: (seedFromKyc && kyc?.ifscCode) || invest?.ifsc || "",
-  });
+  const investor = investorProp || invest;
+  const fromKyc = kyc && kyc.status && kyc.status !== "NOT_SUBMITTED";
+  const [form, setForm] = useState(() => profileFormFromSources(investor, kyc));
   const [msg, setMsg] = useState("");
   const isStaff = ["ADMIN", "SUPERADMIN"].includes(invest?.role);
 
   useEffect(() => {
-    setForm({
-      name: (seedFromKyc && kyc?.fullName) || invest?.name || "",
-      phone: (seedFromKyc && kyc?.phone) || invest?.phone || "",
-      upiId: (seedFromKyc && kyc?.upiId) || invest?.upiId || "",
-      bankName: (seedFromKyc && kyc?.bankName) || invest?.bankName || "",
-      accountNumber: (seedFromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
-      ifsc: (seedFromKyc && kyc?.ifscCode) || invest?.ifsc || "",
-    });
-  }, [invest, kyc, seedFromKyc]);
+    setForm(profileFormFromSources(investor, kyc));
+  }, [investor, kyc]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -590,22 +596,42 @@ function Profile({ kyc }) {
     refreshInvest();
   };
   return (
-    <div className="max-w-xl card p-6">
-      <h3 className="mb-3 font-bold text-navy">Profile & Payout Details</h3>
+    <div className="card max-w-xl p-4 sm:p-6">
+      {fromKyc && (
+        <div className="mb-4">
+          <Alert type="info">
+            Bank and contact fields are filled from your KYC submission. After KYC is approved, changes here may require admin approval.
+          </Alert>
+        </div>
+      )}
       {isStaff && <StaffPortalLinks portal="invest" className="mb-4" />}
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-4">
         {msg && <Alert type="success">{msg}</Alert>}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Name"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Phone"><input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Name">
+            <input className="input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </Field>
+          <Field label="Phone">
+            <input className="input w-full" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
         </div>
-        <Field label="UPI ID (for withdrawals)"><input className="input" value={form.upiId} onChange={(e) => setForm({ ...form, upiId: e.target.value })} /></Field>
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Bank Name"><input className="input" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} /></Field>
-          <Field label="Account Number"><input className="input" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} /></Field>
-          <Field label="IFSC"><input className="input" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value })} /></Field>
+        <Field label="UPI ID (for withdrawals)">
+          <input className="input w-full" value={form.upiId} onChange={(e) => setForm({ ...form, upiId: e.target.value })} />
+        </Field>
+        <div className="flex flex-col gap-3">
+          <Field label="Bank Name">
+            <input className="input w-full" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />
+          </Field>
+          <Field label="Account Number">
+            <input className="input w-full" value={form.accountNumber} onChange={(e) => setForm({ ...form, accountNumber: e.target.value })} />
+          </Field>
+          <Field label="IFSC">
+            <input className="input w-full" value={form.ifsc} onChange={(e) => setForm({ ...form, ifsc: e.target.value.toUpperCase() })} />
+          </Field>
         </div>
-        <button className="btn-gold w-full">Save</button>
+        <button type="submit" className="btn-gold w-full">
+          Save
+        </button>
       </form>
     </div>
   );

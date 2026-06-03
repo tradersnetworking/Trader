@@ -1,11 +1,12 @@
 /** Strip secrets and attach KYC profile photo for API responses */
 export function publicInvestor(u) {
   if (!u) return null;
-  const { passwordHash, resetToken, resetExpires, totpSecret, backupCodes, kyc, ...rest } = u;
+  const { passwordHash, resetToken, resetExpires, totpSecret, backupCodes, kyc, googleId, ...rest } = u;
   const kycStatus = kyc?.status || "NOT_SUBMITTED";
-  const fromKyc = kycStatus === "APPROVED" && kyc;
+  const fromKyc = kyc && kycStatus !== "NOT_SUBMITTED" ? kyc : null;
   return {
     ...rest,
+    googleLinked: Boolean(googleId),
     name: fromKyc?.fullName?.trim() || rest.name,
     phone: fromKyc?.phone || rest.phone,
     phoneCountryCode: fromKyc?.phoneCountryCode || rest.phoneCountryCode,

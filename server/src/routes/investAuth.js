@@ -309,11 +309,18 @@ router.post(
   asyncH(async (req, res) => {
     const profile = await verifyGoogleIdToken(req.body.credential);
     if (!profile) return res.status(401).json({ error: "Invalid Google token" });
-    let investor = await investDb.investor.findUnique({ where: { email: profile.email.toLowerCase() }, include: userInclude });
+    const email = profile.email.toLowerCase();
+    let investor = await investDb.investor.findUnique({ where: { email }, include: userInclude });
+    if (!investor) {
+      const byGoogle = await investDb.investor.findFirst({ where: { googleId: profile.sub }, include: userInclude });
+      if (byGoogle) {
+        investor = byGoogle;
+      }
+    }
     if (!investor) {
       investor = await investDb.investor.create({
         data: {
-          email: profile.email.toLowerCase(),
+          email,
           name: profile.name,
           googleId: profile.sub,
           emailVerified: true,
@@ -323,6 +330,12 @@ router.post(
         include: userInclude,
       });
       await investDb.wallet.create({ data: { investorId: investor.id } });
+    } else if (!investor.googleId) {
+      investor = await investDb.investor.update({
+        where: { id: investor.id },
+        data: { googleId: profile.sub, emailVerified: true },
+        include: userInclude,
+      });
     }
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
     await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);
@@ -393,6 +406,70 @@ router.post(
     });
     if (isInvestStaffRole(investor.role)) await syncStaffPasswordHash(investor.email, passwordHash);
     res.json({ ok: true, message: "Password updated on investment and marketplace dashboards." });
+  })
+);
+
+router.post(
+  "/google/link",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const profile = await verifyGoogleIdToken(req.body.credential);
+    if (!profile) return res.status(401).json({ error: "Invalid Google token" });
+
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id }, include: userInclude });
+    if (!investor) return res.status(404).json({ error: "Account not found" });
+
+    const googleEmail = profile.email.toLowerCase();
+    if (googleEmail !== investor.email) {
+      return res.status(400).json({
+        error:
+          "This Google account email does not match your login email. Update your login email first, then connect the matching Google account.",
+        code: "GOOGLE_EMAIL_MISMATCH",
+      });
+    }
+
+    const taken = await investDb.investor.findFirst({
+      where: { googleId: profile.sub, id: { not: investor.id } },
+    });
+    if (taken) return res.status(409).json({ error: "This Google account is already linked to another user." });
+
+    const updated = await investDb.investor.update({
+      where: { id: investor.id },
+      data: { googleId: profile.sub, emailVerified: true },
+      include: userInclude,
+    });
+
+    res.json({
+      ok: true,
+      user: publicInvestor(updated),
+      message: "Google account connected. You can sign in with Google on this portal.",
+    });
+  })
+);
+
+router.post(
+  "/google/unlink",
+  authRequired(SCOPE),
+  asyncH(async (req, res) => {
+    const { currentPassword } = req.body;
+    const investor = await investDb.investor.findUnique({ where: { id: req.user.id }, include: userInclude });
+    if (!investor) return res.status(404).json({ error: "Account not found" });
+    if (!investor.googleId) return res.json({ ok: true, user: publicInvestor(investor), message: "Google was not connected." });
+    if (!investor.passwordHash) {
+      return res.status(400).json({
+        error: "Set a password before disconnecting Google, so you can still sign in.",
+      });
+    }
+    if (!currentPassword || !comparePassword(currentPassword, investor.passwordHash)) {
+      return res.status(401).json({ error: "Password is incorrect" });
+    }
+
+    const updated = await investDb.investor.update({
+      where: { id: investor.id },
+      data: { googleId: null },
+      include: userInclude,
+    });
+    res.json({ ok: true, user: publicInvestor(updated), message: "Google account disconnected." });
   })
 );
 

@@ -7,6 +7,7 @@ import {
 import { getRejectedSections, KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
 import KycPanel from "./KycPanel.jsx";
 import InvestorKycSubmissionPanel from "./InvestorKycSubmissionPanel.jsx";
+import KycRestrictedPanel from "./KycRestrictedPanel.jsx";
 
 function KycGateLoading() {
   return (
@@ -53,6 +54,7 @@ export default function InvestKycGate({
   pendingPayoutChange,
   pendingKycRevision,
   onRefresh,
+  onCloseRestricted,
   children,
 }) {
   const phase = getKycUiPhase(kyc, { loaded: kycLoaded, loadError: kycLoadError });
@@ -71,13 +73,12 @@ export default function InvestKycGate({
 
   if ((phase === "needs_fix" || phase === "pending_review") && PROFILE_TABS.has(activeTab)) {
     if (activeTab === "kyc") {
-      return (
+      const body = (
         <div className="page-stack space-y-4">
           {kyc && kyc.status !== "NOT_SUBMITTED" && (
             <InvestorKycSubmissionPanel
               kyc={kyc}
               phase={phase === "pending_review" ? "pending_review" : "needs_fix"}
-              onEditKyc={() => {}}
             />
           )}
           <KycPanel
@@ -88,6 +89,17 @@ export default function InvestKycGate({
           />
         </div>
       );
+      return onCloseRestricted ? (
+        <KycRestrictedPanel
+          title="My KYC"
+          subtitle="View or update your submitted details and documents"
+          onClose={onCloseRestricted}
+        >
+          {body}
+        </KycRestrictedPanel>
+      ) : (
+        body
+      );
     }
     return children;
   }
@@ -96,7 +108,7 @@ export default function InvestKycGate({
   const partial = kyc?.status === "REJECTED" && rejectedSections.length > 0;
   const showSubmission = kyc && kyc.status !== "NOT_SUBMITTED";
 
-  if (phase === "needs_fix") {
+  if (phase === "needs_fix" && activeTab !== "kyc") {
     return (
       <div className="page-stack mx-auto max-w-3xl space-y-4">
         <Alert type="error">

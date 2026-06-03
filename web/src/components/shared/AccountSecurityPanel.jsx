@@ -6,6 +6,7 @@ import { applyStaffSiblingLogin } from "../../lib/staffPortal.js";
 import { Field, Alert, PasswordInput } from "../ui.jsx";
 import { investPath } from "../../lib/site.js";
 import StaffPortalLinks from "./StaffPortalLinks.jsx";
+import GoogleAccountLink from "../invest/GoogleAccountLink.jsx";
 
 /**
  * Change login email & password from dashboard (invest or main portal).
@@ -67,8 +68,11 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
       } else {
         await refresh();
       }
-      setEmailForm((f) => ({ ...f, currentPassword: "" }));
-      setEmailMsg(res.message || "Email updated. Use the new address next time you sign in.");
+      setEmailForm((f) => ({ ...f, currentPassword: "", newEmail: res.user?.email || emailForm.newEmail }));
+      const googleNote = res.user && !res.user.googleLinked
+        ? " Your Google sign-in was disconnected because the email changed — connect your new Google account below."
+        : "";
+      setEmailMsg((res.message || "Email updated. Use the new address next time you sign in.") + googleNote);
     } catch (err) {
       setEmailErr(err.message);
     } finally {
@@ -89,6 +93,8 @@ export default function AccountSecurityPanel({ portal = "invest" }) {
       </div>
 
       {isStaff && <StaffPortalLinks portal={portal} />}
+
+      {portal === "invest" && <GoogleAccountLink portal="invest" />}
 
       <form onSubmit={changeEmail} className="space-y-3 border-b border-border pb-6">
         <h4 className="text-sm font-semibold">Change login email</h4>

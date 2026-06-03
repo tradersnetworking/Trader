@@ -334,13 +334,40 @@ router.get(
     const { publicInvestor } = await import("../utils/investorUser.js");
 
     let investorOut = investor;
+    if (kyc && kyc.status !== "NOT_SUBMITTED") {
+      const sync = {};
+      if (kyc.fullName?.trim()) sync.name = kyc.fullName.trim();
+      if (kyc.phone) sync.phone = kyc.phone;
+      if (kyc.upiId) sync.upiId = kyc.upiId;
+      if (kyc.bankName) sync.bankName = kyc.bankName;
+      if (kyc.bankAccount) sync.accountNumber = kyc.bankAccount;
+      if (kyc.ifscCode) sync.ifsc = kyc.ifscCode;
+      if (Object.keys(sync).length) {
+        await investDb.investor.update({ where: { id: req.user.id }, data: sync });
+      }
+    }
     if (kyc?.status === "APPROVED") {
       await syncApprovedPayoutFromKyc(req.user.id, kyc);
-      investorOut = await investDb.investor.findUnique({
-        where: { id: req.user.id },
-        include: { kyc: { select: { status: true, photo: true, selfie: true, fullName: true, phone: true, phoneCountryCode: true, upiId: true, bankName: true, bankAccount: true, ifscCode: true } } },
-      });
     }
+    investorOut = await investDb.investor.findUnique({
+      where: { id: req.user.id },
+      include: {
+        kyc: {
+          select: {
+            status: true,
+            photo: true,
+            selfie: true,
+            fullName: true,
+            phone: true,
+            phoneCountryCode: true,
+            upiId: true,
+            bankName: true,
+            bankAccount: true,
+            ifscCode: true,
+          },
+        },
+      },
+    });
 
     const kycOut = ensureSectionReviewsOnRecord(kyc);
     res.json({
