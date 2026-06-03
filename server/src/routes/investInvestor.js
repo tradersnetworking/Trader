@@ -28,6 +28,7 @@ import {
   notifyKycSubmitted,
 } from "../services/investNotifications.js";
 import { initiateWithdrawal, confirmWithdrawal } from "../services/withdrawalOtp.js";
+import { findPendingKycRevision, hasKycRevisionDelegate } from "../utils/investKycRevision.js";
 import { getInvestorMaturityChoices } from "../services/maturityPayments.js";
 import { getReferralStats, ensureReferralCode, creditReferralOnInvestment, getReferralLeaderboard } from "../services/referral.js";
 import { getCertificatePayload } from "../services/investCertificate.js";
@@ -320,12 +321,7 @@ router.get(
           orderBy: { createdAt: "desc" },
         })
         .catch(() => null),
-      investDb.kycRevision
-        .findFirst({
-          where: { investorId: req.user.id, status: "PENDING" },
-          orderBy: { createdAt: "desc" },
-        })
-        .catch(() => null),
+      findPendingKycRevision(req.user.id),
     ]);
     const { investEligibility, withdrawEligibility } = await import("../utils/investCompliance.js");
     const { canAccessInvestDashboard, needsKycSetup } = await import("../services/investProfileApprovals.js");
@@ -532,9 +528,10 @@ router.post(
     if (!kyc || kyc.status !== "APPROVED") {
       return res.status(400).json({ error: "Document updates after approval must be submitted as a change request." });
     }
-    const pending = await investDb.kycRevision.findFirst({
-      where: { investorId: req.user.id, status: "PENDING" },
-    });
+    if (!hasKycRevisionDelegate()) {
+      return res.status(503).json({ error: "KYC revision service unavailable. Run database migration and restart the API." });
+    }
+    const pending = await findPendingKycRevision(req.user.id);
     if (pending) {
       return res.status(400).json({ error: "You already have a KYC update awaiting team approval." });
     }

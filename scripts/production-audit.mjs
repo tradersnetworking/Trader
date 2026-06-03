@@ -65,5 +65,41 @@ rb.ok && rbText.includes("Sitemap:") ? pass("Production robots.txt") : fail("Pro
 const siteCfg = await get(`${MAIN}/api/main/public/site-config`);
 siteCfg.data?.config?.robotsAllowIndex !== false ? pass("Production indexing allowed") : fail("Indexing disabled");
 
+console.log("\n— Invest auth & KYC —");
+const invLoginRes = await fetch(`${INVEST}/api/invest/auth/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  body: JSON.stringify({ email: "investor@akshayaexim.com", password: "Investor@123" }),
+});
+const invLogin = await invLoginRes.json().catch(() => ({}));
+if (invLogin.token) {
+  pass("Investor login (demo account)");
+  const kycRes = await fetch(`${INVEST}/api/invest/kyc`, {
+    headers: { Authorization: `Bearer ${invLogin.token}`, Accept: "application/json" },
+  });
+  const kycData = await kycRes.json().catch(() => ({}));
+  if (kycRes.ok && kycData.eligibility) {
+    pass(`Invest KYC API (status ${kycData.kyc?.status || "unknown"})`);
+  } else {
+    fail("Invest KYC API", kycData.error || kycRes.status);
+  }
+  const googleLinkProbe = await fetch(`${INVEST}/api/invest/auth/google/link`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${invLogin.token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ credential: "invalid-audit-probe" }),
+  });
+  googleLinkProbe.status === 400 || googleLinkProbe.status === 401
+    ? pass("Google link route registered")
+    : fail("Google link route", googleLinkProbe.status);
+} else if (invLogin.requiresLoginOtp) {
+  pass("Investor login reachable (OTP gate — skip KYC token checks)");
+} else {
+  fail("Investor login", invLogin.error || invLoginRes.status);
+}
+
 console.log(failed ? `\nPRODUCTION AUDIT FAILED (${failed})` : "\nPRODUCTION AUDIT PASSED");
 process.exit(failed ? 1 : 0);
