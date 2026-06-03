@@ -1,7 +1,10 @@
 node_modules/
 dist/
 .env
+deploy/.env.vps
 *.db
+*.db.bak*
+server/prisma/*.bak-*
 *.db-journal
 server/uploads/*
 !server/uploads/.gitkeep
