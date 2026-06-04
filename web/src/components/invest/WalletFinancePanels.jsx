@@ -638,7 +638,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   amount={amount}
                 />
                 <p className="text-[11px] text-sky-700 dark:text-sky-400/90">
-                  Scan or open your UPI app for <strong>₹{Number(amount).toLocaleString("en-IN")}</strong>, then enter UTR & proof in Step 2.
+                  Scan or open your UPI app for <strong>₹{Number(amount).toLocaleString("en-IN")}</strong>, then enter UTR & proof in Step 3.
                 </p>
               </div>
             )}
@@ -664,7 +664,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 <CredentialRow label="IFSC" value={selectedBank.ifsc} />
                 {selectedBank.branchName && <CredentialRow label="Branch" value={selectedBank.branchName} mono={false} />}
                 <p className="text-[11px] text-blue-700 dark:text-blue-400/90">
-                  Transfer via {bankMethod} to the account above. Include your registered name in the reference, then upload proof in Step 2.
+                  Transfer via {bankMethod} to the account above. Include your registered name in the reference, then upload proof in Step 3.
                 </p>
               </div>
             )}

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Smoke test main marketplace API — run with server on PORT (default 4000) */
 const base = process.env.API_BASE || "http://localhost:4000";
+const siteBase = (process.env.MAIN_SITE || base).replace(/\/$/, "");
 
 const checks = [
   ["/api/health", (d) => d.ok === true],
@@ -34,7 +35,8 @@ const checks = [
 let failed = 0;
 for (const [path, validateJson, validateRes] of checks) {
   try {
-    const res = await fetch(`${base}${path}`);
+    const origin = path.startsWith("/api/") ? base : siteBase;
+    const res = await fetch(`${origin}${path}`);
     if (validateRes) {
       if (!(await validateRes(res))) throw new Error(`validation failed (${res.status})`);
     } else {

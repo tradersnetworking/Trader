@@ -80,7 +80,8 @@ export function accountShowsForWithdraw(gateway) {
 export async function filterCollectionGatewaysForInvestors(gateways = []) {
   const map = await getPaymentModeVisibilityMap();
   if (getModeVisibility(map, "gateway").deposit === false) return [];
-  return gateways.filter((g) => getModeVisibility(map, g.name).deposit);
+  const filtered = gateways.filter((g) => getModeVisibility(map, g.name).deposit);
+  return filtered.length > 0 ? filtered : gateways;
 }
 
 export async function getInvestorPaymentOptions() {
