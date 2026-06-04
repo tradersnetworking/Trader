@@ -70,6 +70,8 @@ import {
   cancelScheduledPayout,
   adminWalletOperation,
   adminResetKyc,
+  adminUpsertInvestorKyc,
+  ADMIN_KYC_FILE_FIELDS,
   adminCancelSubscription,
 } from "../services/adminInvestorOps.js";
 import {
@@ -426,6 +428,26 @@ router.post(
     try {
       const subscription = await adminAssignSubscription(req.params.id, req.body, req.user);
       res.json({ subscription });
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.post(
+  "/investors/:id/kyc",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  (req, res, next) => {
+    import("../utils/upload.js").then(({ upload }) =>
+      upload.fields(ADMIN_KYC_FILE_FIELDS.map((name) => ({ name })))(req, res, next)
+    );
+  },
+  asyncH(async (req, res) => {
+    try {
+      const investor = await adminUpsertInvestorKyc(req.params.id, req.body, req.files || {}, req.user);
+      res.json({ investor, message: "KYC and documents saved." });
     } catch (e) {
       res.status(400).json({ error: e.message });
     }

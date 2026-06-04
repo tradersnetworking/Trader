@@ -453,6 +453,89 @@ export async function cancelScheduledPayout(payoutId, actor) {
   return updated;
 }
 
+export const ADMIN_KYC_FILE_FIELDS = [
+  "panDocument",
+  "aadhaarDocument",
+  "aadhaarFront",
+  "aadhaarBack",
+  "photo",
+  "selfie",
+  "addressProof",
+  "signature",
+  "cancelledCheque",
+  "passbookDocument",
+  "bankStatementDocument",
+  "passportDocument",
+  "driversLicenseDocument",
+];
+
+export async function adminUpsertInvestorKyc(investorId, body, files = {}, actor) {
+  const { fileUrl } = await import("../utils/upload.js");
+  const { parseKycBody } = await import("../utils/kycFields.js");
+  const inv = await investDb.investor.findUnique({ where: { id: investorId } });
+  if (!inv || inv.role !== "INVESTOR") throw new Error("Investor not found");
+  const existing = await investDb.kyc.findUnique({ where: { investorId } });
+
+  const status = String(body.status || existing?.status || "APPROVED").toUpperCase();
+  const data = {
+    ...parseKycBody(body, existing),
+    status,
+    verifiedAt: status === "APPROVED" ? new Date() : null,
+    remarks: body.remarks !== undefined ? (body.remarks || null) : existing?.remarks ?? null,
+  };
+  if (body.panNumber != null) data.panNumber = String(body.panNumber).trim().toUpperCase();
+  if (body.aadhaarNumber != null) data.aadhaarNumber = String(body.aadhaarNumber).replace(/\s/g, "");
+  if (body.bankProofType) data.bankProofType = String(body.bankProofType).toUpperCase();
+
+  for (const field of ADMIN_KYC_FILE_FIELDS) {
+    if (files[field]?.[0]) data[field] = fileUrl(files[field][0].filename);
+    else if (existing?.[field]) data[field] = existing[field];
+  }
+
+  const kyc = await investDb.kyc.upsert({
+    where: { investorId },
+    create: { investorId, ...data },
+    update: data,
+  });
+
+  const investorPatch = {};
+  if (body.name != null) investorPatch.name = String(body.name).trim();
+  if (body.phone != null) investorPatch.phone = body.phone || null;
+  if (body.upiId != null) investorPatch.upiId = body.upiId || null;
+  if (body.bankName != null) investorPatch.bankName = body.bankName || null;
+  if (body.accountNumber != null) investorPatch.accountNumber = body.accountNumber || null;
+  if (body.ifsc != null) investorPatch.ifsc = body.ifsc || null;
+  if (Object.keys(investorPatch).length) {
+    await investDb.investor.update({ where: { id: investorId }, data: investorPatch });
+  }
+
+  if (status === "APPROVED") {
+    const { autoGenerateAndSignInvestorAgreements } = await import("./agreements.js");
+    await autoGenerateAndSignInvestorAgreements(investorId, {
+      ipAddress: "admin-panel",
+      userAgent: "admin-kyc-upsert",
+      triggerEvent: "admin_kyc_approved",
+    }).catch(() => {});
+  }
+
+  await logAudit({
+    actorId: actor?.id,
+    actorRole: actor?.role,
+    actorName: actor?.name,
+    action: "ADMIN_KYC_UPSERT",
+    entity: "Kyc",
+    entityId: kyc.id,
+    meta: JSON.stringify({ investorId, status }),
+  });
+
+  const row = await investDb.investor.findUnique({
+    where: { id: investorId },
+    include: { wallet: true, kyc: true },
+  });
+  const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = row;
+  return user;
+}
+
 export async function adminResetKyc(investorId, actor) {
   const inv = await investDb.investor.findUnique({ where: { id: investorId }, include: { kyc: true } });
   if (!inv || inv.role !== "INVESTOR") throw new Error("Investor not found");

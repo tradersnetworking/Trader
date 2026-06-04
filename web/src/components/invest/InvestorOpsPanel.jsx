@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
+import AdminInvestorKycManageForm from "./AdminInvestorKycManageForm.jsx";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
 import { ADMIN_MAX_MONTHLY_ROI_PCT } from "../../lib/adminRoiLimits.js";
@@ -31,6 +33,7 @@ const EMPTY_CREATE = {
 };
 
 export default function InvestorOpsPanel() {
+  const [sp] = useSearchParams();
   const { invest } = useAuth();
   const isSuper = invest?.role === "SUPERADMIN";
   const isAdminRole = invest?.role === "ADMIN" || invest?.role === "SUPERADMIN";
@@ -39,6 +42,7 @@ export default function InvestorOpsPanel() {
   const [summary, setSummary] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [loadingList, setLoadingList] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [authFilter, setAuthFilter] = useState("all");
   const [plans, setPlans] = useState([]);
   const [search, setSearch] = useState("");
@@ -72,12 +76,41 @@ export default function InvestorOpsPanel() {
   const [payoutForm, setPayoutForm] = useState({ amount: "", payoutKind: "ROI_RETURN", mode: "UPI", remarks: "" });
   const [resetPwd, setResetPwd] = useState({ password: "", sendLink: false });
 
-  const load = () => {
-    investApi("/admin/investors").then((d) => setInvestors((d.investors || []).filter((i) => i.role === "INVESTOR"))).catch(() => {});
+  const load = async (opts = {}) => {
+    const silent = Boolean(opts.silent);
+    if (silent) setRefreshing(true);
+    else setLoadingList(true);
+    setLoadErr("");
+    try {
+      const d = await investApi("/admin/investors");
+      const list = (d.investors || []).filter((i) => i.role === "INVESTOR");
+      setInvestors(list);
+      setSummary(d.summary || null);
+    } catch (e) {
+      setLoadErr(e.message || "Could not load investors.");
+      setInvestors([]);
+      setSummary(null);
+    } finally {
+      setLoadingList(false);
+      setRefreshing(false);
+    }
     investApi("/public/plans").then((d) => setPlans(d.plans || [])).catch(() => {});
   };
 
   useEffect(() => { load(); }, []);
+
+  const manageFromUrl = sp.get("manage");
+  useEffect(() => {
+    if (!manageFromUrl || manageFromUrl === selectedId) return;
+    loadDetail(manageFromUrl).catch((e) => flash("", e.message));
+  }, [manageFromUrl]);
+
+  const authLabel = (i) => {
+    if (i.authMethod === "google") return "Google";
+    if (i.authMethod === "password") return "Email";
+    if (i.authMethod === "google_and_password") return "Google + Email";
+    return "—";
+  };
 
   const filtered = useMemo(() => {
     let list = investors;
@@ -88,15 +121,11 @@ export default function InvestorOpsPanel() {
     }
     const q = search.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((i) => i.name?.toLowerCase().includes(q) || i.email?.toLowerCase().includes(q) || i.phone?.includes(q));
+    return list.filter((i) => {
+      const hay = [i.name, i.email, i.phone, i.id, authLabel(i)].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
   }, [investors, search, authFilter]);
-
-  const authLabel = (i) => {
-    if (i.authMethod === "google") return "Google";
-    if (i.authMethod === "password") return "Email";
-    if (i.authMethod === "google_and_password") return "Google + Email";
-    return "—";
-  };
 
   const loadDetail = async (id) => {
     if (!id) return;
@@ -142,40 +171,6 @@ export default function InvestorOpsPanel() {
       setCreateForm(EMPTY_CREATE);
       load();
       setTab("list");
-    } catch (e2) {
-      flash("", e2.message);
-    }
-  };
-
-  const saveProfile = async (e) => {
-    e.preventDefault();
-    if (!detail) return;
-    flash();
-    try {
-      const body = {
-        name: detail.name,
-        phone: detail.phone,
-        upiId: detail.upiId,
-        bankName: detail.bankName,
-        accountNumber: detail.accountNumber,
-        ifsc: detail.ifsc,
-        kyc: {
-          fullName: detail.kyc?.fullName || detail.name,
-          phone: detail.kyc?.phone || detail.phone,
-          panNumber: detail.kyc?.panNumber,
-          aadhaarNumber: detail.kyc?.aadhaarNumber,
-          bankName: detail.kyc?.bankName || detail.bankName,
-          bankAccount: detail.kyc?.bankAccount || detail.accountNumber,
-          ifscCode: detail.kyc?.ifscCode || detail.ifsc,
-          upiId: detail.kyc?.upiId || detail.upiId,
-          address: detail.kyc?.address,
-          status: detail.kyc?.status || "APPROVED",
-        },
-      };
-      const d = await investApi(`/admin/investors/${detail.id}/full`, { method: "PUT", body });
-      setDetail(d.investor);
-      flash("Profile, KYC and bank details saved.");
-      load();
     } catch (e2) {
       flash("", e2.message);
     }
@@ -391,7 +386,9 @@ export default function InvestorOpsPanel() {
           </div>
           <div className="flex flex-wrap gap-3">
             <input className="input max-w-xs" placeholder="Search name, email, phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <button type="button" className="btn-outline text-xs" onClick={load}>Refresh</button>
+            <button type="button" className="btn-outline text-xs" disabled={refreshing || loadingList} onClick={() => load({ silent: true })}>
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
           </div>
           <div className="app-table-wrap card">
             <table className="w-full min-w-[800px] text-sm">
@@ -582,38 +579,23 @@ export default function InvestorOpsPanel() {
             ))}
           </div>
 
-          {manageTab === "profile" && (
-            <form onSubmit={saveProfile} className="card max-w-2xl space-y-3 p-5">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Name"><input className="input" value={detail.name || ""} onChange={(e) => setDetail({ ...detail, name: e.target.value })} /></Field>
-                <Field label="Phone"><input className="input" value={detail.phone || ""} onChange={(e) => setDetail({ ...detail, phone: e.target.value })} /></Field>
-                <Field label="UPI"><input className="input" value={detail.upiId || ""} onChange={(e) => setDetail({ ...detail, upiId: e.target.value })} /></Field>
-                <Field label="Bank"><input className="input" value={detail.bankName || ""} onChange={(e) => setDetail({ ...detail, bankName: e.target.value })} /></Field>
-                <Field label="Account"><input className="input" value={detail.accountNumber || ""} onChange={(e) => setDetail({ ...detail, accountNumber: e.target.value })} /></Field>
-                <Field label="IFSC"><input className="input" value={detail.ifsc || ""} onChange={(e) => setDetail({ ...detail, ifsc: e.target.value })} /></Field>
-                <Field label="PAN"><input className="input" value={detail.kyc?.panNumber || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, panNumber: e.target.value } })} /></Field>
-                <Field label="Aadhaar"><input className="input" value={detail.kyc?.aadhaarNumber || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, aadhaarNumber: e.target.value } })} /></Field>
-                <Field label="KYC status">
-                  <select className="input" value={detail.kyc?.status || "NOT_SUBMITTED"} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, status: e.target.value } })}>
-                    <option value="NOT_SUBMITTED">Not submitted</option>
-                    <option value="PENDING">Pending review</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                  </select>
-                </Field>
-                <Field label="Address" className="sm:col-span-2">
-                  <textarea className="input" rows={2} value={detail.kyc?.address || ""} onChange={(e) => setDetail({ ...detail, kyc: { ...detail.kyc, address: e.target.value } })} />
-                </Field>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-gold" type="submit">Save profile & KYC</button>
-                {detail.kyc && (
-                  <button type="button" className="btn-outline text-rose-600" onClick={resetKyc}>
-                    Delete KYC record
-                  </button>
-                )}
-              </div>
-            </form>
+          {manageTab === "profile" && isAdminRole && (
+            <div className="space-y-3">
+              <AdminInvestorKycManageForm
+                detail={detail}
+                setDetail={setDetail}
+                onSaved={() => {
+                  flash("KYC, bank details and documents saved.");
+                  load({ silent: true });
+                }}
+                onError={(m) => flash("", m)}
+              />
+              {detail.kyc && (
+                <button type="button" className="btn-outline text-rose-600" onClick={resetKyc}>
+                  Delete KYC record
+                </button>
+              )}
+            </div>
           )}
 
           {manageTab === "wallet" && (

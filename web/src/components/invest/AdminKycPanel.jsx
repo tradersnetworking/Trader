@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
@@ -116,7 +117,9 @@ export default function AdminKycPanel({ onUpdated }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {loadErr && <p className="text-sm text-rose-600">{loadErr}</p>}
+
+      <div className="flex flex-wrap items-center gap-2">
         {[["", "All"], ["PENDING", "Pending"], ["APPROVED", "Approved"], ["REJECTED", "Rejected"]].map(([v, l]) => (
           <button
             key={l}
@@ -127,6 +130,9 @@ export default function AdminKycPanel({ onUpdated }) {
             {l}
           </button>
         ))}
+        <button type="button" className="btn-outline ml-auto text-xs" disabled={refreshing} onClick={refreshAll}>
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       <div className="app-table-wrap card overflow-x-auto">
@@ -185,6 +191,7 @@ export default function AdminKycPanel({ onUpdated }) {
                   <th className="p-3">Sign-in</th>
                   <th className="p-3">Email</th>
                   <th className="p-3">Joined</th>
+                  <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -195,6 +202,11 @@ export default function AdminKycPanel({ onUpdated }) {
                     <td className="p-3 text-muted-foreground">{i.email}</td>
                     <td className="p-3 text-xs text-muted-foreground">
                       {i.createdAt ? new Date(i.createdAt).toLocaleDateString("en-IN") : "—"}
+                    </td>
+                    <td className="p-3 text-right">
+                      <Link to={`/invest/admin?tab=investors&manage=${i.id}`} className="btn-gold inline-block px-2 py-1 text-xs">
+                        Complete KYC
+                      </Link>
                     </td>
                   </tr>
                 ))}
