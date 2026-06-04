@@ -27,14 +27,17 @@ const checks = [
     "/api/invest/public/crypto-rates",
     (d) => typeof d.usdInr === "number" && d.usdInr > 0 && d.usdPrices?.USDT,
   ],
+  ["/api/invest/kyc/draft", (d, res) => res.status === 401],
+  ["/api/invest/kyc/files/idFront", (d, res) => res.status === 401],
 ];
 
 let failed = 0;
 for (const [path, validate] of checks) {
   try {
     const res = await fetch(`${base}${path}`);
-    const data = await res.json();
-    if (!res.ok || !validate(data)) throw new Error(`validation failed (${res.status})`);
+    const data = await res.json().catch(() => ({}));
+    const ok = validate.length >= 2 ? validate(data, res) : res.ok && validate(data);
+    if (!ok) throw new Error(`validation failed (${res.status})`);
     console.log(`✓ ${path}`);
   } catch (e) {
     console.error(`✗ ${path}: ${e.message}`);

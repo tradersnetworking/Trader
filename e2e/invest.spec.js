@@ -54,6 +54,13 @@ test.describe("Invest API smoke", () => {
     expect(names).toContain("razorpay");
   });
 
+  test("KYC staged upload routes require auth", async ({ request }) => {
+    const draft = await request.get(`${API}/api/invest/kyc/draft`);
+    expect(draft.status()).toBe(401);
+    const file = await request.post(`${API}/api/invest/kyc/files/idFront`);
+    expect(file.status()).toBe(401);
+  });
+
   test("referral leaderboard", async ({ request }) => {
     const res = await request.get(`${API}/api/invest/public/referral/leaderboard`);
     if (res.status() === 404) {

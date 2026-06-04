@@ -45,17 +45,42 @@ export function requireRole(...roles) {
   };
 }
 
+async function loadStaffInvestor(req, res) {
+  if (!req.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return null;
+  }
+  const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
+  if (!investor) {
+    res.status(401).json({ error: "User not found" });
+    return null;
+  }
+  req.staff = investor;
+  return investor;
+}
+
 export function requirePermission(permission) {
   return asyncH(async (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: "Authentication required" });
-    const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
-    if (!investor) return res.status(401).json({ error: "User not found" });
+    const investor = await loadStaffInvestor(req, res);
+    if (!investor) return;
     const { investorHasPermission } = await import("./services/rbac.js");
     if (!(await investorHasPermission(investor, permission))) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
-    req.staff = investor;
     next();
+  });
+}
+
+/** Pass if the staff member has at least one of the listed permissions (or is SUPERADMIN). */
+export function requireAnyPermission(...permissions) {
+  return asyncH(async (req, res, next) => {
+    const investor = await loadStaffInvestor(req, res);
+    if (!investor) return;
+    const { investorHasPermission } = await import("./services/rbac.js");
+    for (const p of permissions) {
+      if (await investorHasPermission(investor, p)) return next();
+    }
+    return res.status(403).json({ error: "Insufficient permissions" });
   });
 }
 

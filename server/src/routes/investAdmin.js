@@ -2,7 +2,7 @@ import { Router } from "express";
 import { registerPlatformDeployRoutes } from "./platformDeployRoutes.js";
 import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
-import { asyncH, authRequired, requireRole, requirePermission } from "../middleware.js";
+import { asyncH, authRequired, requireRole, requirePermission, requireAnyPermission } from "../middleware.js";
 import { hashPassword } from "../utils/auth.js";
 import { revokeAuthSession } from "../services/authSession.js";
 import { sendMail } from "../utils/mailer.js";
@@ -822,7 +822,11 @@ router.post(
       return res.status(400).json({ error: "Cannot approve manual deposit without payment proof." });
     }
     const creditInr = dep.inrEquivalent != null && dep.inrEquivalent > 0 ? dep.inrEquivalent : dep.amount;
-    await investDb.deposit.update({ where: { id: dep.id }, data: { status: "APPROVED", remarks: req.body.remarks || dep.remarks } });
+    const claimed = await investDb.deposit.updateMany({
+      where: { id: dep.id, status: "PENDING" },
+      data: { status: "APPROVED", remarks: req.body.remarks || dep.remarks },
+    });
+    if (claimed.count !== 1) return res.status(409).json({ error: "Deposit already processed" });
     const note =
       methodUp === "CRYPTO" && dep.cryptoAmount
         ? `Crypto deposit ${dep.cryptoAmount} ${dep.cryptoSymbol || ""} (${dep.cryptoNetwork || ""}) → ₹${creditInr} approved`
@@ -846,11 +850,16 @@ router.post(
   "/deposits/:id/reject",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("approve_deposits"),
   asyncH(async (req, res) => {
     const dep = await investDb.deposit.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!dep) return res.status(404).json({ error: "Not found" });
     const remarks = req.body.remarks || "Rejected";
-    await investDb.deposit.update({ where: { id: req.params.id }, data: { status: "REJECTED", remarks } });
+    const claimed = await investDb.deposit.updateMany({
+      where: { id: dep.id, status: "PENDING" },
+      data: { status: "REJECTED", remarks },
+    });
+    if (claimed.count !== 1) return res.status(409).json({ error: "Deposit already processed" });
     if (dep.investor) notifyDepositRejected(dep.investor, { ...dep, status: "REJECTED" }, remarks);
     res.json({ ok: true });
   })
@@ -1175,12 +1184,18 @@ router.post(
   requirePermission("approve_withdrawals"),
   asyncH(async (req, res) => {
     const { gateway } = req.body; // RAZORPAYX | CASHFREE
-    const payout = await investDb.payout.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    const { claimPayoutForRelease } = await import("../services/payoutAtomic.js");
+    let payout;
+    try {
+      payout = await claimPayoutForRelease(req.params.id);
+    } catch (e) {
+      if (e.status === 409) return res.status(409).json({ error: e.message });
+      throw e;
+    }
     if (!payout) return res.status(404).json({ error: "Not found" });
-    if (payout.status === "SUCCESS") return res.status(400).json({ error: "Already paid" });
     const { getSetting } = await import("../services/investSettings.js");
     const defaultGw = (await getSetting("default_payout_gateway")) || "RAZORPAYX";
-    await investDb.payout.update({ where: { id: payout.id }, data: { status: "PROCESSING", gateway: gateway || defaultGw } });
+    await investDb.payout.update({ where: { id: payout.id }, data: { gateway: gateway || defaultGw } });
     const bankAccount =
       payout.mode === "BANK" && payout.investor
         ? {
@@ -1212,11 +1227,14 @@ router.post(
   "/payouts/:id/reject",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("approve_withdrawals"),
   asyncH(async (req, res) => {
     const payout = await investDb.payout.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!payout) return res.status(404).json({ error: "Not found" });
     const remarks = req.body.remarks || "Rejected";
-    await investDb.payout.update({ where: { id: payout.id }, data: { status: "FAILED", remarks } });
+    const { claimPayoutForReject } = await import("../services/payoutAtomic.js");
+    const claimed = await claimPayoutForReject(payout.id, remarks);
+    if (!claimed) return res.status(409).json({ error: "Payout already finalized — cannot reject again" });
     await addLedger(payout.investorId, { type: "REFUND", direction: "CREDIT", amount: payout.amount, reference: payout.id, note: "Withdrawal rejected - refunded" });
     if (payout.investor) notifyWithdrawalRejected(payout.investor, { ...payout, status: "FAILED" }, remarks);
     res.json({ ok: true });
@@ -1418,6 +1436,7 @@ router.post(
   "/maturity-payments/:id/reject",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("approve_withdrawals"),
   asyncH(async (req, res) => {
     const payout = await rejectMaturityPayout(req.params.id, req.body.remarks);
     res.json({ payout });
@@ -2221,6 +2240,7 @@ router.post(
   "/referral-earnings/pay-all",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("treasury"),
   asyncH(async (req, res) => {
     const result = await payAllPendingReferrals({
       actor: { actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name },
@@ -2234,6 +2254,7 @@ router.post(
   "/referral-earnings/:id/pay",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("treasury"),
   asyncH(async (req, res) => {
     try {
       await payReferralEarningById(req.params.id, {
@@ -2252,6 +2273,7 @@ router.get(
   "/referral-earnings",
   authRequired(SCOPE),
   adminOnly,
+  requireAnyPermission("view_dashboard", "treasury"),
   asyncH(async (_req, res) => {
     const earnings = await investDb.referralEarning.findMany({
       include: { referrer: { select: { name: true, email: true } } },
@@ -2266,6 +2288,7 @@ router.get(
   "/referral-analytics",
   authRequired(SCOPE),
   adminOnly,
+  requireAnyPermission("view_dashboard", "treasury"),
   asyncH(async (_req, res) => {
     const [clicks, registrations, recent] = await Promise.all([
       investDb.auditLog.count({ where: { action: "REFERRAL_CLICK" } }),
@@ -2400,7 +2423,7 @@ router.get(
   "/login-sessions",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("manage_investors"),
+  requireAnyPermission("view_dashboard", "manage_investors"),
   asyncH(async (_req, res) => {
     const sessions = await investDb.loginSession.findMany({
       orderBy: { createdAt: "desc" },
@@ -2476,7 +2499,7 @@ router.get(
   "/payouts/pending-today",
   authRequired(SCOPE),
   adminOnly,
-  requirePermission("approve_withdrawals"),
+  requireAnyPermission("view_dashboard", "approve_withdrawals"),
   asyncH(async (_req, res) => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);

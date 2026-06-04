@@ -20,6 +20,7 @@
     "verify:local": "node scripts/local-verify.mjs",
     "audit": "node scripts/portal-audit.mjs",
     "audit:prod": "node scripts/production-audit.mjs",
+    "test:unit": "npm run test:unit --workspace server",
     "seo:submit": "node scripts/main-seo-submit.mjs",
     "enrich-marketplace": "npm run enrich-marketplace --workspace server",
     "fetch-product-images": "npm run fetch-images --workspace web",

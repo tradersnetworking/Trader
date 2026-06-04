@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
+import { catchAdminApi } from "../../lib/adminApi.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge, Alert } from "../ui.jsx";
 import KpiStatCard from "./InvestDashboardWidgets.jsx";
@@ -108,7 +109,7 @@ export function TodayPendingPayments({ onUpdated }) {
 
 export function UpcomingPayments() {
   const [payouts, setPayouts] = useState([]);
-  useEffect(() => { investApi("/admin/maturity-payments/upcoming").then((d) => setPayouts(d.payouts)).catch(() => {}); }, []);
+  useEffect(() => { investApi("/admin/maturity-payments/upcoming").then((d) => setPayouts(d.payouts)).catch(catchAdminApi("/admin/maturity-payments/upcoming")); }, []);
 
   return (
     <div>

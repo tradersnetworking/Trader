@@ -18,7 +18,9 @@
     "sync-all-images": "node scripts/sync-all-product-images.mjs",
     "curate-images": "node scripts/curate-product-images.mjs",
     "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs",
-    "test:kyc-upload": "node --test tests/kyc-upload-security.test.mjs"
+    "test:kyc-upload": "node --test tests/kyc-upload-security.test.mjs",
+    "test:invest-math": "node --test tests/invest-math.test.mjs",
+    "test:unit": "node --test tests/kyc-upload-security.test.mjs tests/invest-math.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

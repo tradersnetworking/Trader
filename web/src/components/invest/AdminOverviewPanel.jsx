@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
+import { catchAdminApi } from "../../lib/adminApi.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Badge } from "../ui.jsx";
 import {
@@ -34,12 +35,12 @@ export default function AdminOverviewPanel({ onNavigate, userName, isSuper, canM
     investApi(`/admin/dashboard?${qs}`).then((d) => {
       setData(d);
       onStatsLoaded?.(d);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(catchAdminApi("/admin/dashboard")).finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    investApi("/admin/login-sessions").then((d) => setLoginSessions(d.sessions || [])).catch(() => {});
+    investApi("/admin/login-sessions").then((d) => setLoginSessions(d.sessions || [])).catch(catchAdminApi("/admin/login-sessions"));
   }, []);
 
   const handlePeriod = (p) => {

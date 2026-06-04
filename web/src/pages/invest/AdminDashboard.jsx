@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
+import { catchAdminApi } from "../../lib/adminApi.js";
 import { useAuth } from "../../lib/store.jsx";
 import InvestDashboardShell from "../../components/invest/InvestDashboardShell.jsx";
 import { getAdminNav, translateNavLabel } from "../../lib/invest-nav.js";
@@ -73,8 +74,8 @@ export default function InvestAdminDashboard() {
         kyc: d.stats?.pendingKyc || 0,
         "pending-payments": d.stats?.todayMaturityCount || 0,
       });
-    }).catch(() => {});
-    investApi("/admin/notifications").then((d) => setNotificationCount(d.count || 0)).catch(() => {});
+    }).catch(catchAdminApi("/admin/dashboard"));
+    investApi("/admin/notifications").then((d) => setNotificationCount(d.count || 0)).catch(catchAdminApi("/admin/notifications"));
   };
 
   useEffect(() => {
@@ -150,7 +151,7 @@ export default function InvestAdminDashboard() {
           </TabPanel>
         ));
       case "agreements":
-        return gate("view_dashboard", "Agreements", <TabPanel><AdminAgreementsPanel isSuper={isSuper} /></TabPanel>);
+        return gate("view_dashboard", "Agreements", <TabPanel><AdminAgreementsPanel isSuper={isSuper} canManageSettings={hasPerm("manage_settings")} /></TabPanel>);
       case "payouts":
         return gate("approve_withdrawals", "Withdrawals", (
           <TabPanel>
@@ -182,7 +183,7 @@ export default function InvestAdminDashboard() {
       case "tickets":
         return gate("support_tickets", "Support Tickets", <TabPanel><SupportTicketsAdmin /></TabPanel>);
       case "referrals-admin":
-        return gate("view_dashboard", "Referral Payouts", <TabPanel><ReferralEarningsAdmin /></TabPanel>);
+        return gate("view_dashboard", "Referral Payouts", <TabPanel><ReferralEarningsAdmin canTreasury={hasPerm("treasury")} /></TabPanel>);
       case "account":
         return <TabPanel><AccountSecurityPanel portal="invest" /></TabPanel>;
       case "broadcast":

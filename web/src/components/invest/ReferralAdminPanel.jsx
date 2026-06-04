@@ -10,7 +10,7 @@ const FREQUENCIES = [
   { id: "MONTHLY", label: "Monthly batch — auto-pay pending above minimum" },
 ];
 
-export function ReferralAdminPanel() {
+export function ReferralAdminPanel({ canTreasury = false }) {
   const [subTab, setSubTab] = useState("payouts");
   const [items, setItems] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -105,6 +105,10 @@ export function ReferralAdminPanel() {
       {msg && <Alert type="success">{msg}</Alert>}
       {err && <Alert type="error">{err}</Alert>}
 
+      {subTab === "settings" && !canTreasury && (
+        <Alert type="info">View-only — treasury permission is required to change commission settings.</Alert>
+      )}
+
       {subTab === "settings" && (
         <form onSubmit={saveSettings} className="card max-w-2xl space-y-4 p-5">
           <div>
@@ -162,7 +166,7 @@ export function ReferralAdminPanel() {
             Weekly/Monthly: background job pays pending earnings above minimum.
           </p>
 
-          <button type="submit" className="btn-gold" disabled={saving}>
+          <button type="submit" className="btn-gold" disabled={saving || !canTreasury}>
             {saving ? "Saving…" : "Save referral settings"}
           </button>
         </form>
@@ -186,10 +190,16 @@ export function ReferralAdminPanel() {
             </div>
           )}
 
+          {!canTreasury && (
+            <Alert type="info">Treasury permission is required to release referral payouts.</Alert>
+          )}
+
           <div className="flex flex-wrap gap-2">
+            {canTreasury && (
             <button type="button" className="btn-gold text-sm" disabled={payingAll || pendingCount === 0} onClick={payAll}>
               {payingAll ? "Processing…" : `Pay all pending (${pendingCount})`}
             </button>
+            )}
             <button type="button" className="btn-outline text-sm" onClick={() => { loadPayouts(); loadSettings(); }}>
               Refresh
             </button>
@@ -241,6 +251,6 @@ export function ReferralAdminPanel() {
 }
 
 /** @deprecated use ReferralAdminPanel */
-export function ReferralEarningsAdmin() {
-  return <ReferralAdminPanel />;
+export function ReferralEarningsAdmin(props) {
+  return <ReferralAdminPanel {...props} />;
 }

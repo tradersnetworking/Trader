@@ -210,7 +210,8 @@ export function InvestorAgreementsPanel({ pendingAgreementId, onPendingHandled }
   );
 }
 
-export function AdminAgreementsPanel({ isSuper }) {
+export function AdminAgreementsPanel({ isSuper, canManageSettings = false }) {
+  const canEditTemplates = isSuper || canManageSettings;
   const [tab, setTab] = useState("generated");
   const [agreements, setAgreements] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -399,12 +400,12 @@ export function AdminAgreementsPanel({ isSuper }) {
 
       {tab === "templates" && (
         <div className="grid gap-3 lg:grid-cols-2">
-          {!isSuper && <Alert type="info">Only Super Admin can edit templates.</Alert>}
+          {!canEditTemplates && <Alert type="info">Site settings permission is required to edit agreement templates.</Alert>}
           {templates.map((t) => (
             <div key={t.type} className="card p-4">
               <div className="flex justify-between gap-2"><b>{t.title}</b><span className="text-xs text-muted-foreground">v{t.version}</span></div>
               <p className="mt-1 text-xs text-muted-foreground capitalize">{t.type.replace(/_/g, " ")}</p>
-              {isSuper && (
+              {canEditTemplates && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button type="button" className="text-xs font-semibold text-primary" onClick={() => setEdit({ ...t })}>Edit</button>
                   <button type="button" className="text-xs text-muted-foreground" onClick={() => copyDefault(t.type)}>Reset from default</button>
