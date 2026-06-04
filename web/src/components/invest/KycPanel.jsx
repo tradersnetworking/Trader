@@ -109,9 +109,21 @@ function SectionFieldset({ section, kyc, children }) {
   );
 }
 
-export default function KycPanel({ kyc, investor, onRefresh, pendingPayoutChange, pendingKycRevision, forced = false }) {
+export default function KycPanel({
+  kyc,
+  investor,
+  onRefresh,
+  pendingPayoutChange,
+  pendingKycRevision,
+  forced = false,
+  initialSubTab,
+}) {
 
-  const [tab, setTab] = useState("kyc");
+  const [tab, setTab] = useState(() => (initialSubTab === "accounts" ? "accounts" : "kyc"));
+
+  useEffect(() => {
+    if (initialSubTab === "accounts" && !forced) setTab("accounts");
+  }, [initialSubTab, forced]);
   const [revisionMode, setRevisionMode] = useState(false);
   const [payoutProofFiles, setPayoutProofFiles] = useState({});
 

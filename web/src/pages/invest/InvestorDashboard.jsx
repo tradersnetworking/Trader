@@ -388,6 +388,7 @@ export default function InvestorDashboard() {
                 pendingPayoutChange={pendingPayoutChange}
                 pendingKycRevision={pendingKycRevision}
                 onRefresh={fetchCore}
+                initialSubTab={sp.get("payout") === "1" || sp.get("kycSub") === "accounts" ? "accounts" : undefined}
               />
             </TabPanel>
           </div>

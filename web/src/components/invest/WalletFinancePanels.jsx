@@ -139,20 +139,39 @@ function DepositAmountControls({ method, amount, setAmount, setPromoBonus }) {
   );
 }
 
-function PayoutDestinationCard({ mode, investor }) {
+function payoutUpdatePath(kycStatus) {
+  if (kycStatus === "APPROVED") {
+    return investPath("/dashboard?tab=kyc&payout=1");
+  }
+  return investPath("/dashboard?tab=profile");
+}
+
+function PayoutUpdateLink({ kycStatus, className = "", children }) {
+  return (
+    <Link to={payoutUpdatePath(kycStatus)} className={className || "text-xs font-semibold text-primary underline"}>
+      {children}
+    </Link>
+  );
+}
+
+function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange }) {
   if (!investor) return null;
   const isUpi = mode === "UPI";
   const hasUpi = Boolean(investor.upiId);
   const hasBank = Boolean(investor.bankName && investor.accountNumber && investor.ifsc);
+  const kycApproved = kycStatus === "APPROVED";
+  const updateHint = kycApproved
+    ? "Changes after KYC approval need team review with bank proof. Withdrawals keep using your current details until approved."
+    : "Update your UPI ID and bank account in Profile before withdrawing.";
 
   if (isUpi && !hasUpi) {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
         <p className="font-medium text-amber-800 dark:text-amber-300">No UPI ID saved</p>
-        <p className="mt-1 text-xs text-muted-foreground">Add your UPI ID under Profile before requesting a UPI withdrawal.</p>
-        <Link to={investPath("/dashboard?tab=profile")} className="mt-2 inline-block text-xs font-semibold text-primary underline">
-          Go to Profile →
-        </Link>
+        <p className="mt-1 text-xs text-muted-foreground">Add your UPI ID before requesting a UPI withdrawal.</p>
+        <PayoutUpdateLink kycStatus={kycStatus} className="mt-2 inline-block text-xs font-semibold text-primary underline">
+          {kycApproved ? "Add / update UPI in Account Details →" : "Add UPI in Profile →"}
+        </PayoutUpdateLink>
       </div>
     );
   }
@@ -160,19 +179,32 @@ function PayoutDestinationCard({ mode, investor }) {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
         <p className="font-medium text-amber-800 dark:text-amber-300">No bank account saved</p>
-        <p className="mt-1 text-xs text-muted-foreground">Add bank name, account number & IFSC under Profile.</p>
-        <Link to={investPath("/dashboard?tab=profile")} className="mt-2 inline-block text-xs font-semibold text-primary underline">
-          Go to Profile →
-        </Link>
+        <p className="mt-1 text-xs text-muted-foreground">Add bank name, account number and IFSC before a bank withdrawal.</p>
+        <PayoutUpdateLink kycStatus={kycStatus} className="mt-2 inline-block text-xs font-semibold text-primary underline">
+          {kycApproved ? "Add / update bank account in Account Details →" : "Add bank details in Profile →"}
+        </PayoutUpdateLink>
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Payout destination
-      </p>
+    <div className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {isUpi ? "UPI payout account" : "Bank payout account"}
+        </p>
+        <PayoutUpdateLink kycStatus={kycStatus} className="shrink-0 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary no-underline hover:bg-primary/10">
+          {kycApproved ? "Change details" : "Update details"}
+        </PayoutUpdateLink>
+      </div>
+
+      {pendingPayoutChange && (
+        <Alert type="info">
+          Payout change submitted {new Date(pendingPayoutChange.createdAt).toLocaleString("en-IN")} — awaiting approval.
+          Withdrawals still use the details shown below.
+        </Alert>
+      )}
+
       {isUpi ? (
         <>
           <CredentialRow label="UPI ID" value={investor.upiId} />
@@ -180,8 +212,8 @@ function PayoutDestinationCard({ mode, investor }) {
           <UpiQrDisplay
             vpa={investor.upiId}
             payeeName={investor.name}
-            className="mt-3 py-1"
-            caption="Your payout UPI — scan to verify before confirming"
+            className="mt-1 py-1"
+            caption="Scan to verify your payout UPI before confirming"
           />
         </>
       ) : (
@@ -191,6 +223,36 @@ function PayoutDestinationCard({ mode, investor }) {
           <CredentialRow label="Account No." value={investor.accountNumber} />
           <CredentialRow label="IFSC" value={investor.ifsc} />
         </>
+      )}
+
+      <p className="text-xs text-muted-foreground">{updateHint}</p>
+
+      {(hasUpi || hasBank) && (
+        <div className="border-t border-border/80 pt-3">
+          <p className="mb-2 text-xs font-semibold text-muted-foreground">Also on file</p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {hasUpi && !isUpi && (
+              <span className="rounded-md bg-muted px-2 py-1">
+                UPI: <span className="font-mono font-medium text-foreground">{investor.upiId}</span>
+              </span>
+            )}
+            {hasBank && isUpi && (
+              <span className="rounded-md bg-muted px-2 py-1">
+                Bank: <span className="font-medium text-foreground">{investor.bankName}</span>
+                {" · "}
+                <span className="font-mono">{investor.accountNumber}</span>
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {hasUpi && (
+              <PayoutUpdateLink kycStatus={kycStatus}>Update UPI ID</PayoutUpdateLink>
+            )}
+            {hasBank && (
+              <PayoutUpdateLink kycStatus={kycStatus}>Update bank account</PayoutUpdateLink>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -705,6 +767,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
 export function WithdrawPanel({ wallet, onRefresh }) {
   const { invest } = useAuth();
   const [kyc, setKyc] = useState(null);
+  const [pendingPayoutChange, setPendingPayoutChange] = useState(null);
   const [paymentOptions, setPaymentOptions] = useState(null);
   const withdrawMethods = filterWithdrawMethods(paymentOptions);
   const [mode, setMode] = useState("UPI");
@@ -719,12 +782,50 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const [msg, setMsg] = useState("");
   const [lastWithdrawAmount, setLastWithdrawAmount] = useState(null);
   const [err, setErr] = useState("");
+  const [bankAutoNote, setBankAutoNote] = useState(false);
+
+  const bankWithdrawEnabled = withdrawMethods.some((m) => m.value === "BANK");
+
+  const handleWithdrawAmountChange = (e) => {
+    const raw = e.target.value;
+    if (raw === "") {
+      setAmount("");
+      return;
+    }
+    const v = Number(raw);
+    if (!Number.isFinite(v)) return;
+    if (mode === "UPI" && v > UPI_MAX_AMOUNT) {
+      if (bankWithdrawEnabled) {
+        setAmount(v);
+        setMode("BANK");
+        setBankAutoNote(true);
+        setConfirmed(false);
+        return;
+      }
+      setAmount(UPI_MAX_AMOUNT);
+      return;
+    }
+    setAmount(v);
+  };
+
+  const handleWithdrawModeChange = (next) => {
+    setBankAutoNote(false);
+    if (next === "UPI" && Number(amount) > UPI_MAX_AMOUNT) {
+      setAmount(UPI_MAX_AMOUNT);
+    }
+    setMode(next);
+  };
 
   const load = () => investApi("/payouts").then((d) => setPayouts(d.payouts)).catch(() => {});
   useEffect(() => {
     load();
     investApi("/public/gateways").then((d) => setPaymentOptions(d.paymentOptions || null)).catch(() => {});
-    investApi("/kyc").then((d) => setKyc(d.kyc)).catch(() => {});
+    investApi("/kyc")
+      .then((d) => {
+        setKyc(d.kyc);
+        setPendingPayoutChange(d.pendingPayoutChange || null);
+      })
+      .catch(() => {});
   }, []);
 
   const withdrawGate = withdrawEligibility(invest, kyc);
@@ -737,7 +838,19 @@ export function WithdrawPanel({ wallet, onRefresh }) {
 
   useEffect(() => {
     setConfirmed(false);
+    if (mode === "UPI" && Number(amount) > UPI_MAX_AMOUNT) {
+      setAmount(UPI_MAX_AMOUNT);
+    }
   }, [mode]);
+
+  useEffect(() => {
+    const amt = Number(amount);
+    if (mode === "UPI" && amt > UPI_MAX_AMOUNT && bankWithdrawEnabled) {
+      setMode("BANK");
+      setBankAutoNote(true);
+      setConfirmed(false);
+    }
+  }, [amount, mode, bankWithdrawEnabled]);
 
   const canPayout =
     mode === "UPI"
@@ -749,7 +862,11 @@ export function WithdrawPanel({ wallet, onRefresh }) {
     setErr("");
     setMsg("");
     if (!canPayout) {
-      setErr(`Please add your ${mode === "UPI" ? "UPI ID" : "bank account"} under Profile first.`);
+      setErr(
+        `Please add your ${mode === "UPI" ? "UPI ID" : "bank account"} first. Use “Update details” above or open ${
+          kyc?.status === "APPROVED" ? "KYC → Account Details" : "Profile"
+        }.`
+      );
       return;
     }
     if (!confirmed) {
@@ -831,11 +948,22 @@ export function WithdrawPanel({ wallet, onRefresh }) {
             label="Withdrawal method"
             tone="step"
             value={mode}
-            onChange={setMode}
+            onChange={handleWithdrawModeChange}
             options={withdrawMethods}
           />
 
-          <PayoutDestinationCard mode={mode} investor={invest} />
+          {bankAutoNote && mode === "BANK" && (
+            <Alert type="info">
+              Amount exceeds the UPI limit ({inr(UPI_MAX_AMOUNT)}). Withdrawal method switched to bank account.
+            </Alert>
+          )}
+
+          <PayoutDestinationCard
+            mode={mode}
+            investor={invest}
+            kycStatus={kyc?.status}
+            pendingPayoutChange={pendingPayoutChange}
+          />
 
           {canPayout && (
             <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
@@ -871,14 +999,24 @@ export function WithdrawPanel({ wallet, onRefresh }) {
             {err && <Alert type="error">{err}</Alert>}
 
             {mode === "UPI" && isUpiAmountOverLimit(amount) && (
-              <UpiLimitAlert onUseBank={() => setMode("BANK")} />
+              <UpiLimitAlert
+                onUseBank={
+                  bankWithdrawEnabled
+                    ? () => {
+                        setMode("BANK");
+                        setBankAutoNote(true);
+                        setConfirmed(false);
+                      }
+                    : undefined
+                }
+              />
             )}
 
             <Field
               label="Amount (₹)"
               hint={
                 mode === "UPI"
-                  ? `UPI max ${inr(UPI_MAX_AMOUNT)} per request — use bank transfer above that`
+                  ? `Maximum ${inr(UPI_MAX_AMOUNT)} per UPI withdrawal — amounts above that use bank transfer automatically`
                   : "No UPI limit for bank payouts"
               }
             >
@@ -886,9 +1024,14 @@ export function WithdrawPanel({ wallet, onRefresh }) {
                 className="input"
                 type="number"
                 min={100}
-                max={mode === "UPI" ? Math.min(UPI_MAX_AMOUNT, wallet?.available || UPI_MAX_AMOUNT) : wallet?.available || undefined}
+                max={
+                  mode === "UPI"
+                    ? Math.min(UPI_MAX_AMOUNT, wallet?.available ?? UPI_MAX_AMOUNT)
+                    : wallet?.available || undefined
+                }
+                step={100}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={handleWithdrawAmountChange}
                 required
                 disabled={step === "otp"}
               />
