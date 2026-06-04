@@ -814,12 +814,18 @@ router.post(
     const dep = await investDb.deposit.findUnique({ where: { id: req.params.id }, include: { investor: true } });
     if (!dep) return res.status(404).json({ error: "Not found" });
     if (dep.status === "APPROVED") return res.status(400).json({ error: "Already approved" });
-    const manual = ["UPI", "IMPS", "NEFT", "RTGS", "BANK"].includes(String(dep.method).toUpperCase());
+    const methodUp = String(dep.method).toUpperCase();
+    const manual = ["UPI", "IMPS", "NEFT", "RTGS", "BANK", "CRYPTO"].includes(methodUp);
     if (manual && !dep.proofImage) {
       return res.status(400).json({ error: "Cannot approve manual deposit without payment proof." });
     }
+    const creditInr = dep.inrEquivalent != null && dep.inrEquivalent > 0 ? dep.inrEquivalent : dep.amount;
     await investDb.deposit.update({ where: { id: dep.id }, data: { status: "APPROVED", remarks: req.body.remarks || dep.remarks } });
-    await addLedger(dep.investorId, { type: "DEPOSIT", direction: "CREDIT", amount: dep.amount, reference: dep.id, note: `Deposit via ${dep.method} approved` });
+    const note =
+      methodUp === "CRYPTO" && dep.cryptoAmount
+        ? `Crypto deposit ${dep.cryptoAmount} ${dep.cryptoSymbol || ""} (${dep.cryptoNetwork || ""}) → ₹${creditInr} approved`
+        : `Deposit via ${dep.method} approved`;
+    await addLedger(dep.investorId, { type: "DEPOSIT", direction: "CREDIT", amount: creditInr, reference: dep.id, note });
     if (dep.remarks?.startsWith("__promo__:")) {
       const [, code, bonusStr] = dep.remarks.split(":");
       const promo = await investDb.promoCode.findUnique({ where: { code } });

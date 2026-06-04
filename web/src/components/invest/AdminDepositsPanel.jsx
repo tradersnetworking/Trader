@@ -8,6 +8,7 @@ import DepositProofViewer from "../shared/DepositProofViewer.jsx";
 function accountShort(acct) {
   if (!acct) return "—";
   if (acct.type === "upi") return acct.upiId;
+  if (acct.type === "crypto") return `${acct.symbol} ${acct.network} · ${acct.walletAddress?.slice(0, 10)}…`;
   return `${acct.bankName} · ${acct.accountNumber?.slice(-4) ? `****${acct.accountNumber.slice(-4)}` : acct.accountNumber}`;
 }
 
@@ -108,7 +109,14 @@ export default function AdminDepositsPanel({ onUpdated }) {
                   <div className="text-xs text-muted-foreground">{d.investor?.email}</div>
                   <div className="text-[10px] text-muted-foreground">{dateStr(d.createdAt, true)}</div>
                 </td>
-                <td className="p-3 font-bold text-heading">{inr(d.amount)}</td>
+                <td className="p-3 font-bold text-heading">
+                  {inr(d.inrEquivalent || d.amount)}
+                  {d.cryptoAmount != null && (
+                    <div className="text-[10px] font-normal text-muted-foreground">
+                      {d.cryptoAmount} {d.cryptoSymbol} ({d.cryptoNetwork})
+                    </div>
+                  )}
+                </td>
                 <td className="p-3">{methodLabel(d)}</td>
                 <td className="p-3 text-xs">{accountShort(d.paymentAccount)}</td>
                 <td className="p-3 text-xs font-mono">{d.reference || "—"}</td>

@@ -29,6 +29,9 @@ model Investor {
   bankName      String?
   accountNumber String?
   ifsc          String?
+  cryptoWalletAddress String?
+  cryptoSymbol        String?
+  cryptoNetwork       String?
   referralCode  String?  @unique
   referredById  String?
   referredBy    Investor?  @relation("InvestorReferrals", fields: [referredById], references: [id])
@@ -335,6 +338,11 @@ model Deposit {
   // optional link to a plan to subscribe upon approval
   planId      String?
   gatewayRef  String?
+  cryptoSymbol   String?
+  cryptoNetwork  String?
+  cryptoAmount   Float?
+  inrEquivalent  Float?
+  txHash         String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -363,7 +371,7 @@ model Payout {
 model PaymentGateway {
   id            String   @id @default(cuid())
   name          String
-  // type: upi, bank, online
+  // type: upi, bank, online, crypto
   type          String
   upiId         String?
   accountHolder String?

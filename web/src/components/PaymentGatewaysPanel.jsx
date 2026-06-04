@@ -369,14 +369,14 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
       {editable && (
         <section className="card space-y-2 p-4">
           <h3 className="font-bold text-navy dark:text-white">Investor deposit categories</h3>
-          {["upi", "bank", "gateway"].map((id) => (
+          {["upi", "bank", "gateway", "crypto"].map((id) => (
             <VisibilityPairToggles
               key={id}
               modeId={id}
               visibility={visibility}
               onChange={patchVisibility}
-              depositLabel={`Deposits — ${id === "upi" ? "UPI" : id === "bank" ? "Bank transfer" : "Online gateway"}`}
-              withdrawLabel="Withdrawals (n/a)"
+              depositLabel={`Deposits — ${id === "upi" ? "UPI" : id === "bank" ? "Bank transfer" : id === "crypto" ? "Crypto (USDT, TRX, BNB)" : "Online gateway"}`}
+              withdrawLabel={id === "crypto" ? "Withdrawals — Crypto wallet" : "Withdrawals (n/a)"}
             />
           ))}
         </section>
@@ -385,14 +385,14 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
       {editable && (
         <section className="card space-y-2 p-4">
           <h3 className="font-bold text-navy dark:text-white">Investor withdrawal methods</h3>
-          {["UPI", "BANK"].map((id) => (
+          {["UPI", "BANK", "CRYPTO"].map((id) => (
             <VisibilityPairToggles
               key={id}
-              modeId={id}
+              modeId={id.toLowerCase() === "crypto" ? "crypto" : id}
               visibility={visibility}
               onChange={patchVisibility}
               depositLabel="Deposits (n/a)"
-              withdrawLabel={`Withdrawals — ${id === "UPI" ? "UPI" : "Bank account"}`}
+              withdrawLabel={`Withdrawals — ${id === "UPI" ? "UPI" : id === "CRYPTO" ? "Crypto wallet" : "Bank account"}`}
             />
           ))}
         </section>

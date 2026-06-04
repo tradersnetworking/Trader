@@ -631,6 +631,9 @@ function profileFormFromSources(invest, kyc) {
     bankName: (fromKyc && kyc?.bankName) || invest?.bankName || "",
     accountNumber: (fromKyc && kyc?.bankAccount) || invest?.accountNumber || "",
     ifsc: (fromKyc && kyc?.ifscCode) || invest?.ifsc || "",
+    cryptoWalletAddress: invest?.cryptoWalletAddress || "",
+    cryptoSymbol: invest?.cryptoSymbol || "",
+    cryptoNetwork: invest?.cryptoNetwork || "",
   };
 }
 
@@ -685,6 +688,36 @@ function Profile({ kyc, investor: investorProp }) {
         <Field label="UPI ID (for withdrawals)">
           <input className="input w-full" value={form.upiId} onChange={(e) => setForm({ ...form, upiId: e.target.value })} />
         </Field>
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground">Crypto withdrawal wallet</p>
+          <p className="text-xs text-muted-foreground">For crypto withdrawals — must match the chain you select.</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Coin">
+              <select className="input w-full" value={form.cryptoSymbol} onChange={(e) => setForm({ ...form, cryptoSymbol: e.target.value })}>
+                <option value="">Select coin</option>
+                <option value="USDT">USDT</option>
+                <option value="TRX">TRX (TRON)</option>
+                <option value="BNB">BNB</option>
+              </select>
+            </Field>
+            <Field label="Chain / network">
+              <select className="input w-full" value={form.cryptoNetwork} onChange={(e) => setForm({ ...form, cryptoNetwork: e.target.value })}>
+                <option value="">Select chain</option>
+                {form.cryptoSymbol === "USDT" && (
+                  <>
+                    <option value="TRC20">TRC20 (Tron)</option>
+                    <option value="BEP20">BEP20 (BSC)</option>
+                  </>
+                )}
+                {form.cryptoSymbol === "TRX" && <option value="TRON">TRON</option>}
+                {form.cryptoSymbol === "BNB" && <option value="BEP20">BEP20</option>}
+              </select>
+            </Field>
+          </div>
+          <Field label="Wallet address">
+            <input className="input w-full font-mono text-sm" value={form.cryptoWalletAddress} onChange={(e) => setForm({ ...form, cryptoWalletAddress: e.target.value })} placeholder="Your external wallet address" />
+          </Field>
+        </div>
         <div className="flex flex-col gap-3">
           <Field label="Bank Name">
             <input className="input w-full" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} />

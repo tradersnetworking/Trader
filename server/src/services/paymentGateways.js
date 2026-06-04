@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import { MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { getSetting } from "./investSettings.js";
 import { accountShowsForDeposit } from "./paymentModeVisibility.js";
+import { parseCryptoFromGateway } from "./cryptoAssets.js";
 
 const ONLINE_PROVIDERS = [
   "razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay",
@@ -20,10 +21,13 @@ export function parseExtraConfig(raw) {
 
 export function serializeGateway(row) {
   if (!row) return null;
-  return {
-    ...row,
-    extraConfig: parseExtraConfig(row.extraConfig),
-  };
+  const extraConfig = parseExtraConfig(row.extraConfig);
+  const base = { ...row, extraConfig };
+  if (row.type === "crypto") {
+    const c = parseCryptoFromGateway({ extraConfig });
+    return { ...base, ...c };
+  }
+  return base;
 }
 
 export async function listPaymentGateways({ enabledOnly = false, type } = {}) {
@@ -41,12 +45,13 @@ export async function getDepositAccountsForInvestor() {
   const { getInvestorPaymentOptions } = await import("./paymentModeVisibility.js");
   const opts = await getInvestorPaymentOptions();
   const rows = await listPaymentGateways({ enabledOnly: true });
-  const grouped = { upi: [], bank: [], online: [] };
+  const grouped = { upi: [], bank: [], online: [], crypto: [] };
   for (const g of rows) {
     if (!accountShowsForDeposit(g)) continue;
     if (g.type === "upi" && opts.depositCategories.upi) grouped.upi.push(g);
     else if (g.type === "bank" && opts.depositCategories.bank) grouped.bank.push(g);
     else if (g.type === "online" && opts.depositCategories.gateway) grouped.online.push(g);
+    else if (g.type === "crypto" && opts.depositCategories.crypto) grouped.crypto.push(g);
   }
   return grouped;
 }
@@ -103,7 +108,16 @@ export async function createPaymentGateway(data) {
       maxAmount: data.maxAmount != null ? Number(data.maxAmount) : null,
       isEnabled: data.isEnabled !== false,
       sortOrder: Number(data.sortOrder ?? 0),
-      extraConfig: data.extraConfig ? JSON.stringify(data.extraConfig) : null,
+      extraConfig: (() => {
+        const ec = data.extraConfig && typeof data.extraConfig === "object" ? { ...data.extraConfig } : {};
+        if (data.type === "crypto" || data.walletAddress || data.symbol) {
+          if (data.walletAddress) ec.walletAddress = data.walletAddress;
+          if (data.symbol) ec.symbol = String(data.symbol).toUpperCase();
+          if (data.network) ec.network = data.network;
+          if (data.coinName) ec.coinName = data.coinName;
+        }
+        return Object.keys(ec).length ? JSON.stringify(ec) : null;
+      })(),
     },
   });
   return serializeGateway(row);
@@ -128,6 +142,20 @@ export async function updatePaymentGateway(id, data) {
     patch.extraConfig = JSON.stringify(ec);
   }
   if (data.extraConfig !== undefined) patch.extraConfig = data.extraConfig ? JSON.stringify(data.extraConfig) : null;
+  if (
+    data.walletAddress !== undefined ||
+    data.symbol !== undefined ||
+    data.network !== undefined ||
+    data.coinName !== undefined
+  ) {
+    const row = await investDb.paymentGateway.findUnique({ where: { id } });
+    const ec = parseExtraConfig(row?.extraConfig);
+    if (data.walletAddress !== undefined) ec.walletAddress = data.walletAddress || null;
+    if (data.symbol !== undefined) ec.symbol = data.symbol ? String(data.symbol).toUpperCase() : null;
+    if (data.network !== undefined) ec.network = data.network || null;
+    if (data.coinName !== undefined) ec.coinName = data.coinName || null;
+    patch.extraConfig = JSON.stringify(ec);
+  }
   const row = await investDb.paymentGateway.update({ where: { id }, data: patch });
   return serializeGateway(row);
 }

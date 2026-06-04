@@ -149,10 +149,20 @@ router.put(
   "/profile",
   authRequired(SCOPE),
   asyncH(async (req, res) => {
-    const { name, phone, upiId, bankName, accountNumber, ifsc, branchName } = req.body;
+    const { name, phone, upiId, bankName, accountNumber, ifsc, branchName, cryptoWalletAddress, cryptoSymbol, cryptoNetwork } = req.body;
     const inv = await investDb.investor.update({
       where: { id: req.user.id },
-      data: { name, phone, upiId, bankName, accountNumber, ifsc },
+      data: {
+        name,
+        phone,
+        upiId,
+        bankName,
+        accountNumber,
+        ifsc,
+        cryptoWalletAddress: cryptoWalletAddress?.trim() || undefined,
+        cryptoSymbol: cryptoSymbol ? String(cryptoSymbol).toUpperCase() : undefined,
+        cryptoNetwork: cryptoNetwork?.trim() || undefined,
+      },
     });
     const kyc = await investDb.kyc.findUnique({ where: { investorId: req.user.id } });
     if (kyc) {
@@ -775,7 +785,7 @@ router.post(
 );
 
 /* -------- deposits (online gateway OR manual bank transfer proof) -------- */
-const MANUAL_DEPOSIT_METHODS = new Set(["UPI", "IMPS", "NEFT", "RTGS", "BANK"]);
+const MANUAL_DEPOSIT_METHODS = new Set(["UPI", "IMPS", "NEFT", "RTGS", "BANK", "CRYPTO"]);
 const ONLINE_DEPOSIT_GATEWAYS = new Set([
   "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE",
   "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL", "LITEPAY",
@@ -787,10 +797,43 @@ router.post(
   authRequired(SCOPE),
   upload.single("proofImage"),
   asyncH(async (req, res) => {
-    const { amount, method, reference, planId, promoCode, paymentAccountId } = req.body;
+    const { amount, method, reference, planId, promoCode, paymentAccountId, cryptoAmount, cryptoSymbol, cryptoNetwork } = req.body;
     const methodUpper = String(method || "UPI").toUpperCase();
-    const depositAmount = Number(amount);
-    const depositCheck = validateDepositAmount(depositAmount, methodUpper);
+    let depositAmount = Number(amount);
+    let cryptoMeta = null;
+
+    if (methodUpper === "CRYPTO") {
+      const { cryptoAmountToInr } = await import("../services/cryptoRates.js");
+      const { isValidCryptoPair, parseCryptoFromGateway } = await import("../services/cryptoAssets.js");
+      const sym = String(cryptoSymbol || "").toUpperCase();
+      const net = String(cryptoNetwork || "").trim();
+      if (!isValidCryptoPair(sym, net)) {
+        return res.status(400).json({ error: "Unsupported crypto asset or network." });
+      }
+      const conv = await cryptoAmountToInr(cryptoAmount, sym);
+      if (!conv.ok) return res.status(400).json({ error: conv.error });
+      depositAmount = conv.inr;
+      cryptoMeta = {
+        cryptoSymbol: sym,
+        cryptoNetwork: net,
+        cryptoAmount: Number(cryptoAmount),
+        inrEquivalent: conv.inr,
+        txHash: reference?.trim() || null,
+      };
+      if (paymentAccountId) {
+        const acct = await investDb.paymentGateway.findFirst({
+          where: { id: paymentAccountId, type: "crypto", isEnabled: true },
+        });
+        if (!acct) return res.status(400).json({ error: "Invalid crypto wallet selected." });
+        const { parseExtraConfig } = await import("../services/paymentGateways.js");
+        const c = parseCryptoFromGateway({ extraConfig: parseExtraConfig(acct.extraConfig) });
+        if (c.symbol && c.symbol !== sym) {
+          return res.status(400).json({ error: "Selected wallet does not match coin." });
+        }
+      }
+    }
+
+    const depositCheck = validateDepositAmount(depositAmount, methodUpper === "CRYPTO" ? "BANK" : methodUpper);
     if (!depositCheck.ok) {
       return res.status(400).json({ error: depositCheck.error, code: depositCheck.code });
     }
@@ -802,16 +845,29 @@ router.post(
       if (methodUpper === "UPI" && !payOpts.depositCategories.upi) {
         return res.status(400).json({ error: "UPI deposits are not available at this time." });
       }
+      if (methodUpper === "CRYPTO" && !payOpts.depositCategories.crypto) {
+        return res.status(400).json({ error: "Crypto deposits are not available at this time." });
+      }
       if (["IMPS", "NEFT", "RTGS", "BANK"].includes(methodUpper) && !payOpts.depositCategories.bank) {
         return res.status(400).json({ error: "Bank transfer deposits are not available at this time." });
       }
       if (payOpts.bankTransferTypes[methodUpper] === false) {
         return res.status(400).json({ error: `${methodUpper} deposits are not available at this time.` });
       }
-      if (!req.file) {
+      if (methodUpper !== "CRYPTO" && !req.file) {
         return res.status(400).json({ error: "Payment proof (screenshot or PDF) is required for UPI and bank transfers." });
       }
-      if (!reference?.trim()) {
+      if (methodUpper === "CRYPTO") {
+        if (!req.file) {
+          return res.status(400).json({ error: "Upload payment proof (screenshot of transfer confirmation)." });
+        }
+        if (!reference?.trim()) {
+          return res.status(400).json({ error: "Transaction hash / TX ID is required for crypto deposits." });
+        }
+        if (!cryptoAmount || Number(cryptoAmount) <= 0) {
+          return res.status(400).json({ error: "Enter the crypto amount you sent." });
+        }
+      } else if (!reference?.trim()) {
         return res.status(400).json({ error: "UTR / transaction reference is required for manual deposits." });
       }
       if (paymentAccountId) {
@@ -819,7 +875,7 @@ router.post(
           where: { id: paymentAccountId, isEnabled: true },
         });
         if (!acct) return res.status(400).json({ error: "Invalid payment account selected." });
-        const expectedType = methodUpper === "UPI" ? "upi" : "bank";
+        const expectedType = methodUpper === "UPI" ? "upi" : methodUpper === "CRYPTO" ? "crypto" : "bank";
         if (acct.type !== expectedType) {
           return res.status(400).json({ error: "Selected account does not match deposit method." });
         }
@@ -847,6 +903,15 @@ router.post(
         paymentAccountId: paymentAccountId || null,
         status: "PENDING",
         remarks,
+        ...(cryptoMeta
+          ? {
+              cryptoSymbol: cryptoMeta.cryptoSymbol,
+              cryptoNetwork: cryptoMeta.cryptoNetwork,
+              cryptoAmount: cryptoMeta.cryptoAmount,
+              inrEquivalent: cryptoMeta.inrEquivalent,
+              txHash: cryptoMeta.txHash,
+            }
+          : {}),
       },
     });
     let payment = null;
@@ -1049,15 +1114,32 @@ router.post(
     if (modeUpper === "UPI" && payOpts.withdrawMethods.UPI === false) {
       return res.status(400).json({ error: "UPI withdrawals are not available at this time." });
     }
-    if (modeUpper !== "UPI" && payOpts.withdrawMethods.BANK === false) {
+    if (modeUpper === "CRYPTO" && payOpts.withdrawMethods.CRYPTO === false) {
+      return res.status(400).json({ error: "Crypto withdrawals are not available at this time." });
+    }
+    if (modeUpper !== "UPI" && modeUpper !== "CRYPTO" && payOpts.withdrawMethods.BANK === false) {
       return res.status(400).json({ error: "Bank withdrawals are not available at this time." });
     }
     const gate = await (await import("../utils/investCompliance.js")).assertCanWithdraw(req.user.id, investDb);
     if (!gate.ok) return res.status(403).json({ error: gate.error, code: gate.code, missing: gate.missing });
 
     const inv = gate.investor;
-    const destination = mode === "UPI" ? inv.upiId : inv.accountNumber;
-    if (!destination) return res.status(400).json({ error: `Please add your ${mode} payout details first.` });
+    const destination =
+      modeUpper === "UPI"
+        ? inv.upiId
+        : modeUpper === "CRYPTO"
+          ? inv.cryptoWalletAddress
+          : inv.accountNumber;
+    if (!destination) {
+      const hint =
+        modeUpper === "CRYPTO"
+          ? "crypto wallet address and chain in Profile"
+          : `${mode} payout details`;
+      return res.status(400).json({ error: `Please add your ${hint} first.` });
+    }
+    if (modeUpper === "CRYPTO" && (!inv.cryptoSymbol || !inv.cryptoNetwork)) {
+      return res.status(400).json({ error: "Please set crypto coin and network (chain) in Profile before withdrawing." });
+    }
     const withdrawCheck = validateWithdrawAmount(amount, modeUpper);
     if (!withdrawCheck.ok) {
       return res.status(400).json({ error: withdrawCheck.error, code: withdrawCheck.code });
@@ -1085,9 +1167,26 @@ router.post(
     const amt = confirmed.amount;
     const wallet = await getOrCreateWallet(req.user.id);
     if (wallet.available < amt) return res.status(400).json({ error: "Insufficient available balance" });
-    const dest = confirmed.destination || (mode === "UPI" ? inv.upiId : inv.accountNumber);
+    const payoutMode = String(mode || "UPI").toUpperCase();
+    const dest =
+      confirmed.destination ||
+      (payoutMode === "UPI"
+        ? inv.upiId
+        : payoutMode === "CRYPTO"
+          ? `${inv.cryptoWalletAddress}|${inv.cryptoSymbol}|${inv.cryptoNetwork}`
+          : inv.accountNumber);
     const payout = await investDb.payout.create({
-      data: { investorId: req.user.id, amount: amt, mode: mode === "UPI" ? "UPI" : "BANK", destination: dest, status: "PENDING" },
+      data: {
+        investorId: req.user.id,
+        amount: amt,
+        mode: payoutMode === "CRYPTO" ? "CRYPTO" : payoutMode === "UPI" ? "UPI" : "BANK",
+        destination: dest,
+        status: "PENDING",
+        remarks:
+          payoutMode === "CRYPTO"
+            ? `Crypto withdraw: ${inv.cryptoSymbol} on ${inv.cryptoNetwork}`
+            : null,
+      },
     });
     await addLedger(req.user.id, { type: "PAYOUT", direction: "DEBIT", amount: amt, reference: payout.id, note: "Withdrawal requested" });
     notifyWithdrawalRequested(inv, payout);
@@ -1110,9 +1209,26 @@ router.post(
     const amt = confirmed.amount;
     const wallet = await getOrCreateWallet(req.user.id);
     if (wallet.available < amt) return res.status(400).json({ error: "Insufficient available balance" });
-    const dest = confirmed.destination || (mode === "UPI" ? inv.upiId : inv.accountNumber);
+    const payoutMode = String(mode || "UPI").toUpperCase();
+    const dest =
+      confirmed.destination ||
+      (payoutMode === "UPI"
+        ? inv.upiId
+        : payoutMode === "CRYPTO"
+          ? `${inv.cryptoWalletAddress}|${inv.cryptoSymbol}|${inv.cryptoNetwork}`
+          : inv.accountNumber);
     const payout = await investDb.payout.create({
-      data: { investorId: req.user.id, amount: amt, mode: mode === "UPI" ? "UPI" : "BANK", destination: dest, status: "PENDING" },
+      data: {
+        investorId: req.user.id,
+        amount: amt,
+        mode: payoutMode === "CRYPTO" ? "CRYPTO" : payoutMode === "UPI" ? "UPI" : "BANK",
+        destination: dest,
+        status: "PENDING",
+        remarks:
+          payoutMode === "CRYPTO"
+            ? `Crypto withdraw: ${inv.cryptoSymbol} on ${inv.cryptoNetwork}`
+            : null,
+      },
     });
     await addLedger(req.user.id, { type: "PAYOUT", direction: "DEBIT", amount: amt, reference: payout.id, note: "Withdrawal requested" });
     notifyWithdrawalRequested(inv, payout);

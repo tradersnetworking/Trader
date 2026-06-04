@@ -42,6 +42,11 @@ router.get(
 
 router.get("/bank-details", asyncH(async (_req, res) => res.json(await getPrimaryBankDetails())));
 router.get("/deposit-accounts", asyncH(async (_req, res) => res.json({ accounts: await getDepositAccountsForInvestor() })));
+
+router.get("/crypto-rates", asyncH(async (_req, res) => {
+  const { getCryptoFxRates } = await import("../services/cryptoRates.js");
+  res.json(await getCryptoFxRates());
+}));
 router.get("/gateways", asyncH(async (_req, res) => {
   const { filterCollectionGatewaysForInvestors, getInvestorPaymentOptions } = await import(
     "../services/paymentModeVisibility.js"

@@ -8,11 +8,13 @@ export const DEPOSIT_CATEGORIES = [
   { id: "upi", label: "UPI" },
   { id: "bank", label: "Bank Transfer" },
   { id: "gateway", label: "Payment Gateway" },
+  { id: "crypto", label: "Crypto (USDT, TRX, BNB)" },
 ];
 
 export const WITHDRAW_METHOD_IDS = [
   { id: "UPI", label: "UPI" },
   { id: "BANK", label: "Bank Account" },
+  { id: "CRYPTO", label: "Crypto Wallet" },
 ];
 
 export const MANUAL_BANK_TYPES = ["IMPS", "NEFT", "RTGS"];
@@ -96,10 +98,12 @@ export async function getInvestorPaymentOptions() {
       upi: getModeVisibility(map, "upi").deposit,
       bank: getModeVisibility(map, "bank").deposit,
       gateway: getModeVisibility(map, "gateway").deposit,
+      crypto: getModeVisibility(map, "crypto").deposit,
     },
     withdrawMethods: {
       UPI: getModeVisibility(map, "upi").withdraw || getModeVisibility(map, "UPI").withdraw,
       BANK: getModeVisibility(map, "bank").withdraw || getModeVisibility(map, "BANK").withdraw,
+      CRYPTO: getModeVisibility(map, "crypto").withdraw || getModeVisibility(map, "CRYPTO").withdraw,
     },
     bankTransferTypes: Object.fromEntries(
       MANUAL_BANK_TYPES.map((t) => [t, getModeVisibility(map, t).deposit])

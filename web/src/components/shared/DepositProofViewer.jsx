@@ -17,9 +17,17 @@ export default function DepositProofViewer({ open, deposit, onClose, onApprove, 
     <Modal open={open} onClose={onClose} title={`Deposit review — ${deposit.investor?.name || "Investor"}`} wide>
       <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
         <div className="grid gap-3 text-sm sm:grid-cols-2">
-          <div><span className="text-muted-foreground">Amount</span><p className="font-bold text-heading">{inr(deposit.amount)}</p></div>
+          <div><span className="text-muted-foreground">Amount (INR credit)</span><p className="font-bold text-heading">{inr(deposit.inrEquivalent || deposit.amount)}</p></div>
           <div><span className="text-muted-foreground">Method</span><p className="font-medium">{deposit.method}</p></div>
-          <div><span className="text-muted-foreground">UTR / Reference</span><p className="font-mono text-xs">{deposit.reference || "—"}</p></div>
+          {deposit.cryptoAmount != null && (
+            <div className="sm:col-span-2">
+              <span className="text-muted-foreground">Crypto sent</span>
+              <p className="font-medium">
+                {deposit.cryptoAmount} {deposit.cryptoSymbol} ({deposit.cryptoNetwork})
+              </p>
+            </div>
+          )}
+          <div><span className="text-muted-foreground">{deposit.method === "CRYPTO" ? "TX hash" : "UTR / Reference"}</span><p className="font-mono text-xs">{deposit.txHash || deposit.reference || "—"}</p></div>
           <div><span className="text-muted-foreground">Submitted</span><p>{dateStr(deposit.createdAt, true)}</p></div>
           <div className="sm:col-span-2"><span className="text-muted-foreground">Paid to account</span><p className="font-medium">{accountLabel(deposit.paymentAccount)}</p></div>
           <div><span className="text-muted-foreground">Investor</span><p>{deposit.investor?.email}</p></div>

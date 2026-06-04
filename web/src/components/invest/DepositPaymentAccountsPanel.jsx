@@ -11,6 +11,7 @@ import { Alert, Badge, Field, Modal } from "../ui.jsx";
 import PaymentGatewaysPanel from "../PaymentGatewaysPanel.jsx";
 import ToggleRow from "./PaymentModeVisibilityToggles.jsx";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import CryptoQrDisplay from "../shared/CryptoQrDisplay.jsx";
 import DefaultDepositGatewaySettings from "./DefaultDepositGatewaySettings.jsx";
 import PaymentRoutingBanner from "../shared/PaymentRoutingBanner.jsx";
 
@@ -22,10 +23,19 @@ const TABS = [
 
   { id: "bank", label: "Bank Transfer" },
 
+  { id: "crypto", label: "Crypto Wallets" },
+
   { id: "online", label: "Online Gateways" },
 
   { id: "keys", label: "API Keys" },
 
+];
+
+const CRYPTO_PRESETS = [
+  { symbol: "USDT", network: "TRC20", coinName: "Tether USD", name: "USDT TRC20" },
+  { symbol: "USDT", network: "BEP20", coinName: "Tether USD", name: "USDT BEP20" },
+  { symbol: "TRX", network: "TRON", coinName: "TRON", name: "TRON (TRX)" },
+  { symbol: "BNB", network: "BEP20", coinName: "BNB", name: "BNB BEP20" },
 ];
 
 
@@ -49,6 +59,14 @@ const emptyForm = (type) => ({
   branchName: "",
 
   qrCodeUrl: "",
+
+  walletAddress: "",
+
+  symbol: "",
+
+  network: "",
+
+  coinName: "",
 
   provider: type === "online" ? "razorpay" : "",
 
@@ -98,10 +116,16 @@ export default function DepositPaymentAccountsPanel({ editable = false, accounts
 
 
 
-  const openNew = () => {
+  const openNew = (preset) => {
     setEditing(null);
     const next = emptyForm(tab === "keys" || tab === "bank-api" ? "online" : tab);
     if (tab === "bank-api") next.provider = "hdfc";
+    if (tab === "crypto" && preset) {
+      next.name = preset.name;
+      next.symbol = preset.symbol;
+      next.network = preset.network;
+      next.coinName = preset.coinName;
+    }
     setForm(next);
     setErr("");
     setOpen(true);
@@ -259,13 +283,19 @@ export default function DepositPaymentAccountsPanel({ editable = false, accounts
         <>
 
           {editable && tab !== "keys" && (
-
-            <button type="button" className="btn-primary" onClick={openNew}>
-
-              + Add {TABS.find((t) => t.id === tab)?.label} Account
-
-            </button>
-
+            tab === "crypto" ? (
+              <div className="flex flex-wrap gap-2">
+                {CRYPTO_PRESETS.map((p) => (
+                  <button key={p.name} type="button" className="btn-outline text-xs" onClick={() => openNew(p)}>
+                    + {p.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button type="button" className="btn-primary" onClick={() => openNew()}>
+                + Add {TABS.find((t) => t.id === tab)?.label} Account
+              </button>
+            )
           )}
 
 
@@ -320,6 +350,27 @@ export default function DepositPaymentAccountsPanel({ editable = false, accounts
                   )}
 
                   {g.type === "online" && <div>Provider: {providerLabel(g.provider) || "—"}</div>}
+
+                  {g.type === "crypto" && (
+                    <>
+                      <div>
+                        {g.symbol} · {g.network}
+                        {g.walletAddress && (
+                          <div className="mt-1 font-mono text-[10px] text-foreground break-all">{g.walletAddress}</div>
+                        )}
+                      </div>
+                      {g.walletAddress && (
+                        <CryptoQrDisplay
+                          walletAddress={g.walletAddress}
+                          symbol={g.symbol}
+                          network={g.network}
+                          coinName={g.coinName}
+                          storedQrUrl={g.qrCodeUrl}
+                          className="mt-2"
+                        />
+                      )}
+                    </>
+                  )}
 
                   <div>Min: {inr(g.minAmount)}{g.maxAmount ? ` · Max: ${inr(g.maxAmount)}` : ""}</div>
 
@@ -391,6 +442,35 @@ export default function DepositPaymentAccountsPanel({ editable = false, accounts
 
             </>
 
+          )}
+
+          {form.type === "crypto" && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Coin symbol">
+                  <input className="input font-mono uppercase" required value={form.symbol} onChange={(e) => setForm({ ...form, symbol: e.target.value })} placeholder="USDT" />
+                </Field>
+                <Field label="Chain / network">
+                  <input className="input font-mono uppercase" required value={form.network} onChange={(e) => setForm({ ...form, network: e.target.value })} placeholder="TRC20" />
+                </Field>
+              </div>
+              <Field label="Coin display name (optional)">
+                <input className="input" value={form.coinName} onChange={(e) => setForm({ ...form, coinName: e.target.value })} />
+              </Field>
+              <Field label="Company wallet address" hint="Investors send crypto here">
+                <input className="input font-mono text-sm" required value={form.walletAddress} onChange={(e) => setForm({ ...form, walletAddress: e.target.value })} />
+              </Field>
+              {form.walletAddress && (
+                <CryptoQrDisplay
+                  walletAddress={form.walletAddress}
+                  symbol={form.symbol}
+                  network={form.network}
+                  coinName={form.coinName}
+                  storedQrUrl={form.qrCodeUrl || undefined}
+                  className="py-2"
+                />
+              )}
+            </>
           )}
 
           {form.type === "bank" && (

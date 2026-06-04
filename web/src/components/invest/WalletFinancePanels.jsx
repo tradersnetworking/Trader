@@ -17,7 +17,10 @@ import ShareProfitButton from "./ShareProfitButton.jsx";
 import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/onlineCheckout.js";
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import CryptoQrDisplay from "../shared/CryptoQrDisplay.jsx";
 import PaymentProofUpload from "../shared/PaymentProofUpload.jsx";
+import { useCryptoRates } from "../../lib/use-crypto-rates.js";
+import { formatCryptoLabel } from "../../lib/crypto-asset-catalog.js";
 import UpiPayAppButtons from "../shared/UpiPayAppButtons.jsx";
 import {
   UPI_MAX_AMOUNT,
@@ -31,11 +34,13 @@ const DEPOSIT_METHODS = [
   { value: "upi", label: "UPI", icon: "📱", tone: "upi" },
   { value: "bank", label: "Bank Transfer", icon: "🏦", tone: "bank" },
   { value: "gateway", label: "Payment Gateway", icon: "💳", tone: "gateway" },
+  { value: "crypto", label: "Crypto", icon: "🪙", tone: "crypto" },
 ];
 
 const WITHDRAW_METHODS = [
   { value: "UPI", label: "UPI", icon: "📱", tone: "upi" },
   { value: "BANK", label: "Bank Account", icon: "🏦", tone: "bank" },
+  { value: "CRYPTO", label: "Crypto Wallet", icon: "🪙", tone: "crypto" },
 ];
 
 const BANK_TRANSFER_TYPES = [
@@ -51,6 +56,7 @@ function filterDepositMethods(paymentOptions) {
     if (m.value === "upi") return c.upi !== false;
     if (m.value === "bank") return c.bank !== false;
     if (m.value === "gateway") return c.gateway !== false;
+    if (m.value === "crypto") return c.crypto !== false;
     return true;
   });
 }
@@ -167,8 +173,10 @@ function PayoutUpdateLink({ kycStatus, className = "", children }) {
 function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange }) {
   if (!investor) return null;
   const isUpi = mode === "UPI";
+  const isCrypto = mode === "CRYPTO";
   const hasUpi = Boolean(investor.upiId);
   const hasBank = Boolean(investor.bankName && investor.accountNumber && investor.ifsc);
+  const hasCrypto = Boolean(investor.cryptoWalletAddress && investor.cryptoSymbol && investor.cryptoNetwork);
   const kycApproved = kycStatus === "APPROVED";
   const updateHint = kycApproved
     ? "Changes after KYC approval need team review with bank proof. Withdrawals keep using your current details until approved."
@@ -185,7 +193,20 @@ function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange 
       </div>
     );
   }
-  if (!isUpi && !hasBank) {
+  if (isCrypto && !hasCrypto) {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+        <p className="font-medium text-amber-800 dark:text-amber-300">No crypto wallet saved</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Add wallet address, coin, and chain (network) in Profile before crypto withdrawal.
+        </p>
+        <PayoutUpdateLink kycStatus={kycStatus} className="mt-2 inline-block text-xs font-semibold text-primary underline">
+          Update crypto payout in Profile →
+        </PayoutUpdateLink>
+      </div>
+    );
+  }
+  if (!isUpi && !isCrypto && !hasBank) {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
         <p className="font-medium text-amber-800 dark:text-amber-300">No bank account saved</p>
@@ -201,7 +222,7 @@ function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange 
     <div className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {isUpi ? "UPI payout account" : "Bank payout account"}
+          {isUpi ? "UPI payout account" : isCrypto ? "Crypto payout wallet" : "Bank payout account"}
         </p>
         <PayoutUpdateLink kycStatus={kycStatus} className="shrink-0 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-semibold text-primary no-underline hover:bg-primary/10">
           {kycApproved ? "Change details" : "Update details"}
@@ -215,7 +236,16 @@ function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange 
         </Alert>
       )}
 
-      {isUpi ? (
+      {isCrypto ? (
+        <>
+          <CredentialRow
+            label="Coin · Chain"
+            value={formatCryptoLabel(investor.cryptoSymbol, investor.cryptoNetwork)}
+            mono={false}
+          />
+          <CredentialRow label="Wallet address" value={investor.cryptoWalletAddress} />
+        </>
+      ) : isUpi ? (
         <>
           <CredentialRow label="UPI ID" value={investor.upiId} />
           <CredentialRow label="Account holder" value={investor.name} mono={false} />
@@ -270,9 +300,12 @@ function PayoutDestinationCard({ mode, investor, kycStatus, pendingPayoutChange 
 
 export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, walletAvailable, onDepositSubmitted }) {
   const [bank, setBank] = useState(null);
-  const [depositAccounts, setDepositAccounts] = useState({ upi: [], bank: [], online: [] });
+  const [depositAccounts, setDepositAccounts] = useState({ upi: [], bank: [], online: [], crypto: [] });
   const [selectedUpiId, setSelectedUpiId] = useState("");
   const [selectedBankId, setSelectedBankId] = useState("");
+  const [selectedCryptoId, setSelectedCryptoId] = useState("");
+  const [cryptoPayAmount, setCryptoPayAmount] = useState("");
+  const { cryptoToInr, rates: cryptoRates, stale: cryptoRatesStale } = useCryptoRates();
   const [method, setMethod] = useState("upi");
   const [bankMethod, setBankMethod] = useState("IMPS");
   const [gateway, setGateway] = useState("");
@@ -297,20 +330,19 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   }, [suggestedAmount]);
 
   const depositAmt = Number(amount);
-  const amountReady = Number.isFinite(depositAmt) && depositAmt >= MIN_MANUAL_DEPOSIT;
   const allowedDepositMethods = useMemo(
     () => filterDepositMethodsForAmount(paymentOptions, depositAmt),
     [paymentOptions, depositAmt]
   );
-  const requiresNonUpi = amountReady && depositAmt > UPI_MAX_AMOUNT;
-  const upiAvailableForAmount = amountReady && depositAmt <= UPI_MAX_AMOUNT;
+  const cryptoOnlyDeposit =
+    allowedDepositMethods.length === 1 && allowedDepositMethods[0]?.value === "crypto";
 
   useEffect(() => {
-    if (!amountReady || !allowedDepositMethods.length) return;
+    if (!allowedDepositMethods.length) return;
     if (!allowedDepositMethods.some((m) => m.value === method)) {
       setMethod(allowedDepositMethods[0]?.value ?? "bank");
     }
-  }, [amountReady, allowedDepositMethods, method]);
+  }, [allowedDepositMethods, method]);
 
   const notifyDepositDone = () => {
     onDepositSubmitted?.();
@@ -326,6 +358,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
       setDepositAccounts(accounts);
       if (accounts.upi?.[0]) setSelectedUpiId(accounts.upi[0].id);
       if (accounts.bank?.[0]) setSelectedBankId(accounts.bank[0].id);
+      if (accounts.crypto?.[0]) setSelectedCryptoId(accounts.crypto[0].id);
     }).catch(() => {});
     investApi("/public/gateways").then((d) => {
       const list = d.gateways || [];
@@ -345,9 +378,22 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   }, [method]);
 
   const isGateway = method === "gateway";
+  const isCrypto = method === "crypto";
   const needsProof = !isGateway;
   const selectedUpi = depositAccounts.upi.find((u) => u.id === selectedUpiId) || depositAccounts.upi[0];
   const selectedBank = depositAccounts.bank.find((b) => b.id === selectedBankId) || depositAccounts.bank[0];
+  const selectedCrypto =
+    depositAccounts.crypto.find((c) => c.id === selectedCryptoId) || depositAccounts.crypto[0];
+  const cryptoInrPreview =
+    isCrypto && selectedCrypto?.symbol && cryptoPayAmount
+      ? cryptoToInr(cryptoPayAmount, selectedCrypto.symbol)
+      : null;
+  const amountReady =
+    cryptoOnlyDeposit ||
+    (Number.isFinite(depositAmt) && depositAmt >= MIN_MANUAL_DEPOSIT) ||
+    (method === "crypto" && cryptoInrPreview != null && cryptoInrPreview >= MIN_MANUAL_DEPOSIT);
+  const requiresNonUpi = amountReady && depositAmt > UPI_MAX_AMOUNT;
+  const upiAvailableForAmount = amountReady && depositAmt <= UPI_MAX_AMOUNT;
   const upi = selectedUpi
     ? { vpa: selectedUpi.upiId, payeeName: selectedUpi.accountHolder || bank?.upi?.payeeName, qrCodeUrl: selectedUpi.qrCodeUrl }
     : bank?.upi;
@@ -377,12 +423,30 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
     setErr("");
     setMsg("");
     if (needsProof && !file) {
-      setErr("Please upload payment proof (screenshot or PDF). Required for UPI and bank transfers.");
+      setErr(
+        isCrypto
+          ? "Please upload payment proof (screenshot of blockchain transfer)."
+          : "Please upload payment proof (screenshot or PDF). Required for UPI and bank transfers."
+      );
       return;
     }
     if (needsProof && !reference.trim()) {
-      setErr("Please enter UTR / transaction reference.");
+      setErr(isCrypto ? "Please enter transaction hash (TX ID)." : "Please enter UTR / transaction reference.");
       return;
+    }
+    if (isCrypto) {
+      if (!selectedCrypto?.walletAddress) {
+        setErr("No company crypto wallet configured. Contact support.");
+        return;
+      }
+      if (!cryptoPayAmount || Number(cryptoPayAmount) <= 0) {
+        setErr("Enter the crypto amount you sent.");
+        return;
+      }
+      if (!cryptoInrPreview || cryptoInrPreview < MIN_MANUAL_DEPOSIT) {
+        setErr(`Converted amount must be at least ${inr(MIN_MANUAL_DEPOSIT)}.`);
+        return;
+      }
     }
     if (method === "upi" && !selectedUpi) {
       setErr("No company UPI account available. Contact support.");
@@ -401,11 +465,17 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
       return;
     }
     const fd = new FormData();
-    fd.append("amount", amount);
-    fd.append("method", resolveMethod());
+    fd.append("amount", isCrypto ? String(cryptoInrPreview) : amount);
+    fd.append("method", isCrypto ? "CRYPTO" : resolveMethod());
     fd.append("reference", reference);
     if (method === "upi" && selectedUpi?.id) fd.append("paymentAccountId", selectedUpi.id);
     if (method === "bank" && selectedBank?.id) fd.append("paymentAccountId", selectedBank.id);
+    if (isCrypto && selectedCrypto?.id) {
+      fd.append("paymentAccountId", selectedCrypto.id);
+      fd.append("cryptoAmount", cryptoPayAmount);
+      fd.append("cryptoSymbol", selectedCrypto.symbol);
+      fd.append("cryptoNetwork", selectedCrypto.network);
+    }
     if (promoCode.trim()) fd.append("promoCode", promoCode.trim());
     if (file) fd.append("proofImage", file);
     try {
@@ -502,7 +572,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
       <StepBanner
         tone="emerald"
         title="Add funds to your wallet"
-        description="Pay via UPI, bank transfer (IMPS/NEFT/RTGS), or payment gateway. Upload proof for manual transfers — admin approves within 24 hours."
+        description="Pay via UPI, bank transfer, payment gateway, or crypto (USDT, TRX, BNB). Upload proof for manual transfers — admin approves within 24 hours."
       />
 
       {bankVa && (
@@ -528,12 +598,19 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
               description={`Enter how much you want to add. Payment options in Step 2 depend on the amount — UPI up to ${inr(UPI_MAX_AMOUNT)}, bank or gateway for larger deposits.`}
             />
 
-            <DepositAmountStep1
-              amount={amount}
-              setAmount={setAmount}
-              setPromoBonus={setPromoBonus}
-              showUpiPresets={upiAvailableForAmount}
-            />
+            {!cryptoOnlyDeposit && (
+              <DepositAmountStep1
+                amount={amount}
+                setAmount={setAmount}
+                setPromoBonus={setPromoBonus}
+                showUpiPresets={upiAvailableForAmount}
+              />
+            )}
+            {cryptoOnlyDeposit && (
+              <p className="text-sm text-muted-foreground">
+                Crypto deposit — choose coin and network in Step 2, send to the company wallet, then upload proof and TX hash. Credit is calculated in ₹ at live rates.
+              </p>
+            )}
 
             {Number.isFinite(depositAmt) && depositAmt > 0 && depositAmt < MIN_MANUAL_DEPOSIT && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
@@ -609,6 +686,61 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   <p className="text-xs text-muted-foreground">
                     Default gateway pre-selected by admin — change above if you prefer another.
                   </p>
+                )}
+
+                {method === "crypto" && (
+                  <>
+                    {depositAccounts.crypto.length > 0 ? (
+                      <MethodSelect
+                        tone="crypto"
+                        label="Select coin / network"
+                        value={selectedCryptoId || depositAccounts.crypto[0]?.id}
+                        onChange={setSelectedCryptoId}
+                        options={depositAccounts.crypto.map((c) => ({
+                          value: c.id,
+                          label: formatCryptoLabel(c.symbol, c.network, c.coinName || c.name),
+                        }))}
+                      />
+                    ) : (
+                      <Alert type="warning">Crypto deposits are not configured yet. Contact support.</Alert>
+                    )}
+                    {selectedCrypto?.walletAddress && (
+                      <div className="space-y-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
+                        <CryptoQrDisplay
+                          walletAddress={selectedCrypto.walletAddress}
+                          symbol={selectedCrypto.symbol}
+                          network={selectedCrypto.network}
+                          coinName={selectedCrypto.coinName}
+                          storedQrUrl={selectedCrypto.qrCodeUrl}
+                        />
+                        <CredentialRow label="Wallet address" value={selectedCrypto.walletAddress} />
+                      </div>
+                    )}
+                    <Field label="Crypto amount sent" hint="Enter exact amount transferred on-chain">
+                      <input
+                        className="input"
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={cryptoPayAmount}
+                        onChange={(e) => setCryptoPayAmount(e.target.value)}
+                        placeholder={`e.g. 100 ${selectedCrypto?.symbol || "USDT"}`}
+                      />
+                    </Field>
+                    {cryptoInrPreview != null && (
+                      <p className="text-sm">
+                        Estimated credit: <strong className="text-foreground">{inr(cryptoInrPreview)}</strong>
+                        {cryptoRatesStale && (
+                          <span className="ml-1 text-xs text-amber-600"> (cached rate)</span>
+                        )}
+                        {cryptoRates?.updatedAt && (
+                          <span className="block text-[10px] text-muted-foreground">
+                            Live USD/INR · rates updated {new Date(cryptoRates.updatedAt).toLocaleString("en-IN")}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </>
                 )}
 
             {method === "upi" && upi?.vpa && !isUpiAmountOverLimit(amount) && (
@@ -707,11 +839,23 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   {promoBonus != null && <p className="mt-1 text-xs text-emerald-600">Bonus on approval: {inr(promoBonus)}</p>}
                 </Field>
 
-                <Field label="UTR / Reference" hint="UPI transaction ID or bank UTR number — required">
-                  <input className="input" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. UTR1234567890" required />
+                <Field
+                  label={method === "crypto" ? "Transaction hash (TX ID)" : "UTR / Reference"}
+                  hint={method === "crypto" ? "Blockchain transaction hash — required" : "UPI transaction ID or bank UTR number — required"}
+                >
+                  <input
+                    className="input font-mono text-sm"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder={method === "crypto" ? "e.g. 0xabc… or Tron TX id" : "e.g. UTR1234567890"}
+                    required
+                  />
                 </Field>
 
-                <Field label="Payment proof" hint="Screenshot or PDF — required for verification">
+                <Field
+                  label="Payment proof"
+                  hint={method === "crypto" ? "Screenshot of wallet transfer confirmation" : "Screenshot or PDF — required for verification"}
+                >
                   <PaymentProofUpload
                     file={file}
                     required
@@ -881,7 +1025,9 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const canPayout =
     mode === "UPI"
       ? Boolean(invest?.upiId)
-      : Boolean(invest?.bankName && invest?.accountNumber && invest?.ifsc);
+      : mode === "CRYPTO"
+        ? Boolean(invest?.cryptoWalletAddress && invest?.cryptoSymbol && invest?.cryptoNetwork)
+        : Boolean(invest?.bankName && invest?.accountNumber && invest?.ifsc);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -905,7 +1051,12 @@ export function WithdrawPanel({ wallet, onRefresh }) {
     }
     try {
       if (step === "form") {
-        const destination = mode === "UPI" ? invest.upiId : invest.accountNumber;
+        const destination =
+          mode === "UPI"
+            ? invest.upiId
+            : mode === "CRYPTO"
+              ? invest.cryptoWalletAddress
+              : invest.accountNumber;
         const r = await investApi("/payouts/initiate", {
           method: "POST",
           body: { amount: Number(amount), mode, password, totpCode, destination },
@@ -915,7 +1066,12 @@ export function WithdrawPanel({ wallet, onRefresh }) {
         setMsg(r.message || "Check your email for the OTP.");
         return;
       }
-      const destination = mode === "UPI" ? invest.upiId : invest.accountNumber;
+      const destination =
+        mode === "UPI"
+          ? invest.upiId
+          : mode === "CRYPTO"
+            ? invest.cryptoWalletAddress
+            : invest.accountNumber;
       await investApi("/payouts/confirm", {
         method: "POST",
         body: { confirmationToken, emailOtp, amount: Number(amount), mode, destination },
