@@ -6,8 +6,8 @@
 const BASE = (process.env.INVEST_API || "http://localhost:4000").replace(/\/$/, "");
 const INVESTOR_EMAIL = process.env.E2E_INVESTOR_EMAIL || "investor@akshayaexim.com";
 const INVESTOR_PASSWORD = process.env.E2E_INVESTOR_PASSWORD || "Investor@123";
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "superadmin@akshayaexim.com";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Admin@12345";
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
 
 let failed = 0;
 let skipped = 0;
@@ -154,6 +154,7 @@ if (adm.otp) {
     else if (res.status === 403) fail(`ADMIN ${path}`, "403 forbidden — RBAC");
     else fail(`ADMIN ${path}`, `${res.status} ${data?.error || ""}`);
   }
+}
 }
 
 console.log(

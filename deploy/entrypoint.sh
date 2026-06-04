@@ -14,6 +14,11 @@ ensure_db_file() {
 ensure_db_file /data/main.db
 ensure_db_file /data/invest.db
 
+if command -v freshclam >/dev/null 2>&1; then
+  echo "[entrypoint] Updating ClamAV definitions (background)…"
+  freshclam --quiet 2>/dev/null &
+fi
+
 echo "[entrypoint] Ensuring SQLite databases…"
 if [ ! -s /data/main.db ] || [ ! -s /data/invest.db ]; then
   npm run db:push

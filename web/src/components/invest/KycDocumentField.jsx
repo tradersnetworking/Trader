@@ -86,6 +86,7 @@ export default function KycDocumentField({
 
   return (
     <div
+      data-testid={`kyc-field-${name}`}
       className={`rounded-xl border border-dashed p-4 ${
         failed ? "border-rose-500/50 bg-rose-500/5" : "border-border bg-muted/40"
       }`}
@@ -141,6 +142,7 @@ export default function KycDocumentField({
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <button
           type="button"
+          data-testid={`kyc-upload-btn-${name}`}
           className="btn-outline w-full text-sm sm:w-auto"
           disabled={uploading}
           onClick={() => galleryRef.current?.click()}

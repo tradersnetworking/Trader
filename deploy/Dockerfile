@@ -13,7 +13,7 @@ RUN npm --workspace web run build
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache openssl wget git docker-cli docker-cli-compose
+RUN apk add --no-cache openssl wget git docker-cli docker-cli-compose clamav clamav-libunrar
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 COPY server/package.json server/

@@ -1,4 +1,14 @@
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   api:
     build:
       context: ..
@@ -6,11 +16,16 @@ services:
       args:
         VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       MAIN_DATABASE_URL: file:/data/main.db
       INVEST_SQLITE_URL: file:/data/invest.db
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      KYC_VIRUS_SCAN_CMD: ${KYC_VIRUS_SCAN_CMD:-clamscan --no-summary {file}}
     volumes:
       - app_data:/data
       - uploads:/app/server/uploads

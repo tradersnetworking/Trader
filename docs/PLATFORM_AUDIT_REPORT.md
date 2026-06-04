@@ -292,7 +292,14 @@ See **`docs/KYC_UPLOAD_AUDIT_REPORT.md`** for full detail.
 | Document | Content |
 |----------|---------|
 | `docs/PLATFORM_AUDIT_REPORT.md` | This file — full platform |
+| `docs/AUDIT_SECURITY_REPORT.md` | OWASP / RBAC / uploads |
+| `docs/AUDIT_API_REPORT.md` | Endpoint connectivity |
+| `docs/AUDIT_WORKFLOW_REPORT.md` | Journey traces |
+| `docs/AUDIT_DATABASE_REPORT.md` | Schema & ACID |
+| `docs/AUDIT_PERFORMANCE_REPORT.md` | Latency & caching |
 | `docs/KYC_UPLOAD_AUDIT_REPORT.md` | KYC upload subsystem |
+| `scripts/run-full-audit.mjs` | One-command full audit |
+| `scripts/api-workflow-audit.mjs` | Authenticated API probe |
 | `scripts/production-audit.mjs` | Live prod smoke |
 | `scripts/smoke-invest.mjs` | Invest API smoke |
 
