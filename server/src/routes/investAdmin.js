@@ -710,6 +710,7 @@ router.get(
   "/export",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("manage_settings"),
   asyncH(async (req, res) => {
     const datasets = req.query.datasets ? String(req.query.datasets).split(",").filter(Boolean) : null;
     const format = String(req.query.format || "json").toLowerCase();
@@ -726,6 +727,7 @@ router.get(
   "/export/datasets",
   authRequired(SCOPE),
   adminOnly,
+  requirePermission("manage_settings"),
   asyncH(async (_req, res) => {
     res.json({ datasets: INVEST_DATASETS });
   })

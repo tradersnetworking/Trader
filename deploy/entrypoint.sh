@@ -24,6 +24,14 @@ else
   echo "[entrypoint] Databases present — schema synced."
 fi
 
+echo "[entrypoint] Syncing RBAC role defaults…"
+cd /app/server
+node --input-type=module <<'RBAC_EOF' || true
+import { syncRolePermissionDefaults } from "./src/services/rbac.js";
+await syncRolePermissionDefaults();
+console.log("[entrypoint] RBAC defaults synced.");
+RBAC_EOF
+
 echo "[entrypoint] Ensuring mailbox configs (5 x main .com, 5 x invest .in)…"
 cd /app/server
 node --input-type=module <<'MAIL_EOF' || true

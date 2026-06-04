@@ -15,7 +15,7 @@ export const ADMIN_TAB_PERMISSIONS = {
   "wallet-ops": "manage_investors",
   "homepage-cms": "manage_settings",
   "notifications-admin": "broadcast_notifications",
-  backup: "view_dashboard",
+  backup: "manage_settings",
   tickets: "support_tickets",
   "referrals-admin": "view_dashboard",
   broadcast: "broadcast_notifications",
@@ -44,7 +44,6 @@ export const DEFAULT_ADMIN_PERMISSIONS = [
   "manage_investors",
   "support_tickets",
   "broadcast_notifications",
-  "view_audit",
   "treasury",
   "analytics",
 ];

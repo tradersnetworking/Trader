@@ -25,6 +25,7 @@ const SUPERADMIN_ONLY = new Set([
   "manage_plans",
   "manage_gateways",
   "manage_settings",
+  "view_audit",
 ]);
 
 /** Per-admin custom grants allowed (e.g. manage_gateways for one admin only). */
@@ -40,16 +41,22 @@ const DEFAULT_MATRIX = {
   ADMIN: PERMISSIONS.filter((p) => !SUPERADMIN_ONLY.has(p.key)).map((p) => p.key),
 };
 
-export async function seedRolePermissions() {
+/** Apply DEFAULT_MATRIX to role_permission rows (safe to run on every deploy). */
+export async function syncRolePermissionDefaults() {
   for (const [role, perms] of Object.entries(DEFAULT_MATRIX)) {
     for (const permission of PERMISSIONS.map((p) => p.key)) {
+      const granted = perms.includes(permission);
       await investDb.rolePermission.upsert({
         where: { role_permission: { role, permission } },
-        create: { role, permission, granted: perms.includes(permission) },
-        update: { granted: perms.includes(permission) },
+        create: { role, permission, granted },
+        update: { granted },
       });
     }
   }
+}
+
+export async function seedRolePermissions() {
+  await syncRolePermissionDefaults();
 }
 
 export async function getRoleMatrix() {

@@ -178,7 +178,7 @@ export default function InvestAdminDashboard() {
       case "notifications-admin":
         return gate("broadcast_notifications", "Notifications", <TabPanel><NotificationManagementPanel /></TabPanel>);
       case "backup":
-        return gate("view_dashboard", "Backup & Export", <TabPanel><BackupExportPanel canImport={hasPerm("manage_settings")} /></TabPanel>);
+        return gate("manage_settings", "Backup & Export", <TabPanel><BackupExportPanel canImport={isSuper} /></TabPanel>);
       case "tickets":
         return gate("support_tickets", "Support Tickets", <TabPanel><SupportTicketsAdmin /></TabPanel>);
       case "referrals-admin":
