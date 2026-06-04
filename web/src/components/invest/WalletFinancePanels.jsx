@@ -24,7 +24,6 @@ import {
   MIN_MANUAL_DEPOSIT,
   UPI_DEPOSIT_PRESETS,
   isUpiAmountOverLimit,
-  depositAmountHint,
 } from "../../lib/payment-limits.js";
 import { withdrawEligibility } from "../../lib/investCompliance.js";
 
@@ -54,6 +53,14 @@ function filterDepositMethods(paymentOptions) {
     if (m.value === "gateway") return c.gateway !== false;
     return true;
   });
+}
+
+/** UPI only up to ₹1,00,000; larger deposits use bank transfer or payment gateway. */
+function filterDepositMethodsForAmount(paymentOptions, amount) {
+  const methods = filterDepositMethods(paymentOptions);
+  const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt <= UPI_MAX_AMOUNT) return methods;
+  return methods.filter((m) => m.value !== "upi");
 }
 
 function filterWithdrawMethods(paymentOptions) {
@@ -99,29 +106,29 @@ function UpiLimitAlert({ onUseBank, onUseGateway }) {
   );
 }
 
-function DepositAmountControls({ method, amount, setAmount, setPromoBonus }) {
-  const isUpi = method === "upi";
-  const overUpi = isUpi && isUpiAmountOverLimit(amount);
+function DepositAmountStep1({ amount, setAmount, setPromoBonus, showUpiPresets }) {
   return (
     <div className="space-y-2">
-      <Field label="Deposit amount (₹)" hint={depositAmountHint(method)}>
+      <Field
+        label="Deposit amount (₹)"
+        hint={`Minimum ${inr(MIN_MANUAL_DEPOSIT)}. UPI up to ${inr(UPI_MAX_AMOUNT)}; bank transfer or payment gateway for larger amounts.`}
+      >
         <input
           className="input"
           type="number"
           min={MIN_MANUAL_DEPOSIT}
-          max={isUpi ? UPI_MAX_AMOUNT : undefined}
           step={100}
           value={amount}
           onChange={(e) => {
-            setAmount(e.target.value);
+            setAmount(e.target.value === "" ? "" : Number(e.target.value));
             setPromoBonus?.(null);
           }}
           required
         />
       </Field>
-      {isUpi && (
+      {showUpiPresets && (
         <div className="flex flex-wrap gap-2">
-          {UPI_DEPOSIT_PRESETS.map((preset) => (
+          {UPI_DEPOSIT_PRESETS.filter((preset) => preset <= UPI_MAX_AMOUNT).map((preset) => (
             <button
               key={preset}
               type="button"
@@ -137,11 +144,6 @@ function DepositAmountControls({ method, amount, setAmount, setPromoBonus }) {
             </button>
           ))}
         </div>
-      )}
-      {overUpi && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          UPI is limited to ₹1,00,000 per deposit. Choose a lower amount or switch to bank transfer / payment gateway.
-        </p>
       )}
     </div>
   );
@@ -290,10 +292,25 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   useEffect(() => {
     if (suggestedAmount && Number(suggestedAmount) > 0) {
       const n = Math.ceil(Number(suggestedAmount));
-      const capped = method === "upi" ? Math.min(n, UPI_MAX_AMOUNT) : n;
-      setAmount(Math.max(MIN_MANUAL_DEPOSIT, capped));
+      setAmount(Math.max(MIN_MANUAL_DEPOSIT, n));
     }
-  }, [suggestedAmount, method]);
+  }, [suggestedAmount]);
+
+  const depositAmt = Number(amount);
+  const amountReady = Number.isFinite(depositAmt) && depositAmt >= MIN_MANUAL_DEPOSIT;
+  const allowedDepositMethods = useMemo(
+    () => filterDepositMethodsForAmount(paymentOptions, depositAmt),
+    [paymentOptions, depositAmt]
+  );
+  const requiresNonUpi = amountReady && depositAmt > UPI_MAX_AMOUNT;
+  const upiAvailableForAmount = amountReady && depositAmt <= UPI_MAX_AMOUNT;
+
+  useEffect(() => {
+    if (!amountReady || !allowedDepositMethods.length) return;
+    if (!allowedDepositMethods.some((m) => m.value === method)) {
+      setMethod(allowedDepositMethods[0]?.value ?? "bank");
+    }
+  }, [amountReady, allowedDepositMethods, method]);
 
   const notifyDepositDone = () => {
     onDepositSubmitted?.();
@@ -506,58 +523,93 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
         <div className="min-w-0 space-y-4">
           <div className="card min-w-0 space-y-4 p-4 sm:p-5">
             <StepBanner
-              tone="sky"
-              title="Step 1 — Choose deposit method"
-              description="Select how you want to pay, then transfer to the company account shown."
+              tone="emerald"
+              title="Step 1 — Deposit amount"
+              description={`Enter how much you want to add. Payment options in Step 2 depend on the amount — UPI up to ${inr(UPI_MAX_AMOUNT)}, bank or gateway for larger deposits.`}
             />
 
-            <MethodCategorySelect
-              label="Deposit method"
-              tone="step"
-              value={method}
-              onChange={setMethod}
-              options={filterDepositMethods(paymentOptions)}
+            <DepositAmountStep1
+              amount={amount}
+              setAmount={setAmount}
+              setPromoBonus={setPromoBonus}
+              showUpiPresets={upiAvailableForAmount}
             />
 
-            {method === "bank" && (
-              <MethodSelect
-                tone="bank"
-                label="Transfer type"
-                value={bankMethod}
-                onChange={setBankMethod}
-                options={filterBankTransferTypes(paymentOptions)}
-              />
-            )}
-
-            {method === "gateway" && (
-              <MethodSelect
-                tone="gateway"
-                label="Select payment gateway"
-                value={gateway}
-                onChange={setGateway}
-                options={gatewayOptionGroups.length ? undefined : gatewayOptions}
-                optionGroups={gatewayOptionGroups.length ? gatewayOptionGroups : undefined}
-                placeholder="Choose gateway"
-              />
-            )}
-            {method === "gateway" && gateway && (
-              <p className="text-xs text-muted-foreground">
-                Default gateway pre-selected by admin — change above if you prefer another.
+            {Number.isFinite(depositAmt) && depositAmt > 0 && depositAmt < MIN_MANUAL_DEPOSIT && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Minimum deposit is {inr(MIN_MANUAL_DEPOSIT)}.
               </p>
             )}
 
-            {(method === "upi" || method === "bank") && (
-              <DepositAmountControls
-                method={method}
-                amount={amount}
-                setAmount={setAmount}
-                setPromoBonus={setPromoBonus}
-              />
+            {requiresNonUpi && (
+              <Alert type="info">
+                Amount exceeds the UPI limit ({inr(UPI_MAX_AMOUNT)}). Use bank transfer or payment gateway for this deposit.
+              </Alert>
             )}
 
-            {method === "upi" && isUpiAmountOverLimit(amount) && (
-              <UpiLimitAlert onUseBank={() => setMethod("bank")} onUseGateway={() => setMethod("gateway")} />
+            {upiAvailableForAmount && allowedDepositMethods.length > 1 && (
+              <p className="text-xs text-muted-foreground">
+                You can pay via UPI, bank transfer, or payment gateway for this amount.
+              </p>
             )}
+
+            {amountReady && allowedDepositMethods.length === 0 && (
+              <Alert type="warning">
+                No deposit method is available for this amount. Contact support.
+              </Alert>
+            )}
+
+            {amountReady && allowedDepositMethods.length > 0 && (
+              <div className="space-y-4 border-t border-border pt-4">
+                <StepBanner
+                  tone="sky"
+                  title="Step 2 — Payment method"
+                  description="Choose how to pay, then transfer to the company account or proceed with online checkout."
+                />
+
+                {allowedDepositMethods.length > 1 ? (
+                  <MethodCategorySelect
+                    label="Deposit method"
+                    tone="step"
+                    value={method}
+                    onChange={setMethod}
+                    options={allowedDepositMethods}
+                  />
+                ) : (
+                  <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    Payment method:{" "}
+                    <strong className="text-foreground">
+                      {allowedDepositMethods[0].icon} {allowedDepositMethods[0].label}
+                    </strong>
+                  </p>
+                )}
+
+                {method === "bank" && (
+                  <MethodSelect
+                    tone="bank"
+                    label="Transfer type"
+                    value={bankMethod}
+                    onChange={setBankMethod}
+                    options={filterBankTransferTypes(paymentOptions)}
+                  />
+                )}
+
+                {method === "gateway" && (
+                  <MethodSelect
+                    tone="gateway"
+                    label="Select payment gateway"
+                    value={gateway}
+                    onChange={setGateway}
+                    options={gatewayOptionGroups.length ? undefined : gatewayOptions}
+                    optionGroups={gatewayOptionGroups.length ? gatewayOptionGroups : undefined}
+                    placeholder="Choose gateway"
+                  />
+                )}
+                {method === "gateway" && gateway && (
+                  <p className="text-xs text-muted-foreground">
+                    Default gateway pre-selected by admin — change above if you prefer another.
+                  </p>
+                )}
 
             {method === "upi" && upi?.vpa && !isUpiAmountOverLimit(amount) && (
               <div className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
@@ -589,10 +641,6 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   Scan or open your UPI app for <strong>₹{Number(amount).toLocaleString("en-IN")}</strong>, then enter UTR & proof in Step 2.
                 </p>
               </div>
-            )}
-
-            {method === "upi" && upi?.vpa && isUpiAmountOverLimit(amount) && (
-              <Alert type="info">Enter an amount up to ₹1,00,000 above to show the UPI QR code.</Alert>
             )}
 
             {method === "bank" && selectedBank && (
@@ -638,18 +686,16 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
               <form onSubmit={submit} className="space-y-4 border-t border-border pt-4">
                 <StepBanner
                   tone="emerald"
-                  title="Step 2 — Amount & proof"
-                  description="Enter the amount you paid, UTR/reference, and upload payment proof for admin verification."
+                  title="Step 3 — UTR & payment proof"
+                  description="After paying, enter your UTR/reference and upload proof for admin verification."
                 />
 
                 {msg && <Alert type="success">{msg}</Alert>}
                 {err && <Alert type="error">{err}</Alert>}
 
                 <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                  Deposit amount: <strong className="text-foreground">{inr(Number(amount) || 0)}</strong>
-                  {method === "upi" && (
-                    <span className="block text-xs text-muted-foreground">Change amount in Step 1 (max ₹1,00,000 for UPI)</span>
-                  )}
+                  Deposit amount: <strong className="text-foreground">{inr(depositAmt)}</strong>
+                  <span className="block text-xs text-muted-foreground">Change amount in Step 1 if needed</span>
                 </p>
 
                 <Field label="Promo code (optional)" hint="Bonus credited when deposit is approved">
@@ -686,14 +732,15 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
               <form onSubmit={submit} className="space-y-4 border-t border-border pt-4">
                 <StepBanner
                   tone="emerald"
-                  title="Step 2 — Amount"
-                  description="Enter amount and proceed with gateway checkout."
+                  title="Step 3 — Checkout"
+                  description="Proceed with online payment — no manual proof needed when payment succeeds."
                 />
                 {msg && <Alert type="success">{msg}</Alert>}
                 {err && <Alert type="error">{err}</Alert>}
-                <Field label="Amount (₹)" hint={`Minimum ${inr(MIN_MANUAL_DEPOSIT)}. No UPI limit — use for deposits above ₹1,00,000.`}>
-                  <input className="input" type="number" min={MIN_MANUAL_DEPOSIT} step={1000} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
-                </Field>
+                <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  Deposit amount: <strong className="text-foreground">{inr(depositAmt)}</strong>
+                  <span className="block text-xs text-muted-foreground">Change amount in Step 1 if needed</span>
+                </p>
                 <Field label="Promo code (optional)">
                   <div className="flex gap-2">
                     <input className="input flex-1 font-mono uppercase" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
@@ -702,8 +749,10 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   {promoErr && <p className="mt-1 text-xs text-rose-500">{promoErr}</p>}
                   {promoBonus != null && <p className="mt-1 text-xs text-emerald-600">Bonus: {inr(promoBonus)}</p>}
                 </Field>
-                <button type="submit" className="btn-gold w-full">Pay with {gateway || "gateway"}</button>
+                <button type="submit" className="btn-gold w-full">Pay {inr(depositAmt)} with {gateway || "gateway"}</button>
               </form>
+            )}
+              </div>
             )}
           </div>
 
