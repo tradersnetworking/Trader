@@ -257,7 +257,8 @@ router.get(
     const investors = await listInvestorsForAdmin();
     const roleInvestors = investors.filter((i) => i.role === "INVESTOR");
     res.json({
-      investors,
+      investors: roleInvestors,
+      allAccounts: investors,
       summary: {
         total: investors.length,
         investors: roleInvestors.length,
@@ -2330,6 +2331,60 @@ router.put(
     await setPermission(role, permission, Boolean(granted));
     await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "RBAC_UPDATE", entity: "RolePermission", meta: JSON.stringify({ role, permission, granted }) });
     res.json({ ok: true });
+  })
+);
+
+router.get(
+  "/rbac/admins",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    const { listAdminAccounts } = await import("../services/rbac.js");
+    res.json({ admins: await listAdminAccounts() });
+  })
+);
+
+router.get(
+  "/rbac/admins/:id",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { getAdminUserPermissions } = await import("../services/rbac.js");
+    try {
+      res.json(await getAdminUserPermissions(req.params.id));
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message });
+    }
+  })
+);
+
+router.put(
+  "/rbac/admins/:id",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { setAdminUserPermission, clearAdminUserPermissionOverride } = await import("../services/rbac.js");
+    const { permission, granted, useRoleDefault } = req.body;
+    try {
+      let result;
+      if (useRoleDefault) {
+        result = await clearAdminUserPermissionOverride(req.params.id, permission);
+      } else {
+        result = await setAdminUserPermission(req.params.id, permission, Boolean(granted));
+      }
+      await logAudit({
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        actorName: req.user.name,
+        action: "RBAC_ADMIN_USER",
+        entity: "Investor",
+        entityId: req.params.id,
+        meta: JSON.stringify({ permission, granted, useRoleDefault }),
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(e.status || 400).json({ error: e.message });
+    }
   })
 );
 

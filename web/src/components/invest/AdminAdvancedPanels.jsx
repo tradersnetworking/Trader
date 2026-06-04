@@ -86,42 +86,7 @@ export function CohortAnalyticsPanel() {
   );
 }
 
-export function RbacPanel() {
-  const [matrix, setMatrix] = useState(null);
-  const load = () => investApi("/admin/rbac").then(setMatrix).catch(() => {});
-  useEffect(() => { load(); }, []);
-  const toggle = async (role, permission, granted) => {
-    await investApi("/admin/rbac", { method: "PUT", body: { role, permission, granted: !granted } });
-    load();
-  };
-  if (!matrix) return <p className="text-sm text-muted-foreground">Loading permissions…</p>;
-  return (
-    <div className="card overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead><tr className="text-left text-xs uppercase"><th className="p-3">Permission</th><th className="p-3">Admin</th><th className="p-3">Super Admin</th></tr></thead>
-        <tbody>
-          {matrix.permissions.map((p) => (
-            <tr key={p.key} className="border-t">
-              <td className="p-3">{p.label}</td>
-              {["ADMIN", "SUPERADMIN"].map((role) => {
-                const g = matrix.view[p.key]?.roles[role];
-                return (
-                  <td key={role} className="p-3">
-                    {role === "SUPERADMIN" ? "✓ All" : (
-                      <button type="button" className={`text-xs font-semibold ${g ? "text-emerald-600" : "text-muted-foreground"}`} onClick={() => toggle(role, p.key, g)}>
-                        {g ? "Granted" : "Denied"}
-                      </button>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+export { default as RbacPanel } from "./RbacPermissionsPanel.jsx";
 
 export function SupportMailPanel() {
   const [messages, setMessages] = useState([]);

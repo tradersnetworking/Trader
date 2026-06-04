@@ -87,7 +87,7 @@ export default function InvestorOpsPanel() {
     setLoadErr("");
     try {
       const d = await investApi("/admin/investors");
-      const list = (d.investors || []).filter((i) => i.role === "INVESTOR");
+      const list = (d.investors || []).filter((i) => !i.role || i.role === "INVESTOR");
       setInvestors(list);
       setSummary(d.summary || null);
     } catch (e) {
@@ -160,14 +160,16 @@ export default function InvestorOpsPanel() {
     });
   }, [investors, search, authFilter]);
 
-  const openManageTab = () => {
+  const openManageTab = async () => {
     setTab("manage");
+    if (!investors.length && !loadingList) await load();
     if (detail) return;
     if (manageFromUrl) {
       loadDetail(manageFromUrl);
       return;
     }
-    if (filtered.length === 1) loadDetail(filtered[0].id);
+    const pool = investors.length ? investors : filtered;
+    if (pool.length === 1) loadDetail(pool[0].id);
   };
 
   const leaveManage = () => {
@@ -541,8 +543,70 @@ export default function InvestorOpsPanel() {
         </form>
       )}
 
-      {tab === "manage" && detail && (
+      {tab === "manage" && detailLoading && (
+        <div className="card p-8 text-center text-muted-foreground">Loading investor details…</div>
+      )}
+
+      {tab === "manage" && !detailLoading && !detail && (
+        <div className="card max-w-xl space-y-4 p-5">
+          <h3 className="font-bold">Select investor to manage</h3>
+          <p className="text-sm text-muted-foreground">
+            {loadingList
+              ? "Loading investor list…"
+              : investors.length
+                ? "Choose an investor below, or open All investors and click Manage on a row."
+                : "No investor accounts found. Users appear here after Google or email registration."}
+          </p>
+          {!loadingList && investors.length > 0 && (
+            <>
+              <Field label="Investor">
+                <select className="input" value={pickerId} onChange={(e) => setPickerId(e.target.value)}>
+                  <option value="">Select investor…</option>
+                  {investors.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name} — {i.email}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <button
+                type="button"
+                className="btn-gold disabled:opacity-50"
+                disabled={!pickerId}
+                onClick={() => loadDetail(pickerId)}
+              >
+                Open manage view
+              </button>
+            </>
+          )}
+          {!loadingList && !investors.length && (
+            <button type="button" className="btn-outline text-sm" onClick={() => load()}>
+              Reload investors
+            </button>
+          )}
+        </div>
+      )}
+
+      {tab === "manage" && !detailLoading && detail && (
         <div className="space-y-4">
+          <div className="card flex flex-wrap items-end gap-3 p-4">
+            <Field label="Switch investor" className="min-w-[220px] flex-1">
+              <select
+                className="input"
+                value={detail.id}
+                onChange={(e) => e.target.value && loadDetail(e.target.value)}
+              >
+                {investors.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name} — {i.email}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <button type="button" className="btn-outline text-xs" onClick={() => load({ silent: true })}>
+              Refresh list
+            </button>
+          </div>
           <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
