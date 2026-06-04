@@ -233,7 +233,7 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
 
   const save = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     setMsg("");
     setErr("");
     setSavedFlash(false);
@@ -245,21 +245,99 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
     setSaving(true);
     try {
       const d = await saveSettings(payload);
-      if (d?.settings) setSettings(d.settings);
-      await loadGateways();
-      const success = Object.keys(payload).length
-        ? "Gateway settings saved successfully. New deposits will use these credentials."
-        : "No gateway fields were changed. Secret fields left blank keep their existing values.";
-      setMsg(success);
+      setSettings(d?.settings || {});
+      setMsg(
+        d?.message ||
+          (Object.keys(payload).length
+            ? "Gateway settings saved successfully."
+            : "No changes sent. Enter a key or ID to save (leave secrets blank to keep current values).")
+      );
       setSavedFlash(true);
-      saveFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      window.setTimeout(() => setSavedFlash(false), 4000);
+      saveFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      try {
+        await loadGateways();
+      } catch {
+        /* gateway list refresh is optional */
+      }
+      window.setTimeout(() => setSavedFlash(false), 5000);
     } catch (e2) {
       setErr(e2.message || "Failed to save gateway settings.");
+      setSavedFlash(false);
     } finally {
       setSaving(false);
     }
   };
+
+  const gatewayKeysForm =
+    editable && saveSettings ? (
+      <form
+        id="gateway-settings-form"
+        ref={saveFormRef}
+        onSubmit={save}
+        className="card space-y-4 border-2 border-primary/20 p-5"
+      >
+        <h3 className="font-bold text-navy dark:text-white">Edit Gateway Keys (Super Admin)</h3>
+        <p className="text-sm text-muted-foreground">
+          Enter API credentials below, then click <strong>Save Gateway Settings</strong>. Secret fields left blank keep their existing values.
+        </p>
+
+        {Object.entries(GATEWAY_SETTING_KEYS).map(([gw, fields]) => (
+          <div key={gw} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+            <h4 className="mb-3 font-semibold text-navy dark:text-white">{GATEWAY_LABELS[gw] || gw}</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {fields.map((f) => (
+                <Field key={f.key} label={f.label}>
+                  {f.secret ? (
+                    <PasswordInput
+                      value={settings[f.key] || ""}
+                      onChange={(ev) => set(f.key, ev.target.value)}
+                      placeholder="Leave blank to keep current"
+                    />
+                  ) : (
+                    <input
+                      className="input"
+                      type="text"
+                      value={settings[f.key] || ""}
+                      onChange={(ev) => set(f.key, ev.target.value)}
+                    />
+                  )}
+                </Field>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {(msg || err) && (
+          <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+            {msg && (
+              <Alert type="success" role="status">
+                {msg}
+              </Alert>
+            )}
+            {err && (
+              <Alert type="error" role="alert">
+                {err}
+              </Alert>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <button
+            type="submit"
+            className="btn-gold w-full sm:w-auto"
+            disabled={saving}
+          >
+            {saving ? "Saving…" : savedFlash ? "Saved ✓" : "Save Gateway Settings"}
+          </button>
+          {savedFlash && !saving && (
+            <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400" role="status">
+              ✓ Confirmed — settings saved
+            </span>
+          )}
+        </div>
+      </form>
+    ) : null;
 
 
 
@@ -275,9 +353,9 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
         Configure API keys below. Use the on/off switches to control which payment modes investors see for <b>deposits</b> and <b>withdrawals</b> (Super Admin only).
       </Alert>
 
-      {msg && <Alert type="success">{msg}</Alert>}
+      {gatewayKeysForm}
 
-      {err && collection.length > 0 && <Alert type="error">{err}</Alert>}
+      {err && collection.length > 0 && !gatewayKeysForm && <Alert type="error">{err}</Alert>}
 
       {editable && (
         <section className="card space-y-2 p-4">
@@ -393,79 +471,6 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
         </div>
 
       </section>
-
-
-
-      {editable && saveSettings && (
-
-        <form ref={saveFormRef} onSubmit={save} className="card space-y-4 p-5">
-
-          <h3 className="font-bold text-navy dark:text-white">Edit Gateway Keys (Super Admin)</h3>
-
-          {Object.entries(GATEWAY_SETTING_KEYS).map(([gw, fields]) => (
-
-            <div key={gw} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-
-              <h4 className="mb-3 font-semibold text-navy dark:text-white">{GATEWAY_LABELS[gw] || gw}</h4>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-
-                {fields.map((f) => (
-
-                  <Field key={f.key} label={f.label}>
-                    {f.secret ? (
-                      <PasswordInput
-                        value={settings[f.key] || ""}
-                        onChange={(e) => set(f.key, e.target.value)}
-                        placeholder="Leave blank to keep current"
-                      />
-                    ) : (
-                      <input
-                        className="input"
-                        type="text"
-                        value={settings[f.key] || ""}
-                        onChange={(e) => set(f.key, e.target.value)}
-                      />
-                    )}
-                  </Field>
-
-                ))}
-
-              </div>
-
-            </div>
-
-          ))}
-
-          {msg && (
-            <Alert type="success" role="status">
-              {msg}
-            </Alert>
-          )}
-          {err && (
-            <Alert type="error" role="alert">
-              {err}
-            </Alert>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <button
-              type="submit"
-              className="btn-gold w-full sm:w-auto"
-              disabled={saving}
-            >
-              {saving ? "Saving…" : savedFlash ? "Saved ✓" : "Save Gateway Settings"}
-            </button>
-            {savedFlash && !saving && (
-              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                Settings saved
-              </span>
-            )}
-          </div>
-
-        </form>
-
-      )}
 
 
 

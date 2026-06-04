@@ -7,6 +7,7 @@ import { config } from "../config.js";
 import { listGateways, createOrder } from "../payments/gateways.js";
 import { payoutGatewayStatus } from "../payments/payouts.js";
 import { getAllSettings, setSettings } from "../services/investSettings.js";
+import { filterGatewaySettingsPayload, pickGatewaySettings } from "../data/gatewaySettingKeys.js";
 import { upload, fileUrl } from "../utils/upload.js";
 import { BULK_QUANTITY_UNITS, getCatalogStats } from "../data/categories.js";
 import {
@@ -979,6 +980,41 @@ router.put(
   asyncH(async (req, res) => {
     const settings = await setSettings(req.body);
     res.json({ settings });
+  })
+);
+
+router.get(
+  "/admin/settings/gateways",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (_req, res) => {
+    const all = await getAllSettings(false);
+    res.json({ settings: pickGatewaySettings(all) });
+  })
+);
+
+router.put(
+  "/admin/settings/gateways",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const filtered = filterGatewaySettingsPayload(req.body);
+    if (!Object.keys(filtered).length) {
+      const all = await getAllSettings(false);
+      return res.json({
+        ok: true,
+        saved: [],
+        message: "No changes to save. Enter a gateway key or ID (secrets left blank are unchanged).",
+        settings: pickGatewaySettings(all),
+      });
+    }
+    const all = await setSettings(filtered);
+    res.json({
+      ok: true,
+      saved: Object.keys(filtered),
+      message: "Gateway settings saved successfully.",
+      settings: pickGatewaySettings(all),
+    });
   })
 );
 

@@ -238,8 +238,8 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
             <PaymentGatewaysPanel
               fetchGateways={() => investApi("/admin/gateways")}
               editable
-              saveSettings={(body) => investApi("/admin/settings", { method: "PUT", body })}
-              loadSettings={() => investApi("/admin/settings")}
+              saveSettings={(body) => investApi("/admin/settings/gateways", { method: "PUT", body })}
+              loadSettings={() => investApi("/admin/settings/gateways")}
               onVisibilityChange={(modes) =>
                 investApi("/admin/payment-mode-visibility", { method: "PUT", body: { modes } })
               }

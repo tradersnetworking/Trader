@@ -64,8 +64,8 @@ export default function AdminDashboard() {
           key={refreshKey}
           fetchGateways={() => mainApi("/admin/gateways")}
           editable={isSuper}
-          loadSettings={isSuper ? () => mainApi("/admin/settings") : undefined}
-          saveSettings={isSuper ? (body) => mainApi("/admin/settings", { method: "PUT", body }) : undefined}
+          loadSettings={isSuper ? () => mainApi("/admin/settings/gateways") : undefined}
+          saveSettings={isSuper ? (body) => mainApi("/admin/settings/gateways", { method: "PUT", body }) : undefined}
         />
       )}
       {tab === "platform-update" && isSuper && (

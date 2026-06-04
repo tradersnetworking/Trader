@@ -48,6 +48,7 @@ import {
   onMaturityPayoutReleased,
 } from "../services/maturityPayments.js";
 import { getAllSettings, setSettings } from "../services/investSettings.js";
+import { filterGatewaySettingsPayload, pickGatewaySettings } from "../data/gatewaySettingKeys.js";
 import {
   exportInvestData,
   formatExport,
@@ -1318,6 +1319,43 @@ router.put(
   asyncH(async (req, res) => {
     const settings = await setSettings(req.body);
     res.json({ settings });
+  })
+);
+
+router.get(
+  "/settings/gateways",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (_req, res) => {
+    const all = await getAllSettings(false);
+    res.json({ settings: pickGatewaySettings(all) });
+  })
+);
+
+router.put(
+  "/settings/gateways",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_settings"),
+  asyncH(async (req, res) => {
+    const filtered = filterGatewaySettingsPayload(req.body);
+    if (!Object.keys(filtered).length) {
+      const all = await getAllSettings(false);
+      return res.json({
+        ok: true,
+        saved: [],
+        message: "No changes to save. Enter a gateway key or ID (secrets left blank are unchanged).",
+        settings: pickGatewaySettings(all),
+      });
+    }
+    const all = await setSettings(filtered);
+    res.json({
+      ok: true,
+      saved: Object.keys(filtered),
+      message: "Gateway settings saved successfully.",
+      settings: pickGatewaySettings(all),
+    });
   })
 );
 
