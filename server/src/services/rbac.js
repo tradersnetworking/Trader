@@ -18,11 +18,20 @@ export const PERMISSIONS = [
   { key: "manage_rbac", label: "Manage permissions" },
 ];
 
+/** Denied on ADMIN role matrix by default; cannot toggle "Admin (default)" to Granted. */
 const SUPERADMIN_ONLY = new Set([
   "manage_staff",
   "manage_rbac",
   "manage_plans",
   "manage_gateways",
+  "manage_settings",
+]);
+
+/** Per-admin custom grants allowed (e.g. manage_gateways for one admin only). */
+const PER_USER_OVERRIDE_BLOCKED = new Set([
+  "manage_staff",
+  "manage_rbac",
+  "manage_plans",
   "manage_settings",
 ]);
 
@@ -128,7 +137,8 @@ export async function getAdminUserPermissions(adminId) {
   const overrides = parseOverrides(admin.customPermissions);
   const permissions = await Promise.all(
     PERMISSIONS.map(async (p) => {
-      const superOnly = SUPERADMIN_ONLY.has(p.key);
+      const superOnly = PER_USER_OVERRIDE_BLOCKED.has(p.key);
+      const roleMatrixLocked = SUPERADMIN_ONLY.has(p.key);
       const roleDefault = await adminRoleDefaultGranted(p.key);
       const hasOverride = overrides[p.key] !== undefined;
       const effective = hasOverride ? Boolean(overrides[p.key]) : roleDefault;
@@ -136,6 +146,7 @@ export async function getAdminUserPermissions(adminId) {
         key: p.key,
         label: p.label,
         superOnly,
+        roleMatrixLocked,
         roleDefault,
         hasOverride,
         effective,
@@ -146,7 +157,7 @@ export async function getAdminUserPermissions(adminId) {
 }
 
 export async function setAdminUserPermission(adminId, permission, granted) {
-  if (SUPERADMIN_ONLY.has(permission)) {
+  if (PER_USER_OVERRIDE_BLOCKED.has(permission)) {
     const err = new Error("This permission is reserved for Super Admin only.");
     err.status = 403;
     throw err;

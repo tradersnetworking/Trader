@@ -121,7 +121,7 @@ export const ADMIN_NAV = [
 
   { id: "platform-update", label: "Platform Update", icon: "settings", color: "amber", superOnly: true },
 
-  { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan", superOnly: true },
+  { id: "gateways", label: "Payment Gateways", icon: "gateways", color: "cyan" },
 
   { id: "rbac", label: "Permissions", icon: "staff", color: "blue", superOnly: true },
 

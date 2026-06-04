@@ -116,7 +116,8 @@ export default function RbacPermissionsPanel() {
       <div>
         <h3 className="text-lg font-bold">Permissions</h3>
         <p className="text-sm text-muted-foreground">
-          Set default permissions for all Admin accounts, then grant or deny per admin user as needed.
+          Set default permissions for all Admin accounts, then grant or deny per admin user as needed.{" "}
+          <strong>Manage payment gateways</strong> is denied for all admins by default but can be granted to individual admins below.
         </p>
       </div>
 
@@ -142,7 +143,13 @@ export default function RbacPermissionsPanel() {
                   <td className="p-3">
                     <PermButtons
                       effective={adminGranted}
-                      superOnly={p.key === "manage_staff" || p.key === "manage_rbac" || p.key === "manage_plans" || p.key === "manage_gateways" || p.key === "manage_settings"}
+                      superOnly={
+                        p.key === "manage_staff" ||
+                        p.key === "manage_rbac" ||
+                        p.key === "manage_plans" ||
+                        p.key === "manage_gateways" ||
+                        p.key === "manage_settings"
+                      }
                       busy={busy}
                       onGrant={() => setRolePerm("ADMIN", p.key, true)}
                       onDeny={() => setRolePerm("ADMIN", p.key, false)}

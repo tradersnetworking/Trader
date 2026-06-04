@@ -7,7 +7,12 @@ import { Alert } from "../ui.jsx";
  * Unified super-admin payment gateway dashboard (invest + main marketplace).
  * Uses the same invest DB settings from either portal when api routes are wired.
  */
-export default function SuperAdminGatewaysHub({ api, showDepositAccounts = false }) {
+export default function SuperAdminGatewaysHub({
+  api,
+  showDepositAccounts = false,
+  canEditApiKeys = false,
+  canEditVisibility = false,
+}) {
   const [section, setSection] = useState("gateways");
 
   const fetchGateways = () => api("/admin/gateways");
@@ -19,8 +24,10 @@ export default function SuperAdminGatewaysHub({ api, showDepositAccounts = false
   return (
     <div className="space-y-4">
       <Alert type="info">
-        Manage online payment gateways, API keys, and investor visibility. Changes apply to the invest portal
-        wallet and deposits. Super Admin can use this screen from <strong>main</strong> or <strong>invest</strong> admin.
+        Turn each payment method on or off for deposits and withdrawals separately (e.g. crypto deposit without crypto withdraw).
+        {canEditApiKeys
+          ? " API keys are editable here (Super Admin)."
+          : " API keys are Super Admin only; you can edit visibility and company accounts."}
       </Alert>
 
       {showDepositAccounts && (
@@ -32,7 +39,7 @@ export default function SuperAdminGatewaysHub({ api, showDepositAccounts = false
               section === "gateways" ? "bg-primary/15 text-accent-tone" : "bg-muted text-muted-foreground"
             }`}
           >
-            Gateways & API keys
+            {canEditApiKeys ? "Gateways & API keys" : "Payment method visibility"}
           </button>
           <button
             type="button"
@@ -49,15 +56,16 @@ export default function SuperAdminGatewaysHub({ api, showDepositAccounts = false
       {section === "gateways" && (
         <PaymentGatewaysPanel
           fetchGateways={fetchGateways}
-          editable
-          saveSettings={saveSettings}
-          loadSettings={loadSettings}
-          onVisibilityChange={onVisibilityChange}
+          editable={canEditVisibility}
+          canEditApiKeys={canEditApiKeys}
+          saveSettings={canEditApiKeys ? saveSettings : undefined}
+          loadSettings={canEditApiKeys ? loadSettings : undefined}
+          onVisibilityChange={canEditVisibility ? onVisibilityChange : undefined}
         />
       )}
 
-      {section === "accounts" && showDepositAccounts && (
-        <DepositPaymentAccountsPanel editable accountsOnly />
+      {section === "accounts" && showDepositAccounts && canEditVisibility && (
+        <DepositPaymentAccountsPanel editable accountsOnly hideApiKeysTab />
       )}
     </div>
   );

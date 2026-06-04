@@ -23,13 +23,27 @@ function ToggleRow({ label, sublabel, checked, onChange, disabled }) {
   );
 }
 
-export function VisibilityPairToggles({ modeId, visibility, onChange, disabled, depositLabel = "Show for deposits", withdrawLabel = "Show for withdrawals" }) {
+export function VisibilityPairToggles({
+  modeId,
+  visibility,
+  onChange,
+  disabled,
+  depositLabel = "Show for deposits",
+  withdrawLabel = "Show for withdrawals",
+  showDeposit = true,
+  showWithdraw = true,
+}) {
   const v = visibility?.[modeId] || visibility?.[String(modeId).toLowerCase()] || { deposit: true, withdraw: true };
   const set = (patch) => onChange(modeId, { ...v, ...patch });
+  if (!showDeposit && !showWithdraw) return null;
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
-      <ToggleRow label={depositLabel} checked={v.deposit !== false} onChange={(on) => set({ deposit: on })} disabled={disabled} />
-      <ToggleRow label={withdrawLabel} checked={v.withdraw !== false} onChange={(on) => set({ withdraw: on })} disabled={disabled} />
+      {showDeposit && (
+        <ToggleRow label={depositLabel} checked={v.deposit !== false} onChange={(on) => set({ deposit: on })} disabled={disabled} />
+      )}
+      {showWithdraw && (
+        <ToggleRow label={withdrawLabel} checked={v.withdraw !== false} onChange={(on) => set({ withdraw: on })} disabled={disabled} />
+      )}
     </div>
   );
 }

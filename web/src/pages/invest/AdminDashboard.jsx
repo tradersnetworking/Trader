@@ -202,10 +202,17 @@ export default function InvestAdminDashboard() {
       case "support-mail":
         return gate("support_tickets", "Mail Desk", <TabPanel><SupportMailPanel /></TabPanel>);
       case "gateways":
-        return isSuper ? (
-          <TabPanel><SuperAdminGatewaysHub api={investApi} showDepositAccounts /></TabPanel>
-        ) : (
-          <DashboardTabFallback title="Payment Gateways" message="Only Super Admin can manage payment gateways." onGoOverview={() => setTab("overview")} />
+        return gate(
+          "manage_gateways",
+          "Payment Gateways",
+          <TabPanel>
+            <SuperAdminGatewaysHub
+              api={investApi}
+              showDepositAccounts
+              canEditApiKeys={isSuper}
+              canEditVisibility={true}
+            />
+          </TabPanel>
         );
       case "support-links":
         return gate("manage_settings", "WhatsApp & Telegram", <TabPanel><SupportLinksPanel /></TabPanel>);

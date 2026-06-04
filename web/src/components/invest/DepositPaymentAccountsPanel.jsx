@@ -82,9 +82,12 @@ const emptyForm = (type) => ({
 
 
 
-export default function DepositPaymentAccountsPanel({ editable = false, accountsOnly = false }) {
+export default function DepositPaymentAccountsPanel({ editable = false, accountsOnly = false, hideApiKeysTab = false }) {
 
-  const tabList = accountsOnly ? TABS.filter((t) => t.id !== "keys") : TABS;
+  const tabList = TABS.filter((t) => {
+    if (accountsOnly || hideApiKeysTab) return t.id !== "keys";
+    return true;
+  });
   const [tab, setTab] = useState(tabList[0]?.id || "upi");
 
   const [gateways, setGateways] = useState([]);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Badge, Alert, Field, PasswordInput } from "./ui.jsx";
 import { VisibilityPairToggles } from "./invest/PaymentModeVisibilityToggles.jsx";
+import { INVESTOR_PAYMENT_VISIBILITY, BANK_TRANSFER_DEPOSIT_TYPES } from "../lib/payment-visibility-modes.js";
 
 
 
@@ -164,6 +165,18 @@ const GATEWAY_SETTING_KEYS = {
 
 const MASKED = "••••••••";
 
+function normalizeVisibility(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const out = {};
+  for (const [key, val] of Object.entries(raw)) {
+    out[String(key).toLowerCase()] = {
+      deposit: val?.deposit !== false,
+      withdraw: val?.withdraw !== false,
+    };
+  }
+  return out;
+}
+
 function buildGatewayPayload(settings) {
   const payload = {};
   for (const fields of Object.values(GATEWAY_SETTING_KEYS)) {
@@ -177,7 +190,16 @@ function buildGatewayPayload(settings) {
   return payload;
 }
 
-export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSettings, loadSettings, onVisibilityChange }) {
+export default function PaymentGatewaysPanel({
+  fetchGateways,
+  editable = false,
+  canEditApiKeys = false,
+  saveSettings,
+  loadSettings,
+  onVisibilityChange,
+}) {
+  const visibilityEditable = Boolean(editable);
+  const apiKeysEditable = Boolean(canEditApiKeys && saveSettings);
 
   const [collection, setCollection] = useState([]);
 
@@ -210,10 +232,8 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
     loadGateways();
 
-    if (editable && loadSettings) {
-
+    if (apiKeysEditable && loadSettings) {
       loadSettings().then((d) => setSettings(d.settings || {})).catch(() => {});
-
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -221,7 +241,7 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
   }, []);
 
   const patchVisibility = async (modeId, patch) => {
-    if (!editable || !onVisibilityChange) return;
+    if (!visibilityEditable || !onVisibilityChange) return;
     const key = String(modeId).toLowerCase();
     const next = { ...visibility, [key]: { ...(visibility[key] || { deposit: true, withdraw: true }), ...patch } };
     setVisibility(next);
@@ -278,7 +298,7 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
   };
 
   const gatewayKeysForm =
-    editable && saveSettings ? (
+    apiKeysEditable ? (
       <form
         id="gateway-settings-form"
         ref={saveFormRef}
@@ -359,42 +379,49 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
     <div className="space-y-6">
 
       <Alert type="info">
-        Configure API keys below. Use the on/off switches to control which payment modes investors see for <b>deposits</b> and <b>withdrawals</b> (Super Admin only).
+        Turn each payment method on or off for <b>deposits</b> and <b>withdrawals</b> independently (e.g. crypto deposit on without crypto withdraw).
+        {apiKeysEditable ? " API keys below are Super Admin only." : visibilityEditable ? " API key editing requires Super Admin." : ""}
       </Alert>
 
       {gatewayKeysForm}
 
       {err && collection.length > 0 && !gatewayKeysForm && <Alert type="error">{err}</Alert>}
 
-      {editable && (
-        <section className="card space-y-2 p-4">
-          <h3 className="font-bold text-navy dark:text-white">Investor deposit categories</h3>
-          {["upi", "bank", "gateway", "crypto"].map((id) => (
-            <VisibilityPairToggles
-              key={id}
-              modeId={id}
-              visibility={visibility}
-              onChange={patchVisibility}
-              depositLabel={`Deposits — ${id === "upi" ? "UPI" : id === "bank" ? "Bank transfer" : id === "crypto" ? "Crypto (USDT, TRX, BNB)" : "Online gateway"}`}
-              withdrawLabel={id === "crypto" ? "Withdrawals — Crypto wallet" : "Withdrawals (n/a)"}
-            />
+      {visibilityEditable && (
+        <section className="card space-y-3 p-4">
+          <h3 className="font-bold text-navy dark:text-white">Investor payment methods</h3>
+          <p className="text-xs text-muted-foreground">
+            Each row has separate switches for deposits and withdrawals. They do not need to match.
+          </p>
+          {INVESTOR_PAYMENT_VISIBILITY.map((mode) => (
+            <div key={mode.id} className="rounded-lg border border-border bg-muted/20 p-3">
+              <p className="text-sm font-semibold text-foreground">{mode.label}</p>
+              {mode.hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{mode.hint}</p>}
+              <VisibilityPairToggles
+                modeId={mode.id}
+                visibility={visibility}
+                onChange={patchVisibility}
+                showDeposit={mode.showDeposit}
+                showWithdraw={mode.showWithdraw}
+                depositLabel="Deposits — show to investors"
+                withdrawLabel="Withdrawals — show to investors"
+              />
+            </div>
           ))}
-        </section>
-      )}
-
-      {editable && (
-        <section className="card space-y-2 p-4">
-          <h3 className="font-bold text-navy dark:text-white">Investor withdrawal methods</h3>
-          {["UPI", "BANK", "CRYPTO"].map((id) => (
-            <VisibilityPairToggles
-              key={id}
-              modeId={id.toLowerCase() === "crypto" ? "crypto" : id}
-              visibility={visibility}
-              onChange={patchVisibility}
-              depositLabel="Deposits (n/a)"
-              withdrawLabel={`Withdrawals — ${id === "UPI" ? "UPI" : id === "CRYPTO" ? "Crypto wallet" : "Bank account"}`}
-            />
-          ))}
+          <div className="rounded-lg border border-dashed border-border p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bank transfer types (deposits only)</p>
+            {BANK_TRANSFER_DEPOSIT_TYPES.map((t) => (
+              <VisibilityPairToggles
+                key={t.id}
+                modeId={t.id}
+                visibility={visibility}
+                onChange={patchVisibility}
+                showDeposit
+                showWithdraw={false}
+                depositLabel={`${t.label} deposits`}
+              />
+            ))}
+          </div>
         </section>
       )}
 
@@ -413,7 +440,7 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
               type="collection"
               modeId={g.name}
               visibility={visibility}
-              editable={editable}
+              editable={visibilityEditable}
               onVisibilityChange={patchVisibility}
             />
 
@@ -442,7 +469,7 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
               type="bank-api"
               modeId={g.name}
               visibility={visibility}
-              editable={editable}
+              editable={visibilityEditable}
               onVisibilityChange={patchVisibility}
             />
 
@@ -469,10 +496,10 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
               type="payout"
               modeId={g.name}
               visibility={visibility}
-              editable={editable}
+              editable={visibilityEditable}
               onVisibilityChange={patchVisibility}
-              depositLabel="Show for deposits"
-              withdrawLabel="Show for withdrawals / payouts"
+              showDeposit={false}
+              withdrawLabel="Withdrawals / payouts — show to investors"
             />
 
           ))}
@@ -517,8 +544,10 @@ function GatewayCard({
   visibility,
   editable,
   onVisibilityChange,
-  depositLabel = "Show to investors for deposits",
-  withdrawLabel = "Show to investors for withdrawals",
+  depositLabel = "Deposits — show to investors",
+  withdrawLabel = "Withdrawals — show to investors",
+  showDeposit = true,
+  showWithdraw = true,
 }) {
   const label = GATEWAY_LABELS[name] || GATEWAY_LABELS[name.toLowerCase()] || name;
   const id = String(modeId || name).toLowerCase();
@@ -540,6 +569,8 @@ function GatewayCard({
           disabled={!editable}
           depositLabel={depositLabel}
           withdrawLabel={withdrawLabel}
+          showDeposit={showDeposit}
+          showWithdraw={showWithdraw}
         />
       )}
     </div>
