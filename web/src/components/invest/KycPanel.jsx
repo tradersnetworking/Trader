@@ -942,7 +942,8 @@ export default function KycPanel({
                   hint="Upload a photo or use your camera — hold your ID beside your face"
 
                   name="selfie"
-
+                  required
+                  imageOnly
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
