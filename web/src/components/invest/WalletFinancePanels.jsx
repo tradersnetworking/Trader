@@ -17,6 +17,7 @@ import ShareProfitButton from "./ShareProfitButton.jsx";
 import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/onlineCheckout.js";
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import UpiPayAppButtons from "../shared/UpiPayAppButtons.jsx";
 import { MIN_WALLET_DEPOSIT, resolveDefaultDepositAmount } from "../../lib/plan-types.js";
 import { withdrawEligibility } from "../../lib/investCompliance.js";
 
@@ -60,13 +61,6 @@ function filterBankTransferTypes(paymentOptions) {
   return BANK_TRANSFER_TYPES.filter((m) => t[m.value] !== false);
 }
 
-function buildUpiPayUri(vpa, payeeName, amount) {
-  if (!vpa) return null;
-  const params = new URLSearchParams({ pa: vpa, pn: payeeName || "AKSHYA INVESTMENTS", cu: "INR" });
-  if (amount && Number(amount) > 0) params.set("am", String(Number(amount)));
-  return `upi://pay?${params.toString()}`;
-}
-
 function PayoutDestinationCard({ mode, investor }) {
   if (!investor) return null;
   const isUpi = mode === "UPI";
@@ -97,7 +91,7 @@ function PayoutDestinationCard({ mode, investor }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/30 p-4 dark:bg-muted/20">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Payout destination
       </p>
@@ -105,6 +99,12 @@ function PayoutDestinationCard({ mode, investor }) {
         <>
           <CredentialRow label="UPI ID" value={investor.upiId} />
           <CredentialRow label="Account holder" value={investor.name} mono={false} />
+          <UpiQrDisplay
+            vpa={investor.upiId}
+            payeeName={investor.name}
+            className="mt-3 py-1"
+            caption="Your payout UPI — scan to verify before confirming"
+          />
         </>
       ) : (
         <>
@@ -184,8 +184,6 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
   const upi = selectedUpi
     ? { vpa: selectedUpi.upiId, payeeName: selectedUpi.accountHolder || bank?.upi?.payeeName, qrCodeUrl: selectedUpi.qrCodeUrl }
     : bank?.upi;
-  const upiPayLink = buildUpiPayUri(upi?.vpa, upi?.payeeName || bank?.bank?.accountName, amount);
-
   const resolveMethod = () => {
     if (method === "upi") return "UPI";
     if (method === "bank") return bankMethod;
@@ -395,7 +393,7 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
             )}
 
             {method === "upi" && upi?.vpa && (
-              <div className="space-y-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
+              <div className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
                 <FinanceFieldLabel tone="upi">Company UPI account</FinanceFieldLabel>
                 {depositAccounts.upi.length > 0 && (
                   <MethodSelect
@@ -408,15 +406,18 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 )}
                 <CredentialRow label="UPI ID" value={upi.vpa} />
                 {upi.payeeName && <CredentialRow label="Payee name" value={upi.payeeName} mono={false} />}
-                <UpiQrDisplay vpa={upi.vpa} payeeName={upi.payeeName} amount={amount} storedQrUrl={upi.qrCodeUrl} className="py-2" />
-                {upiPayLink && (
-                  <a
-                    href={upiPayLink}
-                    className="btn-gold flex w-full items-center justify-center py-2.5 text-sm"
-                  >
-                    Open GPay / PhonePe / Paytm / BHIM
-                  </a>
-                )}
+                <UpiQrDisplay
+                  vpa={upi.vpa}
+                  payeeName={upi.payeeName || bank?.bank?.accountName}
+                  amount={amount}
+                  storedQrUrl={upi.qrCodeUrl}
+                  className="py-2"
+                />
+                <UpiPayAppButtons
+                  vpa={upi.vpa}
+                  payeeName={upi.payeeName || bank?.bank?.accountName}
+                  amount={amount}
+                />
                 <p className="text-[11px] text-sky-700 dark:text-sky-400/90">
                   After paying, enter amount & UTR in Step 2 and upload your payment screenshot.
                 </p>
