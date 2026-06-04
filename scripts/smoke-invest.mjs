@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Smoke test invest API — run with server on PORT (default 4000) */
-const base = process.env.API_BASE || "http://localhost:4000";
-const investSite = (process.env.INVEST_SITE || base).replace(/\/$/, "");
+const base = (process.env.INVEST_API || process.env.API_BASE || "http://localhost:4000").replace(/\/$/, "");
+const investSite = (process.env.INVEST_SITE || process.env.INVEST_API || base).replace(/\/$/, "");
 
 const checks = [
   ["/api/health", (d) => d.ok === true],
@@ -28,10 +28,19 @@ const checks = [
     (d) => typeof d.usdInr === "number" && d.usdInr > 0 && d.usdPrices?.USDT,
   ],
   ["/api/invest/kyc/draft", (d, res) => res.status === 401],
-  ["/api/invest/kyc/files/idFront", (d, res) => res.status === 401],
 ];
 
 let failed = 0;
+
+try {
+  const postKyc = await fetch(`${base}/api/invest/kyc/files/idFront`, { method: "POST" });
+  if (postKyc.status === 401) console.log("✓ POST /api/invest/kyc/files/:fieldKey (auth required)");
+  else throw new Error(`expected 401 got ${postKyc.status}`);
+} catch (e) {
+  console.error(`✗ POST /api/invest/kyc/files/idFront: ${e.message}`);
+  failed++;
+}
+
 for (const [path, validate] of checks) {
   try {
     const res = await fetch(`${base}${path}`);

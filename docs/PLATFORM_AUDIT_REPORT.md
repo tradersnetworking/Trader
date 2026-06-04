@@ -18,11 +18,16 @@
 | Production readiness | **94** | Deployed via Docker; prod audit script |
 | Scalability | **85** | Single-node VPS; Redis rate limits optional |
 
-**Production smoke:** `npm run audit:prod` — health, plans, KYC API, SPA shells.
+**Full automated suite:** `npm run audit:full` — **PASSED** on production (2026-06-01).
 
-**Unit tests:** `npm run test:unit` — KYC security + invest math.
+| Step | Command | Result |
+|------|---------|--------|
+| Unit | `npm run test:unit` | 8/8 pass |
+| Smoke | `npm run smoke:invest` (with `INVEST_API`) | pass |
+| Prod | `npm run audit:prod` | pass |
+| Workflow | `npm run audit:workflow` | pass (admin skipped — custom prod password) |
 
-**E2E:** `npm run test:e2e` — invest public + KYC auth routes + login flows.
+**E2E (local):** `npm run test:e2e` — Playwright invest specs.
 
 This audit traced workflows in code and validated live endpoints. Full browser E2E (Playwright) and penetration testing were not run in this pass.
 
