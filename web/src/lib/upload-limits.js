@@ -24,10 +24,16 @@ export function validateUploadFiles(fileMap) {
   return null;
 }
 
-export function networkErrorMessage(err) {
+export function networkErrorMessage(err, { status } = {}) {
   const msg = err?.message || "";
+  if (status === 413) {
+    return "Upload too large. Use JPG, JPEG, PNG, or PDF under 10 MB per file (total under 72 MB).";
+  }
+  if (status === 502 || status === 504) {
+    return "Upload timed out while processing. Try fewer or smaller files (compress photos), then submit again.";
+  }
   if (msg === "Failed to fetch" || err?.name === "TypeError") {
-    return "Upload failed — connection lost or request too large. Use JPG/PNG/PDF under 10 MB each (total under 72 MB) and try again.";
+    return "Upload failed — connection lost or the server timed out. Use JPG/JPEG/PNG/PDF under 10 MB each (total under 72 MB), wait for uploads to finish, and try again.";
   }
   return msg || "Request failed";
 }

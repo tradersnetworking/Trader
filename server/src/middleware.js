@@ -72,9 +72,13 @@ export function errorHandler(err, _req, res, _next) {
     const message =
       err.code === "LIMIT_FILE_SIZE"
         ? "File too large (maximum 10 MB per file)."
-        : err.code === "LIMIT_UNEXPECTED_FILE"
-          ? "Unexpected file field in upload."
-          : err.message || "Upload failed";
+        : err.code === "LIMIT_FILE_COUNT"
+          ? "Too many files in one request."
+          : err.code === "LIMIT_FIELD_VALUE"
+          ? "Form data too large. Try a smaller signature or fewer files."
+          : err.code === "LIMIT_UNEXPECTED_FILE"
+            ? "Unexpected file field in upload."
+            : err.message || "Upload failed";
     return res.status(400).json({ error: message, code: err.code });
   }
   const status = err.status || 500;

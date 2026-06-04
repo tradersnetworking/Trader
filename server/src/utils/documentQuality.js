@@ -33,7 +33,12 @@ export async function validateUploadedDocument(filePath, { label = "Document" } 
   }
 
   try {
-    const meta = await sharp(filePath).metadata();
+    const fileSize = fs.statSync(filePath).size;
+    const pipeline =
+      fileSize > 4 * 1024 * 1024
+        ? sharp(filePath).rotate().resize(2400, 2400, { fit: "inside", withoutEnlargement: true })
+        : sharp(filePath).rotate();
+    const meta = await pipeline.clone().metadata();
     if ((meta.width || 0) < MIN_WIDTH || (meta.height || 0) < MIN_HEIGHT) {
       return {
         ok: false,
@@ -41,7 +46,7 @@ export async function validateUploadedDocument(filePath, { label = "Document" } 
         message: `${label} resolution is too low. Upload a clear image (min ${MIN_WIDTH}×${MIN_HEIGHT}px) or a PDF.`,
       };
     }
-    const stats = await sharp(filePath).greyscale().resize(640, 640, { fit: "inside", withoutEnlargement: true }).stats();
+    const stats = await pipeline.greyscale().resize(640, 640, { fit: "inside", withoutEnlargement: true }).stats();
     const stdev = stats.channels?.[0]?.stdev ?? 0;
     if (stdev < MIN_STDEV) {
       return {

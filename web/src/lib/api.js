@@ -55,7 +55,8 @@ export async function api(scope, path, { method = "GET", body, isForm } = {}) {
     const message =
       (data && typeof data === "object" && data.error) ||
       (typeof data === "string" && data.slice(0, 200)) ||
-      (res.status === 413 ? "Upload too large. Use smaller files (max 10 MB each)." : `Request failed (${res.status})`);
+      networkErrorMessage(null, { status: res.status }) ||
+      `Request failed (${res.status})`;
     throw new ApiError(message, { status: res.status, code: data?.code });
   }
   return data;
@@ -111,7 +112,8 @@ export async function investApiForm(path, formData, method = "POST") {
   if (!res.ok) {
     const message =
       (data && typeof data === "object" && data.error) ||
-      (res.status === 413 ? "Upload too large. Use smaller files (max 10 MB each)." : `Request failed (${res.status})`);
+      networkErrorMessage(null, { status: res.status }) ||
+      `Request failed (${res.status})`;
     throw new ApiError(message, { status: res.status, code: data?.code });
   }
   return data;

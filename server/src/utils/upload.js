@@ -24,9 +24,16 @@ const KYC_MIMES = new Set([
   "application/pdf",
 ]);
 
+export const KYC_MAX_FILE_BYTES = 10 * 1024 * 1024;
+export const KYC_MAX_FIELD_BYTES = 2 * 1024 * 1024;
+
 export const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: {
+    fileSize: KYC_MAX_FILE_BYTES,
+    files: 16,
+    fieldSize: KYC_MAX_FIELD_BYTES,
+  },
   fileFilter: (_req, file, cb) => {
     const mime = (file.mimetype || "").toLowerCase();
     const ext = path.extname(file.originalname).toLowerCase();

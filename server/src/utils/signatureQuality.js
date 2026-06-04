@@ -13,6 +13,9 @@ export function validateSignatureBase64(dataUrl) {
   } catch {
     return { ok: false, message: "Could not read signature. Please try again." };
   }
+  if (buf.length > 1.5 * 1024 * 1024) {
+    return { ok: false, message: "Signature image is too large. Clear the pad and draw again." };
+  }
   if (buf.length < 400) {
     return { ok: false, message: "Signature is too small. Draw a larger, clearer signature." };
   }

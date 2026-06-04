@@ -460,13 +460,16 @@ router.post(
     }
 
     const docCheckFields = new Set(docFieldsForSections(requiredSections));
-    for (const field of docCheckFields) {
-      const upload = files[field]?.[0];
-      if (upload) {
+    const docChecks = await Promise.all(
+      [...docCheckFields].map(async (field) => {
+        const upload = files[field]?.[0];
+        if (!upload) return null;
         const check = await validateMulterFile(upload, KYC_DOC_LABELS[field] || field);
-        if (!check.ok) return res.status(400).json({ error: check.message, code: check.code });
-      }
-    }
+        return check.ok ? null : check;
+      })
+    );
+    const docFail = docChecks.find(Boolean);
+    if (docFail) return res.status(400).json({ error: docFail.message, code: docFail.code });
 
     const signatureData = b.signatureData?.trim() || existing?.signatureData || null;
     const signatureMethod = b.signatureMethod || (files.signature?.[0] ? "upload" : signatureData ? "draw" : existing?.signatureMethod);

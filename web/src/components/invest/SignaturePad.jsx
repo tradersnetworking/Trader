@@ -49,11 +49,13 @@ const SignaturePad = forwardRef(function SignaturePad(
       paintBlank();
       ctx.drawImage(img, 0, 0, c.width, c.height);
       applyStrokeStyle(ctx);
-      onChange?.(c.toDataURL("image/png"));
+      onChange?.(c.toDataURL("image/jpeg", 0.88));
     };
     img.onerror = () => clearPad(true);
     img.src = url;
   };
+
+  const exportDataUrl = () => canvasRef.current?.toDataURL("image/jpeg", 0.88) || null;
 
   useEffect(() => {
     if (initialDataUrl) loadImage(initialDataUrl);
@@ -90,12 +92,12 @@ const SignaturePad = forwardRef(function SignaturePad(
     ctx.lineTo(p.x, p.y);
     ctx.stroke();
     last.current = p;
-    onChange?.(canvasRef.current.toDataURL("image/png"));
+    onChange?.(exportDataUrl());
   };
 
   const end = () => {
     drawing.current = false;
-    if (canvasRef.current) onChange?.(canvasRef.current.toDataURL("image/png"));
+    if (canvasRef.current) onChange?.(exportDataUrl());
   };
 
   return (

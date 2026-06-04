@@ -107,23 +107,31 @@ export async function validateKycDocumentsOcr(data, files, existing) {
   const worker = await getWorker();
   const checks = [];
 
+  const OCR_MAX_BYTES = 8 * 1024 * 1024;
+  const OCR_MS = Number(process.env.KYC_OCR_TIMEOUT_MS || 12000);
+
   const pathFor = (field) => {
     const up = files[field]?.[0];
-    if (up?.path) return up.path;
-    const url = data[field] || existing?.[field];
-    if (!url) return null;
-    const name = String(url).replace(/^\/uploads\//, "");
-    const local = path.join(uploadsDir, name);
-    return fs.existsSync(local) ? local : null;
+    if (!up?.path) return null;
+    if (up.size > OCR_MAX_BYTES) return null;
+    return up.path;
   };
+
+  const withOcrTimeout = (promise) =>
+    Promise.race([
+      promise,
+      new Promise((resolve) => setTimeout(() => resolve({ ok: true, skipped: true }), OCR_MS)),
+    ]);
 
   const panPath = pathFor("panDocument");
   if (panPath && data.panNumber) {
     checks.push(
-      (async () => {
-        const text = await ocrImagePath(panPath);
-        return textHasPan(text, data.panNumber);
-      })()
+      withOcrTimeout(
+        (async () => {
+          const text = await ocrImagePath(panPath);
+          return textHasPan(text, data.panNumber);
+        })()
+      )
     );
   }
 
@@ -131,10 +139,12 @@ export async function validateKycDocumentsOcr(data, files, existing) {
     const p = pathFor(field);
     if (p && data.aadhaarNumber) {
       checks.push(
-        (async () => {
-          const text = await ocrImagePath(p);
-          return textHasAadhaar(text, data.aadhaarNumber);
-        })()
+        withOcrTimeout(
+          (async () => {
+            const text = await ocrImagePath(p);
+            return textHasAadhaar(text, data.aadhaarNumber);
+          })()
+        )
       );
     }
   }
@@ -143,12 +153,14 @@ export async function validateKycDocumentsOcr(data, files, existing) {
     const p = pathFor(field);
     if (p) {
       checks.push(
-        (async () => {
-          const text = await ocrImagePath(p);
-          let r = textHasIfsc(text, data.ifscCode);
-          if (r.ok) r = textHasAccount(text, data.bankAccount);
-          return r;
-        })()
+        withOcrTimeout(
+          (async () => {
+            const text = await ocrImagePath(p);
+            let r = textHasIfsc(text, data.ifscCode);
+            if (r.ok) r = textHasAccount(text, data.bankAccount);
+            return r;
+          })()
+        )
       );
     }
   }

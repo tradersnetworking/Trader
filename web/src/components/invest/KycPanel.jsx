@@ -381,6 +381,15 @@ export default function KycPanel({
       }
     }
 
+    const uploadSizeErr = validateUploadFiles({
+      ...files,
+      ...(signatureFile ? { signature: signatureFile } : {}),
+    });
+    if (uploadSizeErr) {
+      setErr(uploadSizeErr);
+      return;
+    }
+
     setSubmitting(true);
 
     const fd = new FormData();
