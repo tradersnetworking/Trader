@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getToken, investApi } from "../../lib/api.js";
 import { inr } from "../../lib/format.js";
@@ -60,6 +60,14 @@ function filterWithdrawMethods(paymentOptions) {
   const w = paymentOptions?.withdrawMethods;
   if (!w) return WITHDRAW_METHODS;
   return WITHDRAW_METHODS.filter((m) => w[m.value] !== false);
+}
+
+/** UPI only up to ₹1,00,000; larger withdrawals use bank (same rule as deposit). */
+function filterWithdrawMethodsForAmount(paymentOptions, amount) {
+  const methods = filterWithdrawMethods(paymentOptions);
+  const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt <= UPI_MAX_AMOUNT) return methods;
+  return methods.filter((m) => m.value === "BANK");
 }
 
 function filterBankTransferTypes(paymentOptions) {
@@ -769,7 +777,6 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const [kyc, setKyc] = useState(null);
   const [pendingPayoutChange, setPendingPayoutChange] = useState(null);
   const [paymentOptions, setPaymentOptions] = useState(null);
-  const withdrawMethods = filterWithdrawMethods(paymentOptions);
   const [mode, setMode] = useState("UPI");
   const [amount, setAmount] = useState(1000);
   const [password, setPassword] = useState("");
@@ -782,39 +789,19 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const [msg, setMsg] = useState("");
   const [lastWithdrawAmount, setLastWithdrawAmount] = useState(null);
   const [err, setErr] = useState("");
-  const [bankAutoNote, setBankAutoNote] = useState(false);
 
-  const bankWithdrawEnabled = withdrawMethods.some((m) => m.value === "BANK");
-
-  const handleWithdrawAmountChange = (e) => {
-    const raw = e.target.value;
-    if (raw === "") {
-      setAmount("");
-      return;
-    }
-    const v = Number(raw);
-    if (!Number.isFinite(v)) return;
-    if (mode === "UPI" && v > UPI_MAX_AMOUNT) {
-      if (bankWithdrawEnabled) {
-        setAmount(v);
-        setMode("BANK");
-        setBankAutoNote(true);
-        setConfirmed(false);
-        return;
-      }
-      setAmount(UPI_MAX_AMOUNT);
-      return;
-    }
-    setAmount(v);
-  };
-
-  const handleWithdrawModeChange = (next) => {
-    setBankAutoNote(false);
-    if (next === "UPI" && Number(amount) > UPI_MAX_AMOUNT) {
-      setAmount(UPI_MAX_AMOUNT);
-    }
-    setMode(next);
-  };
+  const withdrawAmt = Number(amount);
+  const maxWithdraw = wallet?.available ?? undefined;
+  const amountReady =
+    Number.isFinite(withdrawAmt) &&
+    withdrawAmt >= 100 &&
+    (maxWithdraw == null || withdrawAmt <= maxWithdraw);
+  const allowedWithdrawMethods = useMemo(
+    () => filterWithdrawMethodsForAmount(paymentOptions, withdrawAmt),
+    [paymentOptions, withdrawAmt]
+  );
+  const requiresBankOnly = amountReady && withdrawAmt > UPI_MAX_AMOUNT;
+  const upiAvailableForAmount = amountReady && withdrawAmt <= UPI_MAX_AMOUNT;
 
   const load = () => investApi("/payouts").then((d) => setPayouts(d.payouts)).catch(() => {});
   useEffect(() => {
@@ -831,26 +818,16 @@ export function WithdrawPanel({ wallet, onRefresh }) {
   const withdrawGate = withdrawEligibility(invest, kyc);
 
   useEffect(() => {
-    if (withdrawMethods.length && !withdrawMethods.some((m) => m.value === mode)) {
-      setMode(withdrawMethods[0].value);
+    if (!amountReady || !allowedWithdrawMethods.length) return;
+    if (!allowedWithdrawMethods.some((m) => m.value === mode)) {
+      setMode(allowedWithdrawMethods[0].value);
+      setConfirmed(false);
     }
-  }, [paymentOptions, mode, withdrawMethods.length]);
+  }, [amountReady, allowedWithdrawMethods, mode]);
 
   useEffect(() => {
     setConfirmed(false);
-    if (mode === "UPI" && Number(amount) > UPI_MAX_AMOUNT) {
-      setAmount(UPI_MAX_AMOUNT);
-    }
-  }, [mode]);
-
-  useEffect(() => {
-    const amt = Number(amount);
-    if (mode === "UPI" && amt > UPI_MAX_AMOUNT && bankWithdrawEnabled) {
-      setMode("BANK");
-      setBankAutoNote(true);
-      setConfirmed(false);
-    }
-  }, [amount, mode, bankWithdrawEnabled]);
+  }, [mode, amount]);
 
   const canPayout =
     mode === "UPI"
@@ -939,128 +916,149 @@ export function WithdrawPanel({ wallet, onRefresh }) {
       <div className="invest-dashboard-split gap-4 lg:gap-6">
         <div className="card min-w-0 space-y-4 p-4 sm:p-5">
           <StepBanner
-            tone="sky"
-            title="Step 1 — Choose withdrawal method"
-            description="Withdraw to your saved UPI ID or bank account. Admin releases funds via RazorpayX, Cashfree, PayU, or Easebuzz after approval."
+            tone="emerald"
+            title="Step 1 — Withdrawal amount"
+            description={`Enter how much to withdraw from your available balance (${inr(wallet?.available || 0)}). Method options appear based on the amount — UPI up to ${inr(UPI_MAX_AMOUNT)}, bank for larger amounts.`}
           />
 
-          <MethodCategorySelect
-            label="Withdrawal method"
-            tone="step"
-            value={mode}
-            onChange={handleWithdrawModeChange}
-            options={withdrawMethods}
-          />
+          <Field
+            label="Amount (₹)"
+            hint={`Minimum ₹100. UPI available up to ${inr(UPI_MAX_AMOUNT)}; above that, bank transfer only.`}
+          >
+            <input
+              className="input"
+              type="number"
+              min={100}
+              max={maxWithdraw}
+              step={100}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              required
+              disabled={step === "otp"}
+            />
+          </Field>
 
-          {bankAutoNote && mode === "BANK" && (
+          {Number.isFinite(withdrawAmt) && withdrawAmt > 0 && withdrawAmt < 100 && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">Minimum withdrawal is ₹100.</p>
+          )}
+          {Number.isFinite(withdrawAmt) && maxWithdraw != null && withdrawAmt > maxWithdraw && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Amount exceeds available balance ({inr(maxWithdraw)}).
+            </p>
+          )}
+
+          {requiresBankOnly && (
             <Alert type="info">
-              Amount exceeds the UPI limit ({inr(UPI_MAX_AMOUNT)}). Withdrawal method switched to bank account.
+              Amount exceeds the UPI limit ({inr(UPI_MAX_AMOUNT)}). Bank account withdrawal is required for this amount.
             </Alert>
           )}
 
-          <PayoutDestinationCard
-            mode={mode}
-            investor={invest}
-            kycStatus={kyc?.status}
-            pendingPayoutChange={pendingPayoutChange}
-          />
-
-          {canPayout && (
-            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-              />
-              <span className="text-muted-foreground">
-                I confirm the payout details above are correct. Wrong details may delay or fail the transfer.
-              </span>
-            </label>
+          {upiAvailableForAmount && allowedWithdrawMethods.length > 1 && (
+            <p className="text-xs text-muted-foreground">
+              You can withdraw via UPI or bank for this amount. Choose your preferred method in Step 2.
+            </p>
           )}
 
-          <form onSubmit={submit} className="space-y-4 border-t border-border pt-4">
-            <StepBanner
-              tone="emerald"
-              title="Step 2 — Withdrawal amount"
-              description="Enter the amount to withdraw from your available wallet balance."
-            />
+          {amountReady && allowedWithdrawMethods.length === 0 && (
+            <Alert type="warning">
+              No withdrawal method is available for this amount. Contact support if bank transfer should be enabled.
+            </Alert>
+          )}
 
-            {msg && (
-              <Alert type="success">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{msg}</span>
-                  {lastWithdrawAmount != null && (
-                    <ShareProfitButton type="withdrawal" amount={inr(lastWithdrawAmount)} label="Share" />
-                  )}
-                </div>
-              </Alert>
-            )}
-            {err && <Alert type="error">{err}</Alert>}
-
-            {mode === "UPI" && isUpiAmountOverLimit(amount) && (
-              <UpiLimitAlert
-                onUseBank={
-                  bankWithdrawEnabled
-                    ? () => {
-                        setMode("BANK");
-                        setBankAutoNote(true);
-                        setConfirmed(false);
-                      }
-                    : undefined
-                }
+          {amountReady && allowedWithdrawMethods.length > 0 && (
+            <div className="space-y-4 border-t border-border pt-4">
+              <StepBanner
+                tone="sky"
+                title="Step 2 — Withdrawal method & confirm"
+                description="Withdraw to your saved payout account. Admin releases funds after approval."
               />
-            )}
 
-            <Field
-              label="Amount (₹)"
-              hint={
-                mode === "UPI"
-                  ? `Maximum ${inr(UPI_MAX_AMOUNT)} per UPI withdrawal — amounts above that use bank transfer automatically`
-                  : "No UPI limit for bank payouts"
-              }
-            >
-              <input
-                className="input"
-                type="number"
-                min={100}
-                max={
-                  mode === "UPI"
-                    ? Math.min(UPI_MAX_AMOUNT, wallet?.available ?? UPI_MAX_AMOUNT)
-                    : wallet?.available || undefined
-                }
-                step={100}
-                value={amount}
-                onChange={handleWithdrawAmountChange}
-                required
-                disabled={step === "otp"}
+              {allowedWithdrawMethods.length > 1 ? (
+                <MethodCategorySelect
+                  label="Withdrawal method"
+                  tone="step"
+                  value={mode}
+                  onChange={setMode}
+                  options={allowedWithdrawMethods}
+                />
+              ) : (
+                <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  Withdrawal method:{" "}
+                  <strong className="text-foreground">{allowedWithdrawMethods[0].icon} {allowedWithdrawMethods[0].label}</strong>
+                </p>
+              )}
+
+              <PayoutDestinationCard
+                mode={mode}
+                investor={invest}
+                kycStatus={kyc?.status}
+                pendingPayoutChange={pendingPayoutChange}
               />
-            </Field>
 
-            {step === "form" && (
-              <>
-                <Field label="Account password"><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" /></Field>
-                <Field label="Authenticator code (if 2FA enabled)"><input className="input" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="6-digit code" /></Field>
-              </>
-            )}
-            {step === "otp" && (
-              <Field label="Email OTP"><input className="input" value={emailOtp} onChange={(e) => setEmailOtp(e.target.value)} required placeholder="6-digit code from email" /></Field>
-            )}
+              {canPayout && (
+                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={confirmed}
+                    onChange={(e) => setConfirmed(e.target.checked)}
+                  />
+                  <span className="text-muted-foreground">
+                    I confirm the payout details above are correct. Wrong details may delay or fail the transfer.
+                  </span>
+                </label>
+              )}
 
-            <p className="text-xs text-muted-foreground">
-              {mode === "UPI"
-                ? "Funds will be sent to your registered UPI ID via UPI after admin approval."
-                : "Funds will be sent to your registered bank account via NEFT/IMPS after admin approval."}
-            </p>
+              <form onSubmit={submit} className="space-y-4">
+                {msg && (
+                  <Alert type="success">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{msg}</span>
+                      {lastWithdrawAmount != null && (
+                        <ShareProfitButton type="withdrawal" amount={inr(lastWithdrawAmount)} label="Share" />
+                      )}
+                    </div>
+                  </Alert>
+                )}
+                {err && <Alert type="error">{err}</Alert>}
 
-            <button
-              type="submit"
-              className="btn-gold w-full"
-              disabled={!canPayout || (mode === "UPI" && isUpiAmountOverLimit(amount))}
-            >
-              {step === "otp" ? "Confirm with email OTP" : "Send verification email"}
-            </button>
-          </form>
+                <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  Withdrawal amount: <strong className="text-foreground">{inr(withdrawAmt)}</strong>
+                  <span className="block text-xs text-muted-foreground">Change amount in Step 1 if needed</span>
+                </p>
+
+                {step === "form" && (
+                  <>
+                    <Field label="Account password">
+                      <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+                    </Field>
+                    <Field label="Authenticator code (if 2FA enabled)">
+                      <input className="input" value={totpCode} onChange={(e) => setTotpCode(e.target.value)} placeholder="6-digit code" />
+                    </Field>
+                  </>
+                )}
+                {step === "otp" && (
+                  <Field label="Email OTP">
+                    <input className="input" value={emailOtp} onChange={(e) => setEmailOtp(e.target.value)} required placeholder="6-digit code from email" />
+                  </Field>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  {mode === "UPI"
+                    ? "Funds will be sent to your registered UPI ID via UPI after admin approval."
+                    : "Funds will be sent to your registered bank account via NEFT/IMPS after admin approval."}
+                </p>
+
+                <button
+                  type="submit"
+                  className="btn-gold w-full"
+                  disabled={!canPayout || !confirmed || (mode === "UPI" && isUpiAmountOverLimit(amount))}
+                >
+                  {step === "otp" ? "Confirm with email OTP" : "Send verification email"}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
 
         <div className="card min-w-0 p-4 sm:p-5">
