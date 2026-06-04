@@ -6,6 +6,7 @@ export const PROVIDER_LABELS = {
   easebuzz: "Easebuzz",
   juspay: "Juspay",
   eximpe: "EximPe",
+  litepay: "LitePay",
   phonepe: "PhonePe",
   paypal: "PayPal",
   hdfc: "HDFC Bank API",

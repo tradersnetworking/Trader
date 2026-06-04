@@ -168,6 +168,8 @@ export default function InvestDashboardShell({
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
               showLogoImage
+              titleBesideLogo
+              fullLogo={false}
               brandSize={mobile ? "lg" : "md"}
               subtitle={role === "admin" ? "Admin Portal" : "Investor Portal"}
               className="min-w-0 flex-1 overflow-hidden"
@@ -390,6 +392,8 @@ export default function InvestDashboardShell({
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
               showLogoImage
+              titleBesideLogo
+              fullLogo={false}
               brandSize="lg"
               mobileBarFill
               className="w-full"
@@ -410,8 +414,10 @@ export default function InvestDashboardShell({
               to={role === "admin" ? investPath("/admin") : investPath("/dashboard")}
               investSiteTitle
               showLogoImage
+              titleBesideLogo
+              fullLogo={false}
               brandSize="md"
-              className="hidden min-w-0 shrink-0 md:flex"
+              className="hidden min-w-0 max-w-[14rem] shrink-0 lg:max-w-[16rem] md:flex"
             />
             <div className="hidden min-w-0 flex-1 overflow-hidden xl:block">
               <h1 className="page-title truncate">{pageTitle}</h1>

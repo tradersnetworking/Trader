@@ -778,7 +778,7 @@ router.post(
 const MANUAL_DEPOSIT_METHODS = new Set(["UPI", "IMPS", "NEFT", "RTGS", "BANK"]);
 const ONLINE_DEPOSIT_GATEWAYS = new Set([
   "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE",
-  "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL",
+  "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL", "LITEPAY",
 ]);
 
 router.post(

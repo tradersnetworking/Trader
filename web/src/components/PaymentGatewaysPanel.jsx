@@ -27,6 +27,8 @@ const GATEWAY_LABELS = {
 
   eximpe: "EximPe",
 
+  litepay: "LitePay",
+
   upi: "UPI Intent",
 
   RAZORPAYX: "RazorpayX Payouts",
@@ -115,15 +117,23 @@ const GATEWAY_SETTING_KEYS = {
 
   ],
 
+  litepay: [
+    { key: "gateway_litepay_vendor_id", label: "Vendor ID" },
+    { key: "gateway_litepay_secret", label: "Secret Key", secret: true },
+    { key: "gateway_litepay_api_url", label: "API URL (optional)" },
+  ],
+
 };
 
 
 
-export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSettings, loadSettings }) {
+export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSettings, loadSettings, onVisibilityChange }) {
 
   const [collection, setCollection] = useState([]);
 
   const [payouts, setPayouts] = useState([]);
+
+  const [visibility, setVisibility] = useState({});
 
   const [settings, setSettings] = useState({});
 
@@ -131,21 +141,18 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
   const [msg, setMsg] = useState("");
 
-
+  const loadGateways = () =>
+    fetchGateways()
+      .then((d) => {
+        setCollection(d.collection || []);
+        setPayouts(d.payouts || []);
+        if (d.visibility && typeof d.visibility === "object") setVisibility(d.visibility);
+      })
+      .catch((e) => setErr(e.message));
 
   useEffect(() => {
 
-    fetchGateways()
-
-      .then((d) => {
-
-        setCollection(d.collection || []);
-
-        setPayouts(d.payouts || []);
-
-      })
-
-      .catch((e) => setErr(e.message));
+    loadGateways();
 
     if (editable && loadSettings) {
 

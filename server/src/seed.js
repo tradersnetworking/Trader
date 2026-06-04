@@ -167,7 +167,7 @@ async function seedInvestExtras() {
       ],
     });
   }
-  for (const p of ["phonepe", "paypal"]) {
+  for (const p of ["phonepe", "paypal", "litepay"]) {
     const exists = await investDb.paymentGateway.findFirst({ where: { provider: p } });
     if (!exists) {
       await investDb.paymentGateway.create({

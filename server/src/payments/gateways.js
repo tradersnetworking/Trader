@@ -24,6 +24,7 @@ const SETTING_KEYS = {
   easebuzz: { key: "gateway_easebuzz_key", salt: "gateway_easebuzz_salt" },
   juspay: { merchantId: "gateway_juspay_merchant_id" },
   eximpe: { apiKey: "gateway_eximpe_api_key" },
+  litepay: { vendorId: "gateway_litepay_vendor_id", secret: "gateway_litepay_secret" },
 };
 
 async function resolveCreds(name) {
@@ -67,6 +68,11 @@ async function isConfigured(name) {
   if (name === "paypal") {
     return Boolean(process.env.PAYPAL_CLIENT_ID || (await getSetting("gateway_paypal_client_id")));
   }
+  if (name === "litepay") {
+    const vendor = (await getSetting("gateway_litepay_vendor_id")) || process.env.LITEPAY_VENDOR_ID;
+    const secret = (await getSetting("gateway_litepay_secret")) || process.env.LITEPAY_SECRET;
+    return Boolean(vendor && secret);
+  }
   const creds = await resolveCreds(name);
   return Object.values(creds).some((v) => v && String(v).length > 0);
 }
@@ -83,7 +89,7 @@ function mockOrder(gateway, amount, currency, receipt) {
   };
 }
 
-const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
+const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
 
 const adapters = {
   async razorpay({ amount, currency, receipt }) {
@@ -207,6 +213,50 @@ const adapters = {
     const creds = await resolveCreds("eximpe");
     if (!creds.apiKey) return mockOrder("eximpe", amount, currency, receipt);
     return { gateway: "eximpe", orderId: receipt, amount, currency };
+  },
+
+  async litepay({ amount, currency, receipt, depositId, customer, ...rest }) {
+    const vendor =
+      (await getSetting("gateway_litepay_vendor_id")) || process.env.LITEPAY_VENDOR_ID || "";
+    const secret = (await getSetting("gateway_litepay_secret")) || process.env.LITEPAY_SECRET || "";
+    if (!vendor || !secret) return mockOrder("litepay", amount, currency, receipt);
+
+    const { payReturnUrl } = await import("../utils/paymentUrls.js");
+    const invoice = `DEP-${String(depositId || receipt || nanoid(8)).slice(-16)}`;
+    const ctx = returnContext({ depositId, ...rest });
+    const callbackUrl = payReturnUrl({ ...ctx, status: "litepay", gateway: "litepay" });
+    const returnUrl = payReturnUrl({ ...ctx, status: "success" });
+    const apiUrl =
+      (await getSetting("gateway_litepay_api_url")) || process.env.LITEPAY_API_URL || "https://litepay.ch/p/";
+
+    const body = new URLSearchParams({
+      vendor,
+      invoice,
+      secret,
+      price: String(amount),
+      currency: currency || "INR",
+      email: customer?.email || "",
+      callbackUrl,
+      returnUrl,
+    });
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.url) {
+        return { gateway: "litepay", orderId: invoice, amount, currency, redirectUrl: data.url, raw: data };
+      }
+      if (data?.status === "success" && data?.url) {
+        return { gateway: "litepay", orderId: invoice, amount, currency, redirectUrl: data.url, raw: data };
+      }
+    } catch (e) {
+      console.error("[litepay]", e.message);
+    }
+    return mockOrder("litepay", amount, currency, receipt);
   },
 
   async hdfc(payload) {
