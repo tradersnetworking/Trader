@@ -4,6 +4,7 @@ import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge, Field } from "../ui.jsx";
 import PhoneInput from "../shared/PhoneInput.jsx";
 import DepositProofViewer from "../shared/DepositProofViewer.jsx";
+import PaymentProofUpload from "../shared/PaymentProofUpload.jsx";
 import { handleGatewayCheckout } from "../../lib/onlineCheckout.js";
 
 /** Super admin: collect from purchasers & pay suppliers — all gateways via main domain */
@@ -127,7 +128,7 @@ export default function MainTradePaymentsPanel() {
           <Field label="Reference / UTR"><input className="input" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></Field>
           {["UPI", "IMPS", "NEFT", "RTGS", "BANK"].includes(form.method) && (
             <Field label="Payment proof (required)">
-              <input type="file" accept="image/*,.pdf" required className="input py-1.5" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <PaymentProofUpload file={file} required onChange={setFile} />
             </Field>
           )}
           <Field label="Remarks"><input className="input" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Field>

@@ -17,6 +17,7 @@ import ShareProfitButton from "./ShareProfitButton.jsx";
 import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/onlineCheckout.js";
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
+import PaymentProofUpload from "../shared/PaymentProofUpload.jsx";
 import UpiPayAppButtons from "../shared/UpiPayAppButtons.jsx";
 import {
   UPI_MAX_AMOUNT,
@@ -595,12 +596,11 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 </Field>
 
                 <Field label="Payment proof" hint="Screenshot or PDF — required for verification">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
+                  <PaymentProofUpload
+                    file={file}
                     required
-                    className="block w-full text-xs file:mr-2 file:rounded-lg file:border-0 file:bg-primary/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    onChange={setFile}
+                    label="Upload payment proof (screenshot or PDF)"
                   />
                 </Field>
 
