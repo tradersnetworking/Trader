@@ -1,6 +1,5 @@
 import { investDb } from "../db.js";
 import { settlementPayoutAmount, settlementCycleMs } from "../utils/invest.js";
-import { addLedger } from "../routes/investInvestor.js";
 import { notifyInvestor } from "./notifications.js";
 import { sendPushToUser } from "./pushService.js";
 
@@ -37,33 +36,53 @@ export async function runRoiEngineCycle() {
 
     const periodStart = sub.lastRoiPaidAt ? new Date(sub.lastRoiPaidAt) : new Date(sub.startDate);
     const periodEnd = now;
+    const claimWhere = {
+      id: sub.id,
+      status: "ACTIVE",
+      ...(sub.lastRoiPaidAt == null ? { lastRoiPaidAt: null } : { lastRoiPaidAt: sub.lastRoiPaidAt }),
+    };
 
-    await addLedger(sub.investorId, {
-      type: "RETURN",
-      direction: "CREDIT",
-      amount,
-      reference: sub.id,
-      note: `${cycle} ROI — ${sub.plan?.name || "Investment"}`,
+    const credited = await investDb.$transaction(async (tx) => {
+      const claimed = await tx.subscription.updateMany({
+        where: claimWhere,
+        data: { totalPaidOut: { increment: amount }, lastRoiPaidAt: now },
+      });
+      if (claimed.count === 0) return false;
+
+      const wallet = await tx.wallet.findUnique({ where: { investorId: sub.investorId } });
+      if (!wallet) return false;
+      const newAvailable = wallet.available + amount;
+      await tx.wallet.update({
+        where: { investorId: sub.investorId },
+        data: { available: newAvailable, earnings: { increment: amount } },
+      });
+      await tx.ledgerEntry.create({
+        data: {
+          investorId: sub.investorId,
+          type: "RETURN",
+          direction: "CREDIT",
+          amount,
+          balanceAfter: newAvailable,
+          reference: sub.id,
+          note: `${cycle} ROI — ${sub.plan?.name || "Investment"}`,
+        },
+      });
+      await tx.roiPayout.create({
+        data: {
+          subscriptionId: sub.id,
+          investorId: sub.investorId,
+          amount,
+          cycle,
+          periodStart,
+          periodEnd,
+          status: "CREDITED",
+        },
+      });
+      return true;
     });
-    await investDb.wallet.update({
-      where: { investorId: sub.investorId },
-      data: { earnings: { increment: amount } },
-    });
-    await investDb.roiPayout.create({
-      data: {
-        subscriptionId: sub.id,
-        investorId: sub.investorId,
-        amount,
-        cycle,
-        periodStart,
-        periodEnd,
-        status: "CREDITED",
-      },
-    });
-    await investDb.subscription.update({
-      where: { id: sub.id },
-      data: { totalPaidOut: { increment: amount }, lastRoiPaidAt: now },
-    });
+
+    if (!credited) continue;
+
     await notifyInvestorWithPush(sub.investorId, {
       title: "ROI Credited",
       body: `₹${amount.toFixed(2)} ${cycle.toLowerCase()} return credited for ${sub.plan?.name || "your plan"}.`,

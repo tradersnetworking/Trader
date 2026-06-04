@@ -1,6 +1,6 @@
 # Akshaya Investment Platform — End-to-End Audit Report
 
-**Date:** 2026-06-04 (re-verified)  
+**Date:** 2026-06-01 (full re-audit)  
 **Production:** `https://invest.akshayaexim.com` · VPS `187.127.103.79` · `/opt/akshaya-exim`  
 **Scope:** Invest portal (auth, KYC, deposits, investments, ROI, referrals, withdrawals, admin, notifications, deploy)
 
@@ -11,23 +11,25 @@
 | Area | Score /100 | Status |
 |------|------------|--------|
 | Frontend stability | **95** | Build OK; KYC testids; prod SPA shells pass |
-| Backend stability | **96** | Atomic payout/deposit; Redis rate limits live |
+| Backend stability | **97** | Atomic payout/deposit/ROI; Redis rate limits live |
 | Database integrity | **93** | Status-gated financial updates |
 | Security | **91** | RBAC, ClamAV hook, HSTS, staged KYC validation |
 | Performance | **90** | Load test 233 r/s, p95 80ms, 0% errors |
 | Production readiness | **95** | Docker + Redis + ClamAV + healthchecks |
 | Scalability | **86** | Redis on VPS; horizontal scale not multi-node |
 
-**Full automated suite:** `npm run audit:full` — **PASSED** on production (2026-06-04).
+**Full automated suite:** `npm run audit:full` — **PASSED** on production (2026-06-01).
 
 | Step | Command | Result |
 |------|---------|--------|
-| Unit | `npm run test:unit` | 8/8 pass |
+| Discovery | `generate-platform-discovery.mjs` | docs/PLATFORM_DISCOVERY.md |
+| Unit | `npm run test:unit` | 10/10 pass |
 | Smoke | `npm run smoke:invest` | pass |
 | Prod | `npm run audit:prod` | pass |
-| Load | `npm run audit:load` | pass (4662 req, 0% fail) |
+| Security headers | `security-headers-audit.mjs` | pass |
+| Load | `npm run audit:load` | pass (~243 r/s, 0% fail) |
 | Workflow | `npm run audit:workflow` | pass (admin skipped — set E2E_ADMIN_PASSWORD) |
-| Playwright KYC | `npm run test:e2e:prod` | pass (PDF staged upload) |
+| Playwright KYC | included in audit:full | pass (PDF staged upload) |
 
 **E2E (local):** `npm run test:e2e` — Playwright invest specs.
 

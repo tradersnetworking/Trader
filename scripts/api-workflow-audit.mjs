@@ -102,6 +102,7 @@ if (inv.otp) {
     ["/api/invest/payouts", (d) => Array.isArray(d.payouts)],
     ["/api/invest/referral/stats", (d) => d.code != null || d.referralCode != null || d.stats != null],
     ["/api/invest/agreements", (d) => Array.isArray(d.agreements)],
+    ["/api/invest/tickets", (d) => Array.isArray(d.tickets)],
     ["/api/invest/public/plans", (d) => (d.plans?.length || 0) >= 35],
   ];
 

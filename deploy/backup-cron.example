@@ -1,0 +1,6 @@
+# Example crontab on VPS (root) — adjust paths and retention.
+# Hourly lightweight backup (SQLite/uploads tarball from api container):
+# 0 * * * * cd /opt/akshaya-exim && ./deploy/backup.sh /var/backups/akshaya/hourly-$(date +\%F-\%H\%M).tar.gz
+#
+# Daily off-server copy (rsync to remote — configure SSH keys separately):
+# 30 2 * * * rsync -a /var/backups/akshaya/ backup-user@backup-host:/backups/akshaya-exim/

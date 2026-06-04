@@ -8,11 +8,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const investApi = process.env.INVEST_API || "https://invest.akshayaexim.com";
 
 const steps = [
+  ["Platform discovery", "node", ["scripts/generate-platform-discovery.mjs"], { cwd: root }],
   ["Unit tests", "npm", ["run", "test:unit", "--workspace", "server"], { cwd: root }],
   ["Invest smoke", "node", ["scripts/smoke-invest.mjs"], { cwd: root, env: { ...process.env, INVEST_API: investApi } }],
   ["Production audit", "node", ["scripts/production-audit.mjs"], { cwd: root }],
+  ["Security headers", "node", ["scripts/security-headers-audit.mjs"], { cwd: root, env: { ...process.env, INVEST_API: investApi } }],
   ["Load test", "node", ["scripts/load-test-invest.mjs"], { cwd: root, env: { ...process.env, LOAD_BASE: investApi } }],
   ["API workflow", "node", ["scripts/api-workflow-audit.mjs"], { cwd: root, env: { ...process.env, INVEST_API: investApi } }],
+  ["Playwright KYC", "node", ["scripts/run-e2e-prod.mjs"], { cwd: root }],
 ];
 
 if (process.env.RUN_E2E === "1" || process.env.E2E_ADMIN_PASSWORD) {
