@@ -84,8 +84,13 @@ export async function filterCollectionGatewaysForInvestors(gateways = []) {
 }
 
 export async function getInvestorPaymentOptions() {
+  const { UPI_MAX_AMOUNT, MIN_MANUAL_DEPOSIT } = await import("../utils/paymentLimits.js");
   const map = await getPaymentModeVisibilityMap();
   return {
+    limits: {
+      upiMaxAmount: UPI_MAX_AMOUNT,
+      minManualDeposit: MIN_MANUAL_DEPOSIT,
+    },
     depositCategories: {
       upi: getModeVisibility(map, "upi").deposit,
       bank: getModeVisibility(map, "bank").deposit,

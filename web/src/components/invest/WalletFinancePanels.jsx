@@ -18,7 +18,13 @@ import { handleGatewayCheckout, capturePayPalReturnIfNeeded } from "../../lib/on
 import { BANK_API_PROVIDERS, gatewayOptionLabel, providerLabel } from "../../lib/payment-providers.js";
 import UpiQrDisplay from "../shared/UpiQrDisplay.jsx";
 import UpiPayAppButtons from "../shared/UpiPayAppButtons.jsx";
-import { MIN_WALLET_DEPOSIT, resolveDefaultDepositAmount } from "../../lib/plan-types.js";
+import {
+  UPI_MAX_AMOUNT,
+  MIN_MANUAL_DEPOSIT,
+  UPI_DEPOSIT_PRESETS,
+  isUpiAmountOverLimit,
+  depositAmountHint,
+} from "../../lib/payment-limits.js";
 import { withdrawEligibility } from "../../lib/investCompliance.js";
 
 const DEPOSIT_METHODS = [
@@ -59,6 +65,77 @@ function filterBankTransferTypes(paymentOptions) {
   const t = paymentOptions?.bankTransferTypes;
   if (!t) return BANK_TRANSFER_TYPES;
   return BANK_TRANSFER_TYPES.filter((m) => t[m.value] !== false);
+}
+
+function UpiLimitAlert({ onUseBank, onUseGateway }) {
+  return (
+    <Alert type="warning">
+      <p className="text-sm font-medium">Amount exceeds UPI limit (₹1,00,000)</p>
+      <p className="mt-1 text-xs">
+        For deposits above ₹1,00,000, use bank transfer (NEFT/IMPS/RTGS) or payment gateway.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {onUseBank && (
+          <button type="button" className="btn-outline px-2 py-1 text-xs" onClick={onUseBank}>
+            Use bank transfer
+          </button>
+        )}
+        {onUseGateway && (
+          <button type="button" className="btn-gold px-2 py-1 text-xs" onClick={onUseGateway}>
+            Use payment gateway
+          </button>
+        )}
+      </div>
+    </Alert>
+  );
+}
+
+function DepositAmountControls({ method, amount, setAmount, setPromoBonus }) {
+  const isUpi = method === "upi";
+  const overUpi = isUpi && isUpiAmountOverLimit(amount);
+  return (
+    <div className="space-y-2">
+      <Field label="Deposit amount (₹)" hint={depositAmountHint(method)}>
+        <input
+          className="input"
+          type="number"
+          min={MIN_MANUAL_DEPOSIT}
+          max={isUpi ? UPI_MAX_AMOUNT : undefined}
+          step={100}
+          value={amount}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            setPromoBonus?.(null);
+          }}
+          required
+        />
+      </Field>
+      {isUpi && (
+        <div className="flex flex-wrap gap-2">
+          {UPI_DEPOSIT_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                Number(amount) === preset ? "bg-primary/15 text-accent-tone" : "bg-muted text-muted-foreground"
+              }`}
+              onClick={() => {
+                setAmount(preset);
+                setPromoBonus?.(null);
+              }}
+            >
+              ₹{preset.toLocaleString("en-IN")}
+            </button>
+          ))}
+        </div>
+      )}
+      {overUpi && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          UPI is limited to ₹1,00,000 per deposit. Choose a lower amount or switch to bank transfer / payment gateway.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function PayoutDestinationCard({ mode, investor }) {
@@ -141,9 +218,11 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
 
   useEffect(() => {
     if (suggestedAmount && Number(suggestedAmount) > 0) {
-      setAmount(Math.max(1000, Math.ceil(Number(suggestedAmount))));
+      const n = Math.ceil(Number(suggestedAmount));
+      const capped = method === "upi" ? Math.min(n, UPI_MAX_AMOUNT) : n;
+      setAmount(Math.max(MIN_MANUAL_DEPOSIT, capped));
     }
-  }, [suggestedAmount]);
+  }, [suggestedAmount, method]);
 
   const notifyDepositDone = () => {
     onDepositSubmitted?.();
@@ -225,8 +304,12 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
       setErr("No company bank account available. Contact support.");
       return;
     }
-    if (Number(amount) < MIN_WALLET_DEPOSIT) {
-      setErr(`Minimum deposit is ${inr(MIN_WALLET_DEPOSIT)}.`);
+    if (Number(amount) < MIN_MANUAL_DEPOSIT) {
+      setErr(`Minimum deposit is ${inr(MIN_MANUAL_DEPOSIT)}.`);
+      return;
+    }
+    if (method === "upi" && isUpiAmountOverLimit(amount)) {
+      setErr(`UPI deposits are limited to ${inr(UPI_MAX_AMOUNT)} per transaction. Use bank transfer or payment gateway for larger amounts.`);
       return;
     }
     const fd = new FormData();
@@ -392,7 +475,20 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
               </p>
             )}
 
-            {method === "upi" && upi?.vpa && (
+            {(method === "upi" || method === "bank") && (
+              <DepositAmountControls
+                method={method}
+                amount={amount}
+                setAmount={setAmount}
+                setPromoBonus={setPromoBonus}
+              />
+            )}
+
+            {method === "upi" && isUpiAmountOverLimit(amount) && (
+              <UpiLimitAlert onUseBank={() => setMethod("bank")} onUseGateway={() => setMethod("gateway")} />
+            )}
+
+            {method === "upi" && upi?.vpa && !isUpiAmountOverLimit(amount) && (
               <div className="min-w-0 space-y-3 overflow-hidden rounded-xl border border-sky-500/25 bg-sky-500/5 p-4">
                 <FinanceFieldLabel tone="upi">Company UPI account</FinanceFieldLabel>
                 {depositAccounts.upi.length > 0 && (
@@ -419,9 +515,13 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   amount={amount}
                 />
                 <p className="text-[11px] text-sky-700 dark:text-sky-400/90">
-                  After paying, enter amount & UTR in Step 2 and upload your payment screenshot.
+                  Scan or open your UPI app for <strong>₹{Number(amount).toLocaleString("en-IN")}</strong>, then enter UTR & proof in Step 2.
                 </p>
               </div>
+            )}
+
+            {method === "upi" && upi?.vpa && isUpiAmountOverLimit(amount) && (
+              <Alert type="info">Enter an amount up to ₹1,00,000 above to show the UPI QR code.</Alert>
             )}
 
             {method === "bank" && selectedBank && (
@@ -474,9 +574,12 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 {msg && <Alert type="success">{msg}</Alert>}
                 {err && <Alert type="error">{err}</Alert>}
 
-                <Field label="Amount (₹)">
-                  <input className="input" type="number" min={1000} step={100} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
-                </Field>
+                <p className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  Deposit amount: <strong className="text-foreground">{inr(Number(amount) || 0)}</strong>
+                  {method === "upi" && (
+                    <span className="block text-xs text-muted-foreground">Change amount in Step 1 (max ₹1,00,000 for UPI)</span>
+                  )}
+                </p>
 
                 <Field label="Promo code (optional)" hint="Bonus credited when deposit is approved">
                   <div className="flex gap-2">
@@ -501,7 +604,13 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                   />
                 </Field>
 
-                <button type="submit" className="btn-gold w-full">Submit deposit for verification</button>
+                <button
+                  type="submit"
+                  className="btn-gold w-full"
+                  disabled={method === "upi" && isUpiAmountOverLimit(amount)}
+                >
+                  Submit deposit for verification
+                </button>
               </form>
             ) : (
               <form onSubmit={submit} className="space-y-4 border-t border-border pt-4">
@@ -512,8 +621,8 @@ export function DepositPanel({ onRefresh, suggestedAmount, pendingInvest, wallet
                 />
                 {msg && <Alert type="success">{msg}</Alert>}
                 {err && <Alert type="error">{err}</Alert>}
-                <Field label="Amount (₹)" hint={`Minimum ${inr(MIN_WALLET_DEPOSIT)}`}>
-                  <input className="input" type="number" min={MIN_WALLET_DEPOSIT} step={1000} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
+                <Field label="Amount (₹)" hint={`Minimum ${inr(MIN_MANUAL_DEPOSIT)}. No UPI limit — use for deposits above ₹1,00,000.`}>
+                  <input className="input" type="number" min={MIN_MANUAL_DEPOSIT} step={1000} value={amount} onChange={(e) => { setAmount(e.target.value); setPromoBonus(null); }} required />
                 </Field>
                 <Field label="Promo code (optional)">
                   <div className="flex gap-2">
@@ -647,6 +756,10 @@ export function WithdrawPanel({ wallet, onRefresh }) {
       setErr("Please confirm your payout details before submitting.");
       return;
     }
+    if (mode === "UPI" && isUpiAmountOverLimit(amount)) {
+      setErr(`UPI withdrawals are limited to ${inr(UPI_MAX_AMOUNT)} per request. Use bank transfer for larger amounts.`);
+      return;
+    }
     try {
       if (step === "form") {
         const destination = mode === "UPI" ? invest.upiId : invest.accountNumber;
@@ -757,12 +870,23 @@ export function WithdrawPanel({ wallet, onRefresh }) {
             )}
             {err && <Alert type="error">{err}</Alert>}
 
-            <Field label={`Amount (₹)`}>
+            {mode === "UPI" && isUpiAmountOverLimit(amount) && (
+              <UpiLimitAlert onUseBank={() => setMode("BANK")} />
+            )}
+
+            <Field
+              label="Amount (₹)"
+              hint={
+                mode === "UPI"
+                  ? `UPI max ${inr(UPI_MAX_AMOUNT)} per request — use bank transfer above that`
+                  : "No UPI limit for bank payouts"
+              }
+            >
               <input
                 className="input"
                 type="number"
                 min={100}
-                max={wallet?.available || undefined}
+                max={mode === "UPI" ? Math.min(UPI_MAX_AMOUNT, wallet?.available || UPI_MAX_AMOUNT) : wallet?.available || undefined}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
@@ -786,7 +910,11 @@ export function WithdrawPanel({ wallet, onRefresh }) {
                 : "Funds will be sent to your registered bank account via NEFT/IMPS after admin approval."}
             </p>
 
-            <button type="submit" className="btn-gold w-full" disabled={!canPayout}>
+            <button
+              type="submit"
+              className="btn-gold w-full"
+              disabled={!canPayout || (mode === "UPI" && isUpiAmountOverLimit(amount))}
+            >
               {step === "otp" ? "Confirm with email OTP" : "Send verification email"}
             </button>
           </form>

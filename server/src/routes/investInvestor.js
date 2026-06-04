@@ -3,6 +3,7 @@ import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole } from "../middleware.js";
 import { upload, fileUrl } from "../utils/upload.js";
 import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle, MIN_WALLET_DEPOSIT } from "../utils/invest.js";
+import { validateDepositAmount, validateWithdrawAmount } from "../utils/paymentLimits.js";
 import { createOrder } from "../payments/gateways.js";
 import { autoApproveDeposit } from "../services/paymentWebhooks.js";
 import { getInvestorDashboard, getWalletHistory } from "../services/investDashboard.js";
@@ -786,13 +787,12 @@ router.post(
   upload.single("proofImage"),
   asyncH(async (req, res) => {
     const { amount, method, reference, planId, promoCode, paymentAccountId } = req.body;
-    const depositAmount = Number(amount);
-    if (!Number.isFinite(depositAmount) || depositAmount < MIN_WALLET_DEPOSIT) {
-      return res.status(400).json({
-        error: `Minimum deposit is ₹${MIN_WALLET_DEPOSIT.toLocaleString("en-IN")}.`,
-      });
-    }
     const methodUpper = String(method || "UPI").toUpperCase();
+    const depositAmount = Number(amount);
+    const depositCheck = validateDepositAmount(depositAmount, methodUpper);
+    if (!depositCheck.ok) {
+      return res.status(400).json({ error: depositCheck.error, code: depositCheck.code });
+    }
     const isManual = MANUAL_DEPOSIT_METHODS.has(methodUpper);
     const { getInvestorPaymentOptions } = await import("../services/paymentModeVisibility.js");
     const payOpts = await getInvestorPaymentOptions();
@@ -1057,6 +1057,10 @@ router.post(
     const inv = gate.investor;
     const destination = mode === "UPI" ? inv.upiId : inv.accountNumber;
     if (!destination) return res.status(400).json({ error: `Please add your ${mode} payout details first.` });
+    const withdrawCheck = validateWithdrawAmount(amount, modeUpper);
+    if (!withdrawCheck.ok) {
+      return res.status(400).json({ error: withdrawCheck.error, code: withdrawCheck.code });
+    }
     const result = await initiateWithdrawal(inv, { amount, mode, destination, password, totpCode });
     if (!result.ok) return res.status(400).json({ error: result.error });
     res.json(result);
@@ -1069,6 +1073,11 @@ router.post(
   investorOnly,
   asyncH(async (req, res) => {
     const { confirmationToken, emailOtp, amount, mode, destination } = req.body;
+    const modeUpper = String(mode || "UPI").toUpperCase();
+    const withdrawCheck = validateWithdrawAmount(amount, modeUpper);
+    if (!withdrawCheck.ok) {
+      return res.status(400).json({ error: withdrawCheck.error, code: withdrawCheck.code });
+    }
     const inv = await investDb.investor.findUnique({ where: { id: req.user.id } });
     const confirmed = await confirmWithdrawal(inv, { confirmationToken, emailOtp, amount, mode, destination });
     if (!confirmed.ok) return res.status(400).json({ error: confirmed.error });
