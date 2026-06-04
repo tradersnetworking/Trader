@@ -1,4 +1,5 @@
 import InvestorNurturePanel from "./InvestorNurturePanel.jsx";
+import { investPath } from "../../lib/site.js";
 
 export default function KycPendingInvestorsPanel() {
   return (
@@ -7,7 +8,7 @@ export default function KycPendingInvestorsPanel() {
       subtitle="Investors who registered (Google or email) but have not completed KYC. Send email and/or WhatsApp reminders, or open Manage to complete KYC on their behalf."
       listPath="/admin/investors/lists/kyc-pending"
       notifyPath="/admin/investors/lists/kyc-pending/notify"
-      manageHref="/invest/admin?tab=investors&manage="
+      manageHref={investPath("/admin?tab=investors&manage=")}
       defaultSubject="Complete your KYC — AKSHYA INVESTMENTS"
       defaultEmailBody={
         "Dear {name},\n\nYou registered on AKSHYA INVESTMENTS but your KYC is not complete yet.\n\nLog in and complete KYC (identity, bank & payout details) to unlock deposits, investments and withdrawals.\n\n— AKSHYA INVESTMENTS Team"

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
+import { investPath } from "../../lib/site.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
 import { parseSectionReviews } from "../../lib/kyc-sections.js";
@@ -219,7 +220,7 @@ export default function AdminKycPanel({ onUpdated }) {
                       {i.createdAt ? new Date(i.createdAt).toLocaleDateString("en-IN") : "—"}
                     </td>
                     <td className="p-3 text-right">
-                      <Link to={`/invest/admin?tab=investors&manage=${i.id}`} className="btn-gold inline-block px-2 py-1 text-xs">
+                      <Link to={investPath(`/admin?tab=investors&manage=${i.id}`)} className="btn-gold inline-block px-2 py-1 text-xs">
                         Complete KYC
                       </Link>
                     </td>

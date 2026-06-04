@@ -9,7 +9,7 @@ import MainDashboardShell from "../../components/main/MainDashboardShell.jsx";
 import MainAdminOrdersPanel from "../../components/main/MainAdminOrdersPanel.jsx";
 import MainAdminInvoicesPanel from "../../components/main/MainAdminInvoicesPanel.jsx";
 import { DashboardTabFallback } from "../../components/invest/DashboardTabFallback.jsx";
-import { getMainAdminNav, mainNavLabel, MAIN_ADMIN_MOBILE_PRIMARY } from "../../lib/main-nav.js";
+import { getMainAdminNav, mainNavLabel, MAIN_ADMIN_MOBILE_PRIMARY, MAIN_SUPER_MOBILE_PRIMARY } from "../../lib/main-nav.js";
 import AccountSecurityPanel from "../../components/shared/AccountSecurityPanel.jsx";
 import DataPortabilityPanel from "../../components/shared/DataPortabilityPanel.jsx";
 import MainSiteSettingsPanel from "../../components/main/MainSiteSettingsPanel.jsx";

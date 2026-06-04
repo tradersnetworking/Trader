@@ -10,15 +10,23 @@ const checks = [
     "/api/invest/public/gateways",
     (d) => {
       if (!Array.isArray(d.gateways) || !d.paymentOptions?.limits) return false;
+      if (typeof d.paymentOptions.depositCategories?.crypto !== "boolean") return false;
       if (d.paymentOptions.depositCategories?.gateway === false) {
         return d.paymentOptions.limits.upiMaxAmount === 100_000;
       }
       return d.gateways.length > 0;
     },
   ],
-  ["/api/invest/public/deposit-accounts", (d) => d.accounts?.bank?.length >= 1],
+  [
+    "/api/invest/public/deposit-accounts",
+    (d) => d.accounts?.bank?.length >= 1 && Array.isArray(d.accounts?.crypto),
+  ],
   ["/api/invest/public/referral/leaderboard", (d) => Array.isArray(d.leaderboard)],
   ["/api/invest/public/homepage", (d) => d.homepage?.homepage_hero_title],
+  [
+    "/api/invest/public/crypto-rates",
+    (d) => typeof d.usdInr === "number" && d.usdInr > 0 && d.usdPrices?.USDT,
+  ],
 ];
 
 let failed = 0;

@@ -11,7 +11,6 @@ import SuperAdminGatewaysHub from "../../components/shared/SuperAdminGatewaysHub
 import {
   AdminOverviewPanel,
   LedgerTable,
-  DepositPaymentAccountsPanel,
   InvestSettingsPanel,
   SupportLinksPanel,
   WhatsAppBusinessPanel,
@@ -266,7 +265,7 @@ export default function InvestAdminDashboard() {
       todayMaturityTotal={todayMaturityTotal}
       notificationCount={notificationCount}
       navBadges={navBadges}
-      onNotificationsClick={() => setTab("tickets")}
+      onNotificationsClick={() => setTab("notifications-admin")}
       onLogout={logoutInvest}
     >
       {permissions === null ? <AdminLoadingPermissions /> : (
