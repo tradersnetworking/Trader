@@ -2317,6 +2317,47 @@ router.post(
   })
 );
 
+router.post(
+  "/investors/not-invested/notify",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendNotInvestedNurture } = await import("../services/investorNurture.js");
+    try {
+      res.json(await sendNotInvestedNurture(req.body));
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.get(
+  "/investors/kyc-pending",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (_req, res) => {
+    const { listKycPendingInvestors } = await import("../services/investorNurture.js");
+    res.json({ investors: await listKycPendingInvestors() });
+  })
+);
+
+router.post(
+  "/investors/kyc-pending/notify",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendKycPendingNurture } = await import("../services/investorNurture.js");
+    try {
+      res.json(await sendKycPendingNurture(req.body));
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
 router.get(
   "/payouts/pending-today",
   authRequired(SCOPE),

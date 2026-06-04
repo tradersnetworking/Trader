@@ -10,6 +10,7 @@ export const ADMIN_TAB_PERMISSIONS = {
   ledger: "view_dashboard",
   investors: "manage_investors",
   "not-invested": "manage_investors",
+  "kyc-pending": "manage_investors",
   "platform-investments": "manage_investors",
   "wallet-ops": "manage_investors",
   "homepage-cms": "manage_settings",

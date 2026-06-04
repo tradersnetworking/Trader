@@ -81,6 +81,8 @@ export const ADMIN_NAV = [
 
   { id: "not-invested", label: "Not Yet Invested", icon: "investors", color: "amber" },
 
+  { id: "kyc-pending", label: "KYC Not Yet Done", icon: "kyc", color: "violet" },
+
   { id: "plans", label: "Investment Plans", icon: "plans", color: "gold", superOnly: true },
 
   { id: "treasury", label: "Treasury", icon: "wallet", color: "violet" },

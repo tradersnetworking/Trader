@@ -30,6 +30,7 @@ import {
   RbacPanel,
   SupportMailPanel,
   NotInvestedInvestorsPanel,
+  KycPendingInvestorsPanel,
   PlatformInvestmentsPanel,
   UsersManagementPanel,
   WalletOperationsPanel,
@@ -167,6 +168,8 @@ export default function InvestAdminDashboard() {
         return gate("manage_investors", "Investor Management", <TabPanel><UsersManagementPanel /></TabPanel>);
       case "not-invested":
         return gate("manage_investors", "Not Yet Invested", <TabPanel><NotInvestedInvestorsPanel /></TabPanel>);
+      case "kyc-pending":
+        return gate("manage_investors", "KYC Not Yet Done", <TabPanel><KycPendingInvestorsPanel /></TabPanel>);
       case "platform-investments":
         return gate("manage_investors", "Platform Investments", <TabPanel><PlatformInvestmentsPanel /></TabPanel>);
       case "wallet-ops":

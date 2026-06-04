@@ -129,8 +129,8 @@ export async function getInvestorWhatsAppPhone(investorOrId) {
   if (!investor) return null;
   const kyc = investor.kyc;
   const wa = normalizeWhatsAppPhone(
-    kyc?.whatsappCountryCode || kyc?.phoneCountryCode || "+91",
-    kyc?.whatsappNumber || kyc?.phone
+    kyc?.whatsappCountryCode || kyc?.phoneCountryCode || investor.phoneCountryCode || "+91",
+    kyc?.whatsappNumber || kyc?.phone || investor.phone
   );
   return wa;
 }
