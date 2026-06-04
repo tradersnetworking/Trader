@@ -49,6 +49,7 @@ model Investor {
   updatedAt     DateTime @updatedAt
 
   kyc           Kyc?
+  kycDocumentUploads KycDocumentUpload[]
   kycRevisions  KycRevision[]
   payoutChanges PayoutDetailsChange[]
   webauthnCredentials WebAuthnCredential[]
@@ -235,9 +236,37 @@ model Kyc {
   sectionReviews String?
   remarks       String?
   verifiedAt    DateTime?
+  draftStep     Int?
+  draftFormJson String?
+  uploadStatus  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   revisions     KycRevision[]
+  documentUploads KycDocumentUpload[]
+}
+
+model KycDocumentUpload {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  kycId       String?
+  kyc         Kyc?     @relation(fields: [kycId], references: [id], onDelete: SetNull)
+  fieldKey    String
+  storedName  String
+  publicUrl   String
+  mimeType    String?
+  sizeBytes   Int?
+  sha256      String?
+  status      String   @default("STAGED")
+  failReason  String?
+  attemptCount Int     @default(1)
+  scannedAt   DateTime?
+  scanResult  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([investorId, fieldKey])
+  @@index([investorId, status])
 }
 
 model KycRevision {

@@ -31,7 +31,8 @@ import {
 
 } from "../../lib/kyc-document-fields.js";
 import KycSignatureField from "./KycSignatureField.jsx";
-import KycImageCaptureField from "./KycImageCaptureField.jsx";
+import KycDocumentField from "./KycDocumentField.jsx";
+import { saveKycDraftApi } from "../../lib/kyc-upload.js";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import {
@@ -133,6 +134,8 @@ export default function KycPanel({
   const [form, setForm] = useState(() => initForm(kyc));
 
   const [files, setFiles] = useState({});
+  const [stagedUploads, setStagedUploads] = useState({});
+  const [fileHashes, setFileHashes] = useState({});
   const [signatureMode, setSignatureMode] = useState(() => (kyc?.signatureData ? "draw" : kyc?.signature ? "upload" : "draw"));
   const [signatureData, setSignatureData] = useState(kyc?.signatureData || null);
   const [signatureFile, setSignatureFile] = useState(null);
@@ -156,6 +159,29 @@ export default function KycPanel({
       delete next.driversLicenseDocument;
       return next;
     });
+    setStagedUploads((prev) => {
+      const next = { ...prev };
+      delete next.passportDocument;
+      delete next.driversLicenseDocument;
+      return next;
+    });
+  };
+
+  const handleStaged = (name, upload, hash) => {
+    setStagedUploads((prev) => {
+      const next = { ...prev };
+      if (!upload) delete next[name];
+      else next[name] = upload;
+      return next;
+    });
+    if (hash) setFileHashes((h) => ({ ...h, [name]: hash }));
+    else if (!upload) {
+      setFileHashes((h) => {
+        const next = { ...h };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const submitted =
@@ -167,7 +193,26 @@ export default function KycPanel({
     (kyc?.status === "PENDING" && !isKycFullySubmitted(kyc)) ||
     revisionMode;
 
+  useEffect(() => {
+    if (submitted && !revisionMode) return;
+    investApi("/kyc/draft")
+      .then((d) => {
+        if (d.uploads) setStagedUploads(d.uploads);
+        if (d.form && (!kyc || kyc.status === "NOT_SUBMITTED" || kyc.status === "REJECTED")) {
+          setForm((f) => ({ ...f, ...d.form }));
+        }
+        if (typeof d.step === "number" && d.step >= 0 && d.step < STEPS.length) setStep(d.step);
+      })
+      .catch(() => {});
+  }, [kyc?.id, submitted, revisionMode]);
 
+  useEffect(() => {
+    if (!canEdit || submitted) return undefined;
+    const t = window.setTimeout(() => {
+      saveKycDraftApi({ step, form }).catch(() => {});
+    }, 900);
+    return () => window.clearTimeout(t);
+  }, [form, step, canEdit, submitted]);
 
   const existingDocs = useMemo(
 
@@ -221,7 +266,8 @@ export default function KycPanel({
 
 
 
-  const hasDoc = (key) => files[key] || kyc?.[key];
+  const hasDoc = (key) =>
+    files[key] || stagedUploads[key]?.url || (stagedUploads[key]?.status !== "FAILED" && kyc?.[key]);
 
   const submitReadiness = useMemo(
     () =>
@@ -229,11 +275,12 @@ export default function KycPanel({
         kyc,
         form,
         files,
+        stagedUploads,
         signatureData,
         signatureFile,
         confirmed,
       }),
-    [kyc, form, files, signatureData, signatureFile, confirmed]
+    [kyc, form, files, stagedUploads, signatureData, signatureFile, confirmed]
   );
 
   const validateStep = (s) => {
@@ -328,21 +375,28 @@ export default function KycPanel({
   };
 
   const goNext = () => {
-
     const v = validateStep(step);
-
     if (v) {
-
       setErr(v);
-
       return;
-
     }
-
+    if (step === 2) {
+      const ready = kycSubmitReadiness({
+        kyc,
+        form,
+        files,
+        stagedUploads,
+        signatureData,
+        signatureFile,
+        confirmed: true,
+      });
+      if (!ready.ready) {
+        setErr(ready.blockers[0] || "Complete all required documents before review.");
+        return;
+      }
+    }
     setErr("");
-
     setStep((s) => s + 1);
-
   };
 
   const goBack = () => goToStep(step - 1);
@@ -416,7 +470,9 @@ export default function KycPanel({
       fd.append("signatureMethod", kyc.signatureMethod || "draw");
     }
 
-    Object.entries(files).forEach(([k, f]) => f && fd.append(k, f));
+    Object.entries(files).forEach(([k, f]) => {
+      if (f && !stagedUploads[k]?.url) fd.append(k, f);
+    });
 
     const isRevision = revisionMode && kyc?.status === "APPROVED";
     try {
@@ -430,6 +486,8 @@ export default function KycPanel({
               : "KYC submitted successfully. Uploads must be clear (not blurry) and PDFs unlocked. It is under review — please visit again after some time (usually 24–48 hours). You will see the full dashboard once fully approved.")
       );
       setFiles({});
+      setStagedUploads({});
+      setFileHashes({});
       if (isRevision) setRevisionMode(false);
       onRefresh?.();
     } catch (e) {
@@ -776,100 +834,108 @@ export default function KycPanel({
 
               <div className="space-y-3">
 
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Passport Size Photo *"
                   hint="Recent colour photo, white background, face clearly visible (35×45 mm style)"
                   name="photo"
                   required
                   imageOnly
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.photo}
                   allowCamera
                 />
 
-                <KycImageCaptureField
+                <KycDocumentField
                   label="PAN Card (photocopy) *"
                   hint="Clear scan or photo — must match PAN number entered above"
                   name="panDocument"
                   required
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.panDocument}
                   allowCamera
                 />
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <KycImageCaptureField
+                  <KycDocumentField
                     label="Aadhaar Front *"
                     hint="Required unless you upload a single combined Aadhaar file below"
                     name="aadhaarFront"
                     required
-                    files={files}
-                    setFiles={setFiles}
+                    stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                     existingUrl={kyc?.aadhaarFront}
                     allowCamera
                   />
-                  <KycImageCaptureField
+                  <KycDocumentField
                     label="Aadhaar Back *"
                     hint="Required unless you upload a single combined Aadhaar file below"
                     name="aadhaarBack"
                     required
-                    files={files}
-                    setFiles={setFiles}
+                    stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                     existingUrl={kyc?.aadhaarBack}
                     allowCamera
                   />
                 </div>
 
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Aadhaar (single file alternative)"
                   hint="Or one combined Aadhaar PDF/image instead of front & back (mandatory if front/back not uploaded)"
                   name="aadhaarDocument"
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.aadhaarDocument}
                   allowCamera
                 />
 
                 {form.idType === "PASSPORT" && (
-                  <KycImageCaptureField
+                  <KycDocumentField
                     label="Passport document *"
                     hint="Required — passport is your primary ID (photo page, image or PDF)"
                     name="passportDocument"
                     required
-                    files={files}
-                    setFiles={setFiles}
+                    stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                     existingUrl={kyc?.passportDocument}
                     allowCamera
                   />
                 )}
 
                 {form.idType === "DRIVERS_LICENSE" && (
-                  <KycImageCaptureField
+                  <KycDocumentField
                     label="Driving licence document *"
                     hint="Required — driving licence is your primary ID (front and back, image or PDF)"
                     name="driversLicenseDocument"
                     required
-                    files={files}
-                    setFiles={setFiles}
+                    stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                     existingUrl={kyc?.driversLicenseDocument}
                     allowCamera
                   />
                 )}
 
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Address Proof *"
                   hint="Utility bill, bank statement, or rental agreement (not older than 3 months)"
                   name="addressProof"
                   required
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.addressProof}
                   allowCamera
                 />
 
-                <KycImageCaptureField
+                <KycDocumentField
 
                   label="Selfie Verification"
 
@@ -877,9 +943,9 @@ export default function KycPanel({
 
                   name="selfie"
 
-                  files={files}
-
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
 
                   existingUrl={kyc?.selfie}
 
@@ -961,37 +1027,40 @@ export default function KycPanel({
                 <p className="mt-1 text-xs text-muted-foreground">Upload clear image or PDF. Password-protected bank statements are not accepted.</p>
               </Field>
               {form.bankProofType === "CHEQUE" && (
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Cancelled cheque *"
                   hint="Must show account number and IFSC matching entries above"
                   name="cancelledCheque"
                   required
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.cancelledCheque}
                   allowCamera
                 />
               )}
               {form.bankProofType === "PASSBOOK" && (
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Bank passbook *"
                   hint="First page with name & account — image or PDF"
                   name="passbookDocument"
                   required
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.passbookDocument}
                   allowCamera
                 />
               )}
               {form.bankProofType === "STATEMENT" && (
-                <KycImageCaptureField
+                <KycDocumentField
                   label="Bank statement *"
                   hint="Unlocked PDF or image — password-protected files not accepted"
                   name="bankStatementDocument"
                   required
-                  files={files}
-                  setFiles={setFiles}
+                  stagedUploads={stagedUploads}
+                  onStaged={handleStaged}
+                  fileHashes={fileHashes}
                   existingUrl={kyc?.bankStatementDocument}
                   allowCamera
                 />
@@ -1041,7 +1110,7 @@ export default function KycPanel({
 
                 <p className="text-xs text-muted-foreground leading-relaxed">
 
-                  Documents selected:{" "}
+                  Documents uploaded:{" "}
 
                   {KYC_DOCUMENT_FIELDS.filter((f) => hasDoc(f.key))
 
@@ -1052,6 +1121,17 @@ export default function KycPanel({
                 </p>
 
               </div>
+
+              {!submitReadiness.ready && (
+                <Alert type="error">
+                  <p className="font-semibold">Cannot submit yet:</p>
+                  <ul className="mt-1 list-inside list-disc text-xs">
+                    {submitReadiness.blockers.map((b) => (
+                      <li key={b}>{b}</li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
 
               <label className="flex items-start gap-2 text-xs text-muted-foreground">
 

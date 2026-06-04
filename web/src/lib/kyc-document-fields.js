@@ -56,8 +56,8 @@ export function isValidAadhaar(v) {
   return AADHAAR_REGEX.test(normalizeAadhaar(v));
 }
 
-export const KYC_ACCEPT_DOCS = "image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf";
-export const KYC_ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/gif";
+export const KYC_ACCEPT_DOCS = "image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf";
+export const KYC_ACCEPT_IMAGE = "image/jpeg,image/png,.jpg,.jpeg,.png";
 export const KYC_MAX_BYTES = 10 * 1024 * 1024;
 
 export function validateKycFile(file, { imageOnly = false } = {}) {
@@ -66,9 +66,11 @@ export function validateKycFile(file, { imageOnly = false } = {}) {
   const mime = file.type.toLowerCase();
   const name = file.name.toLowerCase();
   const isPdf = mime === "application/pdf" || name.endsWith(".pdf");
-  const isImage = mime.startsWith("image/") || /\.(jpe?g|png|webp|gif)$/i.test(name);
-  if (imageOnly && !isImage) return "Please upload an image (JPG, PNG, or WebP)";
-  if (!isImage && !isPdf) return "Please upload an image or PDF";
+  const isJpeg = mime === "image/jpeg" || /\.jpe?g$/i.test(name);
+  const isPng = mime === "image/png" || name.endsWith(".png");
+  const isImage = isJpeg || isPng;
+  if (imageOnly && !isImage) return "Please upload a JPG, JPEG, or PNG image";
+  if (!isImage && !isPdf) return "Only JPG, JPEG, PNG, and PDF files are allowed";
   return null;
 }
 

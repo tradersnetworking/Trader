@@ -17,7 +17,8 @@
     "sync-images": "node scripts/sync-marketplace-images.mjs",
     "sync-all-images": "node scripts/sync-all-product-images.mjs",
     "curate-images": "node scripts/curate-product-images.mjs",
-    "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs"
+    "sync:plans:vps": "node scripts/sync-plans-from-vps.mjs",
+    "test:kyc-upload": "node --test tests/kyc-upload-security.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

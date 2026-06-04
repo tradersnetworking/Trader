@@ -15,12 +15,14 @@ export function kycSubmitReadiness({
   kyc,
   form,
   files = {},
+  stagedUploads = {},
   signatureData,
   signatureFile,
   confirmed = false,
 }) {
   const blockers = [];
-  const hasDoc = (key) => Boolean(files[key] || kyc?.[key]);
+  const hasDoc = (key) =>
+    Boolean(files[key] || stagedUploads[key]?.url || (stagedUploads[key]?.status !== "FAILED" && kyc?.[key]));
 
   const checkStep = (s) => {
     if (s === 0) {
@@ -113,5 +115,10 @@ export function kycSubmitReadiness({
   if (!confirmed) blockers.push("Confirm the declaration on the review step");
 
   const unique = [...new Set(blockers)];
-  return { ready: unique.length === 0, blockers: unique };
+  const failedUploads = Object.entries(stagedUploads || {})
+    .filter(([, v]) => v?.status === "FAILED")
+    .map(([k, v]) => `${v.label || k}: ${v.failReason || "upload failed"}`);
+  for (const f of failedUploads) unique.unshift(f);
+
+  return { ready: unique.length === 0, blockers: unique, failedUploads };
 }

@@ -71,7 +71,7 @@ export function errorHandler(err, _req, res, _next) {
   if (err?.name === "MulterError") {
     const message =
       err.code === "LIMIT_FILE_SIZE"
-        ? "File too large (maximum 10 MB per file)."
+        ? "File too large (maximum 15 MB per file on server; use 10 MB or less per document)."
         : err.code === "LIMIT_FILE_COUNT"
           ? "Too many files in one request."
           : err.code === "LIMIT_FIELD_VALUE"

@@ -1,7 +1,18 @@
 import { Router } from "express";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole } from "../middleware.js";
-import { upload, fileUrl } from "../utils/upload.js";
+import { upload, kycSingleUpload, fileUrl } from "../utils/upload.js";
+import { kycUploadRateLimit } from "../middleware/rateLimit.js";
+import {
+  listStagedKycUploads,
+  getKycDraft,
+  saveKycDraft,
+  stageKycFileUpload,
+  deleteStagedKycUpload,
+  applyStagedUploadsToKycData,
+  markStagedUploadsAttached,
+} from "../services/kycDocumentUploads.js";
+import { isAllowedKycUploadField } from "../constants/kycUploadFields.js";
 import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle, MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { validateDepositAmount, validateWithdrawAmount } from "../utils/paymentLimits.js";
 import { createOrder } from "../payments/gateways.js";
@@ -377,8 +388,12 @@ router.get(
     });
 
     const kycOut = ensureSectionReviewsOnRecord(kyc);
+    const stagedUploads = await listStagedKycUploads(req.user.id).catch(() => ({}));
     res.json({
       kyc: kycOut,
+      stagedUploads,
+      draftStep: kyc?.draftStep ?? 0,
+      uploadStatus: kyc?.uploadStatus || "NOT_STARTED",
       investor: publicInvestor(investorOut),
       pendingPayoutChange,
       pendingKycRevision,
@@ -386,6 +401,68 @@ router.get(
       eligibility: investEligibility(investorOut, kyc),
       withdrawEligibility: withdrawEligibility(investorOut, kyc),
     });
+  })
+);
+
+router.get(
+  "/kyc/draft",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    res.json(await getKycDraft(req.user.id));
+  })
+);
+
+router.put(
+  "/kyc/draft",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const { step, form } = req.body || {};
+    res.json(await saveKycDraft(req.user.id, { step, form }));
+  })
+);
+
+router.get(
+  "/kyc/files",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    res.json({ uploads: await listStagedKycUploads(req.user.id) });
+  })
+);
+
+router.post(
+  "/kyc/files/:fieldKey",
+  authRequired(SCOPE),
+  investorOnly,
+  kycUploadRateLimit,
+  (req, res, next) => {
+    kycSingleUpload(req, res, (err) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  asyncH(async (req, res) => {
+    const fieldKey = String(req.params.fieldKey || "");
+    if (!isAllowedKycUploadField(fieldKey)) {
+      return res.status(400).json({ error: "Invalid document type.", code: "INVALID_FIELD" });
+    }
+    const result = await stageKycFileUpload(req.user.id, fieldKey, req.file);
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error, code: result.code });
+    res.json(result);
+  })
+);
+
+router.delete(
+  "/kyc/files/:fieldKey",
+  authRequired(SCOPE),
+  investorOnly,
+  asyncH(async (req, res) => {
+    const fieldKey = String(req.params.fieldKey || "");
+    const result = await deleteStagedKycUpload(req.user.id, fieldKey);
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error });
+    res.json({ ok: true });
   })
 );
 
@@ -458,6 +535,7 @@ router.post(
       if (files[field]?.[0]) data[key] = fileUrl(files[field][0].filename);
       else if (existing?.[key]) data[key] = existing[key];
     }
+    await applyStagedUploadsToKycData(req.user.id, data, files);
 
     const docCheckFields = new Set(docFieldsForSections(requiredSections));
     const docChecks = await Promise.all(
@@ -541,6 +619,7 @@ router.post(
     }
     const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
     notifyKycSubmitted(investor);
+    await markStagedUploadsAttached(req.user.id);
     const { ensureSectionReviewsOnRecord } = await import("../services/kycSections.js");
     res.json({ kyc: ensureSectionReviewsOnRecord(kyc), message: "KYC submitted for team review." });
   })

@@ -16,15 +16,11 @@ const storage = multer.diskStorage({
   },
 });
 
-const KYC_MIMES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "application/pdf",
-]);
+const KYC_MIMES = new Set(["image/jpeg", "image/png", "application/pdf"]);
 
-export const KYC_MAX_FILE_BYTES = 10 * 1024 * 1024;
+/** Client-facing max 10 MB; server accepts up to 15 MB (multipart overhead). */
+export const KYC_CLIENT_MAX_BYTES = 10 * 1024 * 1024;
+export const KYC_MAX_FILE_BYTES = 15 * 1024 * 1024;
 export const KYC_MAX_FIELD_BYTES = 2 * 1024 * 1024;
 
 export const upload = multer({
@@ -37,11 +33,20 @@ export const upload = multer({
   fileFilter: (_req, file, cb) => {
     const mime = (file.mimetype || "").toLowerCase();
     const ext = path.extname(file.originalname).toLowerCase();
-    const ok =
-      KYC_MIMES.has(mime) ||
-      [".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf"].includes(ext);
-    cb(ok ? null : new Error("Only images (JPG, PNG, WebP) and PDF files are allowed"), ok);
+    const ok = KYC_MIMES.has(mime) || [".jpg", ".jpeg", ".png", ".pdf"].includes(ext);
+    cb(ok ? null : new Error("Only JPG, JPEG, PNG, and PDF files are allowed"), ok);
   },
 });
+
+export const kycSingleUpload = multer({
+  storage,
+  limits: { fileSize: KYC_MAX_FILE_BYTES, files: 1, fieldSize: KYC_MAX_FIELD_BYTES },
+  fileFilter: (_req, file, cb) => {
+    const mime = (file.mimetype || "").toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const ok = KYC_MIMES.has(mime) || [".jpg", ".jpeg", ".png", ".pdf"].includes(ext);
+    cb(ok ? null : new Error("Only JPG, JPEG, PNG, and PDF files are allowed"), ok);
+  },
+}).single("file");
 
 export const fileUrl = (filename) => (filename ? `/uploads/${filename}` : null);
