@@ -25,6 +25,9 @@ const SETTING_KEYS = {
   juspay: { merchantId: "gateway_juspay_merchant_id" },
   eximpe: { apiKey: "gateway_eximpe_api_key" },
   litepay: { vendorId: "gateway_litepay_vendor_id", secret: "gateway_litepay_secret" },
+  stripe: { secretKey: "gateway_stripe_secret_key", publishableKey: "gateway_stripe_publishable_key" },
+  payglocal: { merchantId: "gateway_payglocal_merchant_id", apiKey: "gateway_payglocal_api_key" },
+  xflowpay: { merchantId: "gateway_xflowpay_merchant_id", apiKey: "gateway_xflowpay_api_key" },
 };
 
 async function resolveCreds(name) {
@@ -73,8 +76,82 @@ async function isConfigured(name) {
     const secret = (await getSetting("gateway_litepay_secret")) || process.env.LITEPAY_SECRET;
     return Boolean(vendor && secret);
   }
+  if (name === "stripe") {
+    return Boolean(
+      (await getSetting("gateway_stripe_secret_key")) || process.env.STRIPE_SECRET_KEY
+    );
+  }
+  if (name === "payglocal") {
+    return Boolean(
+      ((await getSetting("gateway_payglocal_merchant_id")) || process.env.PAYGLOCAL_MERCHANT_ID) &&
+        ((await getSetting("gateway_payglocal_api_key")) || process.env.PAYGLOCAL_API_KEY)
+    );
+  }
+  if (name === "xflowpay") {
+    return Boolean(
+      ((await getSetting("gateway_xflowpay_merchant_id")) || process.env.XFLOWPAY_MERCHANT_ID) &&
+        ((await getSetting("gateway_xflowpay_api_key")) || process.env.XFLOWPAY_API_KEY)
+    );
+  }
   const creds = await resolveCreds(name);
   return Object.values(creds).some((v) => v && String(v).length > 0);
+}
+
+/** PayGlocal / XflowPay — POST to merchant-configured API; expects { url } or { redirectUrl }. */
+async function createPartnerPaymentLink(
+  gateway,
+  { amount, currency, receipt, depositId, customer, defaultApiUrl, ...rest }
+) {
+  const merchantId =
+    (await getSetting(`gateway_${gateway}_merchant_id`)) ||
+    process.env[`${gateway.toUpperCase()}_MERCHANT_ID`] ||
+    "";
+  const apiKey =
+    (await getSetting(`gateway_${gateway}_api_key`)) ||
+    process.env[`${gateway.toUpperCase()}_API_KEY`] ||
+    "";
+  if (!merchantId || !apiKey) return mockOrder(gateway, amount, currency, receipt);
+
+  const { payReturnUrl } = await import("../utils/paymentUrls.js");
+  const ctx = returnContext({ depositId, ...rest });
+  const returnUrl = payReturnUrl({ ...ctx, status: "success", gateway });
+  const webhookUrl = payReturnUrl({ ...ctx, status: gateway, gateway });
+  const orderId = String(receipt || depositId || nanoid(10));
+  const apiUrl =
+    (await getSetting(`gateway_${gateway}_api_url`)) ||
+    process.env[`${gateway.toUpperCase()}_API_URL`] ||
+    defaultApiUrl;
+
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "X-Merchant-Id": merchantId,
+      },
+      body: JSON.stringify({
+        merchantId,
+        orderId,
+        amount: Number(amount),
+        currency: currency || "INR",
+        returnUrl,
+        callbackUrl: webhookUrl,
+        customerEmail: customer?.email,
+        customerName: customer?.name,
+        customerPhone: customer?.phone,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    const redirectUrl = data?.url || data?.redirectUrl || data?.paymentUrl || data?.data?.url;
+    if (redirectUrl) {
+      return { gateway, orderId, amount, currency, redirectUrl, raw: data };
+    }
+    console.error(`[${gateway}]`, data?.message || data?.error || res.status);
+  } catch (e) {
+    console.error(`[${gateway}]`, e.message);
+  }
+  return mockOrder(gateway, amount, currency, receipt);
 }
 
 function mockOrder(gateway, amount, currency, receipt) {
@@ -89,7 +166,10 @@ function mockOrder(gateway, amount, currency, receipt) {
   };
 }
 
-const SUPPORTED = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay", "upi", "phonepe", "paypal", ...BANK_PROVIDERS];
+const SUPPORTED = [
+  "razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay",
+  "stripe", "payglocal", "xflowpay", "upi", "phonepe", "paypal", ...BANK_PROVIDERS,
+];
 
 const adapters = {
   async razorpay({ amount, currency, receipt }) {
@@ -257,6 +337,73 @@ const adapters = {
       console.error("[litepay]", e.message);
     }
     return mockOrder("litepay", amount, currency, receipt);
+  },
+
+  async stripe({ amount, currency, receipt, depositId, customer, ...rest }) {
+    const secret =
+      (await getSetting("gateway_stripe_secret_key")) || process.env.STRIPE_SECRET_KEY || "";
+    if (!secret) return mockOrder("stripe", amount, currency, receipt);
+
+    const { payReturnUrl } = await import("../utils/paymentUrls.js");
+    const ctx = returnContext({ depositId, ...rest });
+    const successUrl = payReturnUrl({ ...ctx, status: "success", gateway: "stripe" });
+    const cancelUrl = payReturnUrl({ ...ctx, status: "cancelled", gateway: "stripe" });
+    const cur = String(currency || "INR").toLowerCase();
+
+    const params = new URLSearchParams({
+      mode: "payment",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: String(receipt || depositId || nanoid(8)),
+      "line_items[0][quantity]": "1",
+      "line_items[0][price_data][currency]": cur,
+      "line_items[0][price_data][unit_amount]": String(Math.round(Number(amount) * 100)),
+      "line_items[0][price_data][product_data][name]": "Akshaya Exim wallet deposit",
+    });
+    if (customer?.email) params.set("customer_email", customer.email);
+
+    try {
+      const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secret}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.url) {
+        return { gateway: "stripe", orderId: data.id, amount, currency, redirectUrl: data.url, raw: data };
+      }
+      console.error("[stripe]", data?.error?.message || res.status);
+    } catch (e) {
+      console.error("[stripe]", e.message);
+    }
+    return mockOrder("stripe", amount, currency, receipt);
+  },
+
+  async payglocal({ amount, currency, receipt, depositId, customer, ...rest }) {
+    return createPartnerPaymentLink("payglocal", {
+      amount,
+      currency,
+      receipt,
+      depositId,
+      customer,
+      ...rest,
+      defaultApiUrl: "https://api.payglocal.in/pg/v1/payments",
+    });
+  },
+
+  async xflowpay({ amount, currency, receipt, depositId, customer, ...rest }) {
+    return createPartnerPaymentLink("xflowpay", {
+      amount,
+      currency,
+      receipt,
+      depositId,
+      customer,
+      ...rest,
+      defaultApiUrl: "https://api.xflowpay.com/v1/checkout/sessions",
+    });
   },
 
   async hdfc(payload) {

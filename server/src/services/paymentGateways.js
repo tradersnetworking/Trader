@@ -4,7 +4,10 @@ import { MIN_WALLET_DEPOSIT } from "../utils/invest.js";
 import { getSetting } from "./investSettings.js";
 import { accountShowsForDeposit } from "./paymentModeVisibility.js";
 
-const ONLINE_PROVIDERS = ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank"];
+const ONLINE_PROVIDERS = [
+  "razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay",
+  "stripe", "payglocal", "xflowpay", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank",
+];
 
 export function parseExtraConfig(raw) {
   if (!raw) return {};

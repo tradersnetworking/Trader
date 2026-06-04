@@ -29,6 +29,12 @@ const GATEWAY_LABELS = {
 
   litepay: "LitePay",
 
+  stripe: "Stripe",
+
+  payglocal: "PayGlocal",
+
+  xflowpay: "XflowPay",
+
   upi: "UPI Intent",
 
   RAZORPAYX: "RazorpayX Payouts",
@@ -121,6 +127,23 @@ const GATEWAY_SETTING_KEYS = {
     { key: "gateway_litepay_vendor_id", label: "Vendor ID" },
     { key: "gateway_litepay_secret", label: "Secret Key", secret: true },
     { key: "gateway_litepay_api_url", label: "API URL (optional)" },
+  ],
+
+  stripe: [
+    { key: "gateway_stripe_publishable_key", label: "Publishable Key" },
+    { key: "gateway_stripe_secret_key", label: "Secret Key", secret: true },
+  ],
+
+  payglocal: [
+    { key: "gateway_payglocal_merchant_id", label: "Merchant ID" },
+    { key: "gateway_payglocal_api_key", label: "API Key", secret: true },
+    { key: "gateway_payglocal_api_url", label: "API URL (optional)" },
+  ],
+
+  xflowpay: [
+    { key: "gateway_xflowpay_merchant_id", label: "Merchant ID" },
+    { key: "gateway_xflowpay_api_key", label: "API Key", secret: true },
+    { key: "gateway_xflowpay_api_url", label: "API URL (optional)" },
   ],
 
 };

@@ -105,7 +105,10 @@ export async function createTradePayment({ userId, direction, amount, method, ga
     },
   });
   let payment = null;
-  const online = ["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL"];
+  const online = [
+    "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "LITEPAY",
+    "STRIPE", "PAYGLOCAL", "XFLOWPAY", "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL",
+  ];
   if (online.includes(tp.method) && direction === "COLLECT") {
     payment = await createOrder(tp.method.toLowerCase(), {
       amount: tp.amount,

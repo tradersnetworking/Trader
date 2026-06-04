@@ -44,7 +44,7 @@ export default function AdminDepositsPanel({ onUpdated }) {
   const methodLabel = (d) => {
     if (!d.method) return "—";
     const m = String(d.method).toUpperCase();
-    if (["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL"].includes(m)) {
+    if (["RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "LITEPAY", "STRIPE", "PAYGLOCAL", "XFLOWPAY", "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL"].includes(m)) {
       return providerLabel(m.toLowerCase()) || m;
     }
     return m;
