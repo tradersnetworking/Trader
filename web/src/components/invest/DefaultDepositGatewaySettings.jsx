@@ -34,7 +34,7 @@ export default function DefaultDepositGatewaySettings() {
   };
 
   const names = [...new Set([
-    "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "LITEPAY", "STRIPE", "PAYGLOCAL", "XFLOWPAY",
+    "RAZORPAY", "CASHFREE", "PAYU", "EASEBUZZ", "JUSPAY", "EXIMPE", "LITEPAY", "STRIPE", "PAYGLOCAL", "XFLOWPAY", "PINLABS",
     "HDFC", "AXIS", "ICICI", "YESBANK", "PHONEPE", "PAYPAL",
     ...gateways.map((g) => g.name?.toUpperCase()).filter(Boolean),
   ])];

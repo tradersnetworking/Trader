@@ -10,6 +10,7 @@ export const PROVIDER_LABELS = {
   stripe: "Stripe",
   payglocal: "PayGlocal",
   xflowpay: "XflowPay",
+  pinlabs: "Pine Labs",
   phonepe: "PhonePe",
   paypal: "PayPal",
   hdfc: "HDFC Bank API",

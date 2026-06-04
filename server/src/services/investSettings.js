@@ -72,7 +72,10 @@ export function isMaskedCredentialValue(value) {
 export function isGatewayCredentialKey(key) {
   if (!key || typeof key !== "string") return false;
   if (key.startsWith("gateway_")) {
-    return /_(secret|salt|key_secret|api_key|api_secret)$/.test(key) || key === "gateway_stripe_secret_key";
+    return (
+      /_(secret|client_secret|salt|key_secret|api_key|api_secret)$/.test(key) ||
+      key === "gateway_stripe_secret_key"
+    );
   }
   if (key.startsWith("bank_")) {
     return /_(secret|client_secret|api_secret|api_key)$/.test(key);

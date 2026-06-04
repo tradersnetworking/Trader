@@ -35,6 +35,8 @@ const GATEWAY_LABELS = {
 
   xflowpay: "XflowPay",
 
+  pinlabs: "Pine Labs",
+
   upi: "UPI Intent",
 
   RAZORPAYX: "RazorpayX Payouts",
@@ -144,6 +146,12 @@ const GATEWAY_SETTING_KEYS = {
     { key: "gateway_xflowpay_merchant_id", label: "Merchant ID" },
     { key: "gateway_xflowpay_api_key", label: "API Key", secret: true },
     { key: "gateway_xflowpay_api_url", label: "API URL (optional)" },
+  ],
+
+  pinlabs: [
+    { key: "gateway_pinlabs_client_id", label: "Client ID" },
+    { key: "gateway_pinlabs_client_secret", label: "Client Secret", secret: true },
+    { key: "gateway_pinlabs_api_base", label: "API base URL (optional, UAT: https://pluraluat.v2.pinepg.in)" },
   ],
 
 };

@@ -28,6 +28,7 @@ const SETTING_KEYS = {
   stripe: { secretKey: "gateway_stripe_secret_key", publishableKey: "gateway_stripe_publishable_key" },
   payglocal: { merchantId: "gateway_payglocal_merchant_id", apiKey: "gateway_payglocal_api_key" },
   xflowpay: { merchantId: "gateway_xflowpay_merchant_id", apiKey: "gateway_xflowpay_api_key" },
+  pinlabs: { clientId: "gateway_pinlabs_client_id", clientSecret: "gateway_pinlabs_client_secret" },
 };
 
 async function resolveCreds(name) {
@@ -93,6 +94,13 @@ async function isConfigured(name) {
         ((await getSetting("gateway_xflowpay_api_key")) || process.env.XFLOWPAY_API_KEY)
     );
   }
+  if (name === "pinlabs") {
+    const clientId =
+      (await getSetting("gateway_pinlabs_client_id")) || process.env.PINLABS_CLIENT_ID;
+    const clientSecret =
+      (await getSetting("gateway_pinlabs_client_secret")) || process.env.PINLABS_CLIENT_SECRET;
+    return Boolean(clientId && clientSecret);
+  }
   const creds = await resolveCreds(name);
   return Object.values(creds).some((v) => v && String(v).length > 0);
 }
@@ -154,6 +162,125 @@ async function createPartnerPaymentLink(
   return mockOrder(gateway, amount, currency, receipt);
 }
 
+function pinelabHeaders() {
+  return {
+    accept: "application/json",
+    "Content-Type": "application/json",
+    "Request-ID": nanoid(),
+    "Request-Timestamp": new Date().toISOString(),
+  };
+}
+
+/** Pine Labs Online (Plural) — token → order → payment → challenge_url redirect. */
+async function createPinlabsCheckout({
+  amount,
+  currency,
+  receipt,
+  depositId,
+  customer,
+  ...rest
+}) {
+  const clientId =
+    (await getSetting("gateway_pinlabs_client_id")) || process.env.PINLABS_CLIENT_ID || "";
+  const clientSecret =
+    (await getSetting("gateway_pinlabs_client_secret")) || process.env.PINLABS_CLIENT_SECRET || "";
+  if (!clientId || !clientSecret) return mockOrder("pinlabs", amount, currency, receipt);
+
+  const base =
+    (
+      (await getSetting("gateway_pinlabs_api_base")) ||
+      process.env.PINLABS_API_BASE ||
+      "https://api.pluralpay.in"
+    ).replace(/\/$/, "");
+  const { payReturnUrl } = await import("../utils/paymentUrls.js");
+  const ctx = returnContext({ depositId, ...rest });
+  const callbackUrl = payReturnUrl({ ...ctx, status: "success", gateway: "pinlabs" });
+  const failureUrl = payReturnUrl({ ...ctx, status: "failed", gateway: "pinlabs" });
+  const merchantRef = String(receipt || depositId || nanoid(10)).replace(/\D/g, "").slice(-12) || String(Date.now());
+  const amountPaise = Math.round(Number(amount) * 100);
+  const cur = currency || "INR";
+
+  try {
+    const tokenRes = await fetch(`${base}/api/auth/v1/token`, {
+      method: "POST",
+      headers: pinelabHeaders(),
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "client_credentials",
+      }),
+    });
+    const tokenData = await tokenRes.json().catch(() => ({}));
+    const accessToken = tokenData?.access_token;
+    if (!accessToken) {
+      console.error("[pinlabs] token", tokenData?.message || tokenData?.error || tokenRes.status);
+      return mockOrder("pinlabs", amount, currency, receipt);
+    }
+
+    const authHeaders = { ...pinelabHeaders(), Authorization: `Bearer ${accessToken}` };
+    const nameParts = String(customer?.name || "Investor").trim().split(/\s+/);
+    const orderRes = await fetch(`${base}/api/pay/v1/orders`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        merchant_order_reference: Number(merchantRef) || Date.now(),
+        order_amount: { value: amountPaise, currency: cur },
+        pre_auth: false,
+        callback_url: callbackUrl,
+        failure_callback_url: failureUrl,
+        allowed_payment_methods: ["CARD", "UPI", "NETBANKING", "WALLET"],
+        notes: String(receipt || depositId || "").slice(0, 200),
+        purchase_details: {
+          customer: {
+            email_id: customer?.email || "investor@akshayaexim.in",
+            first_name: nameParts[0] || "Investor",
+            last_name: nameParts.slice(1).join(" ") || "User",
+            customer_id: String(customer?.id || customer?.email || merchantRef).slice(0, 32),
+            mobile_number: String(customer?.phone || "9999999999").replace(/\D/g, "").slice(-10),
+            country_code: "91",
+          },
+        },
+      }),
+    });
+    const orderData = await orderRes.json().catch(() => ({}));
+    const orderId = orderData?.data?.order_id || orderData?.order_id;
+    if (!orderId) {
+      console.error("[pinlabs] order", orderData?.message || orderData?.error || orderRes.status);
+      return mockOrder("pinlabs", amount, currency, receipt);
+    }
+
+    const payRes = await fetch(`${base}/api/pay/v1/orders/${encodeURIComponent(orderId)}/payments`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        payments: [
+          {
+            payment_method: "UPI",
+            payment_amount: { value: amountPaise, currency: cur },
+          },
+        ],
+      }),
+    });
+    const payData = await payRes.json().catch(() => ({}));
+    const challengeUrl =
+      payData?.data?.challenge_url || payData?.challenge_url || payData?.data?.redirect_url;
+    if (challengeUrl) {
+      return {
+        gateway: "pinlabs",
+        orderId,
+        amount,
+        currency: cur,
+        redirectUrl: challengeUrl,
+        raw: payData,
+      };
+    }
+    console.error("[pinlabs] payment", payData?.message || payData?.error || payRes.status);
+  } catch (e) {
+    console.error("[pinlabs]", e.message);
+  }
+  return mockOrder("pinlabs", amount, currency, receipt);
+}
+
 function mockOrder(gateway, amount, currency, receipt) {
   return {
     gateway,
@@ -168,7 +295,7 @@ function mockOrder(gateway, amount, currency, receipt) {
 
 const SUPPORTED = [
   "razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay",
-  "stripe", "payglocal", "xflowpay", "upi", "phonepe", "paypal", ...BANK_PROVIDERS,
+  "stripe", "payglocal", "xflowpay", "pinlabs", "upi", "phonepe", "paypal", ...BANK_PROVIDERS,
 ];
 
 const adapters = {
@@ -404,6 +531,10 @@ const adapters = {
       ...rest,
       defaultApiUrl: "https://api.xflowpay.com/v1/checkout/sessions",
     });
+  },
+
+  async pinlabs(payload) {
+    return createPinlabsCheckout(payload);
   },
 
   async hdfc(payload) {

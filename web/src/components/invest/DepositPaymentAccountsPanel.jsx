@@ -415,7 +415,7 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
               <select className="input" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })}>
                 {(tab === "bank-api"
                   ? ["hdfc", "axis", "icici", "yesbank"]
-                  : ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay", "stripe", "payglocal", "xflowpay", "phonepe", "paypal"]
+                  : ["razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay", "stripe", "payglocal", "xflowpay", "pinlabs", "phonepe", "paypal"]
                 ).map((p) => (
                   <option key={p} value={p}>{providerLabel(p)}</option>
                 ))}

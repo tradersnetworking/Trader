@@ -6,7 +6,7 @@ import { accountShowsForDeposit } from "./paymentModeVisibility.js";
 
 const ONLINE_PROVIDERS = [
   "razorpay", "cashfree", "payu", "easebuzz", "juspay", "eximpe", "litepay",
-  "stripe", "payglocal", "xflowpay", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank",
+  "stripe", "payglocal", "xflowpay", "pinlabs", "phonepe", "paypal", "hdfc", "axis", "icici", "yesbank",
 ];
 
 export function parseExtraConfig(raw) {
