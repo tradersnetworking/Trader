@@ -8,6 +8,8 @@ export default function DefaultDepositGatewaySettings() {
   const [form, setForm] = useState({ default_deposit_gateway: "RAZORPAY" });
   const [gateways, setGateways] = useState([]);
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     investApi("/admin/settings").then((d) => setForm({
@@ -18,8 +20,17 @@ export default function DefaultDepositGatewaySettings() {
 
   const save = async (e) => {
     e.preventDefault();
-    await investApi("/admin/settings", { method: "PUT", body: form });
-    setMsg("Default deposit gateway saved. Investors see this pre-selected but can choose another.");
+    setMsg("");
+    setErr("");
+    setSaving(true);
+    try {
+      await investApi("/admin/settings", { method: "PUT", body: form });
+      setMsg("Default deposit gateway saved. Investors see this pre-selected but can choose another.");
+    } catch (e2) {
+      setErr(e2.message || "Failed to save default gateway.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const names = [...new Set([
@@ -34,7 +45,8 @@ export default function DefaultDepositGatewaySettings() {
       <p className="text-xs text-muted-foreground">
         Pre-selects the payment gateway for investors on the deposit page. They can change it before paying. UPI and bank transfers always require proof upload.
       </p>
-      {msg && <Alert type="success">{msg}</Alert>}
+      {msg && <Alert type="success" role="status">{msg}</Alert>}
+      {err && <Alert type="error" role="alert">{err}</Alert>}
       <Field label="Default gateway">
         <select className="input max-w-md" value={form.default_deposit_gateway} onChange={(e) => setForm({ ...form, default_deposit_gateway: e.target.value })}>
           {names.map((n) => (
@@ -42,7 +54,9 @@ export default function DefaultDepositGatewaySettings() {
           ))}
         </select>
       </Field>
-      <button className="btn-outline text-xs">Save default deposit gateway</button>
+      <button type="submit" className="btn-outline text-xs" disabled={saving}>
+        {saving ? "Saving…" : "Save default deposit gateway"}
+      </button>
     </form>
   );
 }

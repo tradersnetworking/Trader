@@ -62,6 +62,24 @@ const BRAND_TEXT_KEYS = new Set([
   "mail_from",
 ]);
 
+const MASKED_PLACEHOLDER = "••••••••";
+
+/** Gateway/bank credential fields — blank or masked values must not overwrite stored secrets. */
+export function isMaskedCredentialValue(value) {
+  return value === "" || value === MASKED_PLACEHOLDER;
+}
+
+export function isGatewayCredentialKey(key) {
+  if (!key || typeof key !== "string") return false;
+  if (key.startsWith("gateway_")) {
+    return /_(secret|salt|key_secret|api_key|api_secret)$/.test(key) || key === "gateway_stripe_secret_key";
+  }
+  if (key.startsWith("bank_")) {
+    return /_(secret|client_secret|api_secret|api_key)$/.test(key);
+  }
+  return false;
+}
+
 export async function getAllSettings(includeSecrets = false) {
   const rows = await investDb.investSetting.findMany();
   const map = { ...DEFAULTS };
@@ -70,9 +88,12 @@ export async function getAllSettings(includeSecrets = false) {
     if (map[key]) map[key] = normalizeInvestBrandingText(map[key]);
   }
   if (!includeSecrets) {
-    map.smtp_pass = map.smtp_pass ? "••••••••" : "";
-    map.telegram_bot_token = map.telegram_bot_token ? "••••••••" : "";
-    map.whatsapp_api_access_token = map.whatsapp_api_access_token ? "••••••••" : "";
+    map.smtp_pass = map.smtp_pass ? MASKED_PLACEHOLDER : "";
+    map.telegram_bot_token = map.telegram_bot_token ? MASKED_PLACEHOLDER : "";
+    map.whatsapp_api_access_token = map.whatsapp_api_access_token ? MASKED_PLACEHOLDER : "";
+    for (const key of Object.keys(map)) {
+      if (isGatewayCredentialKey(key) && map[key]) map[key] = MASKED_PLACEHOLDER;
+    }
   }
   return map;
 }
@@ -81,9 +102,10 @@ export async function setSettings(pairs, { allowWhatsAppKeys = false } = {}) {
   for (const [key, value] of Object.entries(pairs)) {
     if (value === undefined) continue;
     if (WHATSAPP_KEYS.has(key) && !allowWhatsAppKeys) continue;
-    if (key === "smtp_pass" && (value === "••••••••" || value === "")) continue;
-    if (key === "telegram_bot_token" && (value === "••••••••" || value === "")) continue;
-    if (key === "whatsapp_api_access_token" && (value === "••••••••" || value === "")) continue;
+    if (key === "smtp_pass" && isMaskedCredentialValue(value)) continue;
+    if (key === "telegram_bot_token" && isMaskedCredentialValue(value)) continue;
+    if (key === "whatsapp_api_access_token" && isMaskedCredentialValue(value)) continue;
+    if (isGatewayCredentialKey(key) && isMaskedCredentialValue(value)) continue;
     await investDb.investSetting.upsert({
       where: { key },
       create: { key, value: String(value) },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge, Alert, Field, PasswordInput } from "./ui.jsx";
 import { VisibilityPairToggles } from "./invest/PaymentModeVisibilityToggles.jsx";
@@ -148,7 +148,20 @@ const GATEWAY_SETTING_KEYS = {
 
 };
 
+const MASKED = "••••••••";
 
+function buildGatewayPayload(settings) {
+  const payload = {};
+  for (const fields of Object.values(GATEWAY_SETTING_KEYS)) {
+    for (const f of fields) {
+      const v = settings[f.key];
+      if (v === undefined || v === null) continue;
+      if (f.secret && (v === "" || v === MASKED)) continue;
+      payload[f.key] = String(v).trim();
+    }
+  }
+  return payload;
+}
 
 export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSettings, loadSettings, onVisibilityChange }) {
 
@@ -163,6 +176,12 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
   const [err, setErr] = useState("");
 
   const [msg, setMsg] = useState("");
+
+  const [saving, setSaving] = useState(false);
+
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  const saveFormRef = useRef(null);
 
   const loadGateways = () =>
     fetchGateways()
@@ -206,21 +225,32 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
 
   const save = async (e) => {
-
     e.preventDefault();
-
-    setMsg(""); setErr("");
-
+    setMsg("");
+    setErr("");
+    setSavedFlash(false);
+    if (!saveSettings) {
+      setErr("You do not have permission to save gateway settings.");
+      return;
+    }
+    const payload = buildGatewayPayload(settings);
+    setSaving(true);
     try {
-
-      const d = await saveSettings(settings);
-
-      setSettings(d.settings);
-
-      setMsg("Gateway credentials saved. Keys are used immediately for new payment orders.");
-
-    } catch (e2) { setErr(e2.message); }
-
+      const d = await saveSettings(payload);
+      if (d?.settings) setSettings(d.settings);
+      await loadGateways();
+      const success = Object.keys(payload).length
+        ? "Gateway settings saved successfully. New deposits will use these credentials."
+        : "No gateway fields were changed. Secret fields left blank keep their existing values.";
+      setMsg(success);
+      setSavedFlash(true);
+      saveFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      window.setTimeout(() => setSavedFlash(false), 4000);
+    } catch (e2) {
+      setErr(e2.message || "Failed to save gateway settings.");
+    } finally {
+      setSaving(false);
+    }
   };
 
 
@@ -358,9 +388,9 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
 
 
-      {editable && (
+      {editable && saveSettings && (
 
-        <form onSubmit={save} className="card space-y-4 p-5">
+        <form ref={saveFormRef} onSubmit={save} className="card space-y-4 p-5">
 
           <h3 className="font-bold text-navy dark:text-white">Edit Gateway Keys (Super Admin)</h3>
 
@@ -399,7 +429,31 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
 
           ))}
 
-          <button className="btn-gold w-full sm:w-auto">Save Gateway Settings</button>
+          {msg && (
+            <Alert type="success" role="status">
+              {msg}
+            </Alert>
+          )}
+          {err && (
+            <Alert type="error" role="alert">
+              {err}
+            </Alert>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              type="submit"
+              className="btn-gold w-full sm:w-auto"
+              disabled={saving}
+            >
+              {saving ? "Saving…" : savedFlash ? "Saved ✓" : "Save Gateway Settings"}
+            </button>
+            {savedFlash && !saving && (
+              <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                Settings saved
+              </span>
+            )}
+          </div>
 
         </form>
 
