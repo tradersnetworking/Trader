@@ -12,34 +12,46 @@ function publicInvestorRow(row) {
   };
 }
 
-export async function listNotInvestedInvestors() {
-  const rows = await investDb.investor.findMany({
-    where: {
-      role: "INVESTOR",
-      isActive: true,
-      subscriptions: { none: { status: { in: ["ACTIVE", "MATURED", "PENDING"] } } },
-    },
-    include: { kyc: true, wallet: true },
-    orderBy: { createdAt: "desc" },
-  });
-  return rows.map(publicInvestorRow);
+const ACTIVE_INVESTMENT_STATUSES = ["ACTIVE", "MATURED", "PENDING"];
+
+function isActiveInvestor(row) {
+  return row.isActive !== false;
 }
 
-/** Registered investors who have not completed KYC (not submitted or rejected). */
+/** No active / matured / pending subscription (registered but not invested). */
+export async function listNotInvestedInvestors() {
+  const rows = await investDb.investor.findMany({
+    where: { role: "INVESTOR" },
+    include: {
+      kyc: true,
+      wallet: true,
+      subscriptions: { select: { status: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows
+    .filter((r) => {
+      if (!isActiveInvestor(r)) return false;
+      const subs = r.subscriptions || [];
+      return !subs.some((s) => ACTIVE_INVESTMENT_STATUSES.includes(s.status));
+    })
+    .map(({ subscriptions, ...rest }) => publicInvestorRow(rest));
+}
+
+/** Registered investors who have not completed KYC (missing, not submitted, or rejected). */
 export async function listKycPendingInvestors() {
   const rows = await investDb.investor.findMany({
-    where: {
-      role: "INVESTOR",
-      isActive: true,
-      OR: [
-        { kyc: { is: null } },
-        { kyc: { status: { in: ["NOT_SUBMITTED", "REJECTED"] } } },
-      ],
-    },
+    where: { role: "INVESTOR" },
     include: { kyc: true, wallet: true },
     orderBy: { createdAt: "desc" },
   });
-  return rows.map(publicInvestorRow);
+  return rows
+    .filter((r) => {
+      if (!isActiveInvestor(r)) return false;
+      const st = r.kyc?.status;
+      return !r.kyc || st === "NOT_SUBMITTED" || st === "REJECTED";
+    })
+    .map(publicInvestorRow);
 }
 
 async function resolveTargets(listFn, investorIds) {

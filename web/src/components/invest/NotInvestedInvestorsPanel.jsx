@@ -5,8 +5,8 @@ export default function NotInvestedInvestorsPanel() {
     <InvestorNurturePanel
       title="Registered — not yet invested"
       subtitle="Investors who signed up but have no active investment plan. Send email and/or WhatsApp encouraging them to explore plans and invest."
-      listPath="/admin/investors/not-invested"
-      notifyPath="/admin/investors/not-invested/notify"
+      listPath="/admin/investors/lists/not-invested"
+      notifyPath="/admin/investors/lists/not-invested/notify"
       defaultSubject="Start your investment journey with AKSHYA INVESTMENTS"
       defaultEmailBody={
         "Dear {name},\n\nYou registered on AKSHYA INVESTMENTS but haven't subscribed to an investment plan yet.\n\nLog in to explore Bronze, Silver, Gold and other plans with transparent monthly returns.\n\n— AKSHYA INVESTMENTS Team"

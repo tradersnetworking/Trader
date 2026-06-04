@@ -5,8 +5,8 @@ export default function KycPendingInvestorsPanel() {
     <InvestorNurturePanel
       title="Registered — KYC not yet done"
       subtitle="Investors who registered (Google or email) but have not completed KYC. Send email and/or WhatsApp reminders, or open Manage to complete KYC on their behalf."
-      listPath="/admin/investors/kyc-pending"
-      notifyPath="/admin/investors/kyc-pending/notify"
+      listPath="/admin/investors/lists/kyc-pending"
+      notifyPath="/admin/investors/lists/kyc-pending/notify"
       manageHref="/invest/admin?tab=investors&manage="
       defaultSubject="Complete your KYC — AKSHYA INVESTMENTS"
       defaultEmailBody={
