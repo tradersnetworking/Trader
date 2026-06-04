@@ -11,31 +11,46 @@ export default function AdminKycPanel({ onUpdated }) {
   const [filter, setFilter] = useState("");
   const [viewKyc, setViewKyc] = useState(null);
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [loadErr, setLoadErr] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = () =>
-    investApi(`/admin/kyc${filter ? `?status=${filter}` : ""}`)
-      .then((d) => {
-        setItems(d.kyc);
-        onUpdated?.(d.kyc);
-        if (viewKyc) {
-          const fresh = d.kyc.find((k) => k.id === viewKyc.id);
-          if (fresh) setViewKyc(fresh);
-        }
-      })
-      .catch(() => {});
-
-  useEffect(() => {
-    load();
-  }, [filter]);
-
-  useEffect(() => {
+  const loadRegistered = () =>
     investApi("/admin/investors")
       .then((d) => {
         const inv = (d.investors || []).filter((i) => i.role === "INVESTOR");
         setRegistered(inv.filter((i) => !i.kyc || i.kyc?.status === "NOT_SUBMITTED"));
       })
       .catch(() => setRegistered([]));
-  }, []);
+
+  const load = async () => {
+    setLoadErr("");
+    try {
+      const d = await investApi(`/admin/kyc${filter ? `?status=${filter}` : ""}`);
+      setItems(d.kyc || []);
+      onUpdated?.(d.kyc);
+      if (viewKyc) {
+        const fresh = (d.kyc || []).find((k) => k.id === viewKyc.id);
+        if (fresh) setViewKyc(fresh);
+      }
+    } catch (e) {
+      setLoadErr(e.message || "Could not load KYC list.");
+      setItems([]);
+    }
+  };
+
+  const refreshAll = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([load(), loadRegistered()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadRegistered();
+  }, [filter]);
 
   const counts = {
     pending: items.filter((k) => k.status === "PENDING").length,
