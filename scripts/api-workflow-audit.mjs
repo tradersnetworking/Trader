@@ -118,18 +118,18 @@ if (inv.otp) {
   else fail("INVESTOR KYC file route", "404");
 }
 
-// — Admin login (optional on prod when custom passwords; set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD) —
-let adm = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
-if (adm.error) {
-  adm = await login(process.env.E2E_ADMIN_EMAIL_2 || "admin@akshayaexim.com", ADMIN_PASSWORD);
-}
-if (adm.otp) {
-  skip("Admin login", "OTP required — set E2E_ADMIN_PASSWORD");
-} else if (adm.error) {
-  skip("Admin login", `${adm.error} (set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD for live admin probe)`);
-} else if (adm.user?.role !== "ADMIN" && adm.user?.role !== "SUPERADMIN") {
-  fail("Admin login", `role=${adm.user?.role}`);
+// — Admin login (set E2E_ADMIN_EMAIL + E2E_ADMIN_PASSWORD in env / deploy/.env) —
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  skip("Admin login", "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD");
 } else {
+  const adm = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  if (adm.otp) {
+    fail("Admin login", "OTP required — disable for E2E admin or use app password");
+  } else if (adm.error) {
+    fail("Admin login", adm.error);
+  } else if (adm.user?.role !== "ADMIN" && adm.user?.role !== "SUPERADMIN") {
+    fail("Admin login", `role=${adm.user?.role}`);
+  } else {
   pass("Admin login", `${adm.user.role} ${adm.user.email}`);
   const at = adm.token;
 
@@ -154,7 +154,7 @@ if (adm.otp) {
     else if (res.status === 403) fail(`ADMIN ${path}`, "403 forbidden — RBAC");
     else fail(`ADMIN ${path}`, `${res.status} ${data?.error || ""}`);
   }
-}
+  }
 }
 
 console.log(
