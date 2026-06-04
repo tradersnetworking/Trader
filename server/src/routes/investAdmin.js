@@ -270,6 +270,69 @@ router.get(
 );
 
 router.get(
+  "/investors/not-invested",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (_req, res) => {
+    const { listNotInvestedInvestors } = await import("../services/investorNurture.js");
+    res.json({ investors: await listNotInvestedInvestors() });
+  })
+);
+
+router.post(
+  "/investors/not-invested/email",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendNotInvestedEmail } = await import("../services/investorNurture.js");
+    res.json(await sendNotInvestedEmail({ ...req.body, actor: req.user }));
+  })
+);
+
+router.post(
+  "/investors/not-invested/notify",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendNotInvestedNurture } = await import("../services/investorNurture.js");
+    try {
+      res.json(await sendNotInvestedNurture(req.body));
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.get(
+  "/investors/kyc-pending",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (_req, res) => {
+    const { listKycPendingInvestors } = await import("../services/investorNurture.js");
+    res.json({ investors: await listKycPendingInvestors() });
+  })
+);
+
+router.post(
+  "/investors/kyc-pending/notify",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const { sendKycPendingNurture } = await import("../services/investorNurture.js");
+    try {
+      res.json(await sendKycPendingNurture(req.body));
+    } catch (e) {
+      res.status(400).json({ error: e.message });
+    }
+  })
+);
+
+router.get(
   "/investors/:id",
   authRequired(SCOPE),
   adminOnly,
@@ -289,10 +352,20 @@ router.get(
     });
     if (!inv) return res.status(404).json({ error: "Not found" });
     const { passwordHash, resetToken, totpSecret, backupCodes, ...user } = inv;
-    const { listAllAgreementsForInvestor } = await import("../services/agreements.js");
-    const { listInvestorLoginSessions } = await import("../services/loginSession.js");
-    const agreements = await listAllAgreementsForInvestor(req.params.id);
-    const loginSessions = await listInvestorLoginSessions(req.params.id);
+    let agreements = [];
+    let loginSessions = [];
+    try {
+      const { listAllAgreementsForInvestor } = await import("../services/agreements.js");
+      agreements = await listAllAgreementsForInvestor(req.params.id);
+    } catch (e) {
+      console.error("[admin/investors/:id] agreements", e.message);
+    }
+    try {
+      const { listInvestorLoginSessions } = await import("../services/loginSession.js");
+      loginSessions = await listInvestorLoginSessions(req.params.id);
+    } catch (e) {
+      console.error("[admin/investors/:id] loginSessions", e.message);
+    }
     res.json({ investor: { ...user, agreements, loginSessions } });
   })
 );
@@ -2292,69 +2365,6 @@ router.post(
     }));
     const { to, subject, body } = req.body;
     res.json(await composeSupportMail({ to, subject, body, attachments }));
-  })
-);
-
-router.get(
-  "/investors/not-invested",
-  authRequired(SCOPE),
-  adminOnly,
-  requirePermission("manage_investors"),
-  asyncH(async (_req, res) => {
-    const { listNotInvestedInvestors } = await import("../services/investorNurture.js");
-    res.json({ investors: await listNotInvestedInvestors() });
-  })
-);
-
-router.post(
-  "/investors/not-invested/email",
-  authRequired(SCOPE),
-  adminOnly,
-  requirePermission("manage_investors"),
-  asyncH(async (req, res) => {
-    const { sendNotInvestedEmail } = await import("../services/investorNurture.js");
-    res.json(await sendNotInvestedEmail({ ...req.body, actor: req.user }));
-  })
-);
-
-router.post(
-  "/investors/not-invested/notify",
-  authRequired(SCOPE),
-  adminOnly,
-  requirePermission("manage_investors"),
-  asyncH(async (req, res) => {
-    const { sendNotInvestedNurture } = await import("../services/investorNurture.js");
-    try {
-      res.json(await sendNotInvestedNurture(req.body));
-    } catch (e) {
-      res.status(400).json({ error: e.message });
-    }
-  })
-);
-
-router.get(
-  "/investors/kyc-pending",
-  authRequired(SCOPE),
-  adminOnly,
-  requirePermission("manage_investors"),
-  asyncH(async (_req, res) => {
-    const { listKycPendingInvestors } = await import("../services/investorNurture.js");
-    res.json({ investors: await listKycPendingInvestors() });
-  })
-);
-
-router.post(
-  "/investors/kyc-pending/notify",
-  authRequired(SCOPE),
-  adminOnly,
-  requirePermission("manage_investors"),
-  asyncH(async (req, res) => {
-    const { sendKycPendingNurture } = await import("../services/investorNurture.js");
-    try {
-      res.json(await sendKycPendingNurture(req.body));
-    } catch (e) {
-      res.status(400).json({ error: e.message });
-    }
   })
 );
 

@@ -33,11 +33,11 @@ const EMPTY_CREATE = {
 };
 
 export default function InvestorOpsPanel() {
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
   const { invest } = useAuth();
   const isSuper = invest?.role === "SUPERADMIN";
   const isAdminRole = invest?.role === "ADMIN" || invest?.role === "SUPERADMIN";
-  const [tab, setTab] = useState("list");
+  const [tab, setTab] = useState(() => (sp.get("manage") ? "manage" : "list"));
   const [investors, setInvestors] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loadErr, setLoadErr] = useState("");
@@ -48,8 +48,12 @@ export default function InvestorOpsPanel() {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [pickerId, setPickerId] = useState("");
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+
+  const flash = (m, e) => { setMsg(m || ""); setErr(e || ""); };
   const [createForm, setCreateForm] = useState(EMPTY_CREATE);
   const [manageTab, setManageTab] = useState("profile");
   const [viewKyc, setViewKyc] = useState(null);
@@ -100,9 +104,38 @@ export default function InvestorOpsPanel() {
   useEffect(() => { load(); }, []);
 
   const manageFromUrl = sp.get("manage");
+
+  const syncManageUrl = (id) => {
+    if (id) setSp({ tab: "investors", manage: id }, { replace: true });
+    else setSp({ tab: "investors" }, { replace: true });
+  };
+
+  const loadDetail = async (id) => {
+    if (!id) return;
+    setSelectedId(id);
+    setDetailLoading(true);
+    setErr("");
+    try {
+      const d = await investApi(`/admin/investors/${id}`);
+      if (!d?.investor) throw new Error("Investor not found");
+      setDetail(d.investor);
+      setSelectedId(id);
+      setTab("manage");
+      setManageTab("profile");
+      syncManageUrl(id);
+    } catch (e) {
+      setDetail(null);
+      setSelectedId("");
+      flash("", e.message || "Could not load investor for management.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (!manageFromUrl || manageFromUrl === selectedId) return;
-    loadDetail(manageFromUrl).catch((e) => flash("", e.message));
+    if (!manageFromUrl) return;
+    if (detail?.id === manageFromUrl && tab === "manage") return;
+    loadDetail(manageFromUrl);
   }, [manageFromUrl]);
 
   const authLabel = (i) => {
@@ -127,16 +160,22 @@ export default function InvestorOpsPanel() {
     });
   }, [investors, search, authFilter]);
 
-  const loadDetail = async (id) => {
-    if (!id) return;
-    const d = await investApi(`/admin/investors/${id}`);
-    setDetail(d.investor);
-    setSelectedId(id);
+  const openManageTab = () => {
     setTab("manage");
-    setManageTab("profile");
+    if (detail) return;
+    if (manageFromUrl) {
+      loadDetail(manageFromUrl);
+      return;
+    }
+    if (filtered.length === 1) loadDetail(filtered[0].id);
   };
 
-  const flash = (m, e) => { setMsg(m || ""); setErr(e || ""); };
+  const leaveManage = () => {
+    setTab("list");
+    setDetail(null);
+    setSelectedId("");
+    syncManageUrl(null);
+  };
 
   const createInvestor = async (e) => {
     e.preventDefault();
@@ -340,14 +379,20 @@ export default function InvestorOpsPanel() {
         {[
           { id: "list", label: "All investors" },
           { id: "create", label: "Create investor" },
-          { id: "manage", label: "Manage investor", disabled: !detail },
+          { id: "manage", label: detail ? `Manage: ${detail.name}` : "Manage investor" },
         ].map((t) => (
           <button
             key={t.id}
             type="button"
-            disabled={t.disabled}
-            onClick={() => setTab(t.id)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === t.id ? "bg-primary/15 text-accent-tone" : "text-muted-foreground hover:bg-muted/50"} disabled:opacity-40`}
+            onClick={() => {
+              if (t.id === "list") leaveManage();
+              else if (t.id === "manage") openManageTab();
+              else {
+                setTab(t.id);
+                syncManageUrl(null);
+              }
+            }}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === t.id ? "bg-primary/15 text-accent-tone" : "text-muted-foreground hover:bg-muted/50"}`}
           >
             {t.label}
           </button>
@@ -451,8 +496,13 @@ export default function InvestorOpsPanel() {
                         ) : (
                           <span className="text-xs text-muted-foreground">No KYC</span>
                         )}
-                        <button type="button" className="btn-gold px-2 py-1 text-xs" onClick={() => loadDetail(i.id)}>
-                          Manage
+                        <button
+                          type="button"
+                          className="btn-gold px-2 py-1 text-xs"
+                          disabled={detailLoading && selectedId === i.id}
+                          onClick={() => loadDetail(i.id)}
+                        >
+                          {detailLoading && selectedId === i.id ? "Loading…" : "Manage"}
                         </button>
                       </div>
                     </td>
@@ -579,7 +629,7 @@ export default function InvestorOpsPanel() {
             ))}
           </div>
 
-          {manageTab === "profile" && isAdminRole && (
+          {manageTab === "profile" && (
             <div className="space-y-3">
               <AdminInvestorKycManageForm
                 detail={detail}
