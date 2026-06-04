@@ -36,6 +36,10 @@ export default function InvestorOpsPanel() {
   const isAdminRole = invest?.role === "ADMIN" || invest?.role === "SUPERADMIN";
   const [tab, setTab] = useState("list");
   const [investors, setInvestors] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
+  const [loadingList, setLoadingList] = useState(true);
+  const [authFilter, setAuthFilter] = useState("all");
   const [plans, setPlans] = useState([]);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
@@ -76,10 +80,23 @@ export default function InvestorOpsPanel() {
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(() => {
+    let list = investors;
+    if (authFilter === "google") {
+      list = list.filter((i) => i.hasGoogle || i.authMethod === "google" || i.authMethod === "google_and_password");
+    } else if (authFilter === "password") {
+      list = list.filter((i) => i.hasPassword || i.authMethod === "password" || i.authMethod === "google_and_password");
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return investors;
-    return investors.filter((i) => i.name?.toLowerCase().includes(q) || i.email?.toLowerCase().includes(q) || i.phone?.includes(q));
-  }, [investors, search]);
+    if (!q) return list;
+    return list.filter((i) => i.name?.toLowerCase().includes(q) || i.email?.toLowerCase().includes(q) || i.phone?.includes(q));
+  }, [investors, search, authFilter]);
+
+  const authLabel = (i) => {
+    if (i.authMethod === "google") return "Google";
+    if (i.authMethod === "password") return "Email";
+    if (i.authMethod === "google_and_password") return "Google + Email";
+    return "—";
+  };
 
   const loadDetail = async (id) => {
     if (!id) return;
@@ -310,6 +327,7 @@ export default function InvestorOpsPanel() {
 
       {msg && <Alert type="success">{msg}</Alert>}
       {err && <Alert type="error">{err}</Alert>}
+      {loadErr && <Alert type="error">{loadErr}</Alert>}
 
       <div className="card border border-primary/20 bg-primary/5 p-4">
         <h3 className="text-sm font-bold text-heading">Typical admin workflow</h3>
@@ -343,15 +361,44 @@ export default function InvestorOpsPanel() {
 
       {tab === "list" && (
         <>
+          {summary && (
+            <p className="text-sm text-muted-foreground">
+              <strong className="text-foreground">{summary.investors ?? investors.length}</strong> investor accounts
+              {summary.google != null && (
+                <> · <strong className="text-foreground">{summary.google}</strong> used Google sign-in</>
+              )}
+              {summary.password != null && (
+                <> · <strong className="text-foreground">{summary.password}</strong> registered with email/password</>
+              )}
+              . Includes every Google and registered user on the invest portal.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              ["all", "All"],
+              ["google", "Google sign-in"],
+              ["password", "Email registered"],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setAuthFilter(v)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${authFilter === v ? "bg-primary/15 text-accent-tone" : "bg-muted text-muted-foreground"}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-3">
             <input className="input max-w-xs" placeholder="Search name, email, phone…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <button type="button" className="btn-outline text-xs" onClick={load}>Refresh</button>
           </div>
           <div className="app-table-wrap card">
-            <table className="w-full min-w-[720px] text-sm">
+            <table className="w-full min-w-[800px] text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="p-3">Name</th>
+                  <th className="p-3">Sign-in</th>
                   <th className="p-3">Email / Phone</th>
                   <th className="p-3">Wallet</th>
                   <th className="p-3">KYC</th>
@@ -360,9 +407,24 @@ export default function InvestorOpsPanel() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((i) => (
+                {loadingList && (
+                  <tr>
+                    <td colSpan={isSuper ? 7 : 6} className="p-6 text-center text-muted-foreground">Loading investors…</td>
+                  </tr>
+                )}
+                {!loadingList && filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={isSuper ? 7 : 6} className="p-6 text-center text-muted-foreground">
+                      No investors match this filter. Google and email registrations both appear here — use User KYC &amp; Accounts only for submitted KYC forms.
+                    </td>
+                  </tr>
+                )}
+                {!loadingList && filtered.map((i) => (
                   <tr key={i.id} className="border-t">
                     <td className="p-3 font-medium">{i.name}</td>
+                    <td className="p-3">
+                      <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">{authLabel(i)}</span>
+                    </td>
                     <td className="p-3 text-muted-foreground">{i.email}<br /><span className="text-xs">{i.phone || "—"}</span></td>
                     <td className="p-3">{inr(i.wallet?.available || 0)} avail · {inr(i.wallet?.invested || 0)} inv</td>
                     <td className="p-3"><Badge status={i.kyc?.status || "PENDING"} /></td>

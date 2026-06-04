@@ -249,11 +249,19 @@ router.get(
   authRequired(SCOPE),
   adminOnly,
   asyncH(async (_req, res) => {
-    const investors = await investDb.investor.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { wallet: true, kyc: true },
+    const { listInvestorsForAdmin } = await import("../services/investorAdminList.js");
+    const investors = await listInvestorsForAdmin();
+    const roleInvestors = investors.filter((i) => i.role === "INVESTOR");
+    res.json({
+      investors,
+      summary: {
+        total: investors.length,
+        investors: roleInvestors.length,
+        google: roleInvestors.filter((i) => i.authMethod === "google" || i.authMethod === "google_and_password").length,
+        password: roleInvestors.filter((i) => i.authMethod === "password" || i.authMethod === "google_and_password").length,
+        staff: investors.filter((i) => i.role !== "INVESTOR").length,
+      },
     });
-    res.json({ investors: investors.map(({ passwordHash, resetToken, ...i }) => i) });
   })
 );
 

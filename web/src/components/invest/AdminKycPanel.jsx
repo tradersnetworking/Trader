@@ -6,6 +6,7 @@ import { parseSectionReviews } from "../../lib/kyc-sections.js";
 
 export default function AdminKycPanel({ onUpdated }) {
   const [items, setItems] = useState([]);
+  const [registered, setRegistered] = useState([]);
   const [filter, setFilter] = useState("");
   const [viewKyc, setViewKyc] = useState(null);
   const [reviewBusy, setReviewBusy] = useState(false);
@@ -25,6 +26,15 @@ export default function AdminKycPanel({ onUpdated }) {
   useEffect(() => {
     load();
   }, [filter]);
+
+  useEffect(() => {
+    investApi("/admin/investors")
+      .then((d) => {
+        const inv = (d.investors || []).filter((i) => i.role === "INVESTOR");
+        setRegistered(inv.filter((i) => !i.kyc || i.kyc?.status === "NOT_SUBMITTED"));
+      })
+      .catch(() => setRegistered([]));
+  }, []);
 
   const counts = {
     pending: items.filter((k) => k.status === "PENDING").length,
@@ -160,6 +170,39 @@ export default function AdminKycPanel({ onUpdated }) {
       </div>
 
       {items.length === 0 && <p className="text-center text-muted-foreground">No KYC submissions.</p>}
+
+      {registered.length > 0 && (
+        <div className="space-y-2 border-t border-border pt-6">
+          <h4 className="text-sm font-bold text-foreground">Registered users without KYC ({registered.length})</h4>
+          <p className="text-xs text-muted-foreground">
+            These accounts signed up (Google or email) but have not submitted KYC yet — they will not appear in the table above.
+          </p>
+          <div className="app-table-wrap card overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Sign-in</th>
+                  <th className="p-3">Email</th>
+                  <th className="p-3">Joined</th>
+                </tr>
+              </thead>
+              <tbody>
+                {registered.map((i) => (
+                  <tr key={i.id} className="border-t border-border">
+                    <td className="p-3 font-medium">{i.name}</td>
+                    <td className="p-3 text-xs">{i.hasGoogle ? (i.hasPassword ? "Google + Email" : "Google") : "Email"}</td>
+                    <td className="p-3 text-muted-foreground">{i.email}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {i.createdAt ? new Date(i.createdAt).toLocaleDateString("en-IN") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

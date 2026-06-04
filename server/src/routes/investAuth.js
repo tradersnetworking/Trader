@@ -330,12 +330,16 @@ router.post(
         include: userInclude,
       });
       await investDb.wallet.create({ data: { investorId: investor.id } });
-    } else if (!investor.googleId) {
-      investor = await investDb.investor.update({
-        where: { id: investor.id },
-        data: { googleId: profile.sub, emailVerified: true },
-        include: userInclude,
-      });
+    } else {
+      const wallet = await investDb.wallet.findUnique({ where: { investorId: investor.id } });
+      if (!wallet) await investDb.wallet.create({ data: { investorId: investor.id } });
+      if (!investor.googleId) {
+        investor = await investDb.investor.update({
+          where: { id: investor.id },
+          data: { googleId: profile.sub, emailVerified: true },
+          include: userInclude,
+        });
+      }
     }
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });
     await jsonInvestLogin(res, investor, { token, user: publicInvestor(investor) }, req);

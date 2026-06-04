@@ -404,7 +404,10 @@ function UsersAdmin({ isSuper }) {
         title={viewKyc ? `Trade KYC — ${viewKyc.fullName || viewKyc.user?.name || "User"}` : ""}
       />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Manage buyer/seller accounts. Super Admin can change roles.</p>
+        <p className="text-sm text-muted-foreground">
+          Marketplace users (akshayaexim.com). Investor portal accounts — Google sign-in and email registration — are listed under{" "}
+          <strong>invest.akshayaexim.com → Admin → Investor Management</strong>, not here.
+        </p>
         <button onClick={() => { setCreateOpen(true); setErr(""); setMsg(""); }} className="btn-primary">+ Create User</button>
       </div>
       {msg && <div className="mb-3"><Alert type="success">{msg}</Alert></div>}
