@@ -19,6 +19,7 @@ import {
 import { listInvestPlans } from "../services/investPlans.js";
 import { disburse, payoutGatewayStatus } from "../payments/payouts.js";
 import { listGateways } from "../payments/gateways.js";
+import { buildAdminVisibilityView, savePaymentModeVisibility } from "../services/paymentModeVisibility.js";
 import {
   listPaymentGateways,
   createPaymentGateway,
@@ -1126,8 +1127,8 @@ router.get(
     const collection = await listGateways();
     const payouts = await payoutGatewayStatus();
     const { buildAdminVisibilityView } = await import("../services/paymentModeVisibility.js");
-    const visibility = await buildAdminVisibilityView(collection, payouts);
-    res.json({ collection, payouts, visibility });
+    const view = await buildAdminVisibilityView(collection, payouts);
+    res.json({ collection, payouts, visibility: view.modes });
   })
 );
 
@@ -1141,9 +1142,11 @@ router.put(
     if (!modes || typeof modes !== "object") {
       return res.status(400).json({ error: "modes object required" });
     }
-    const { savePaymentModeVisibility } = await import("../services/paymentModeVisibility.js");
-    const map = await savePaymentModeVisibility(modes);
-    res.json({ ok: true, modes: map });
+    await savePaymentModeVisibility(modes);
+    const collection = await listGateways();
+    const payouts = await payoutGatewayStatus();
+    const view = await buildAdminVisibilityView(collection, payouts);
+    res.json({ ok: true, modes: view.modes, message: "Payment mode visibility updated." });
   })
 );
 

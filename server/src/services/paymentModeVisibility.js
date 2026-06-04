@@ -139,8 +139,7 @@ export async function buildAdminVisibilityView(collection = [], payouts = []) {
   }
   for (const g of payouts) {
     const id = String(g.name).toLowerCase();
-    const prev = getModeVisibility(map, id);
-    modes[id] = { deposit: prev.deposit, withdraw: getModeVisibility(map, g.name).withdraw };
+    modes[id] = getModeVisibility(map, id);
   }
   return { map, modes };
 }

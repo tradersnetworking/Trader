@@ -64,9 +64,10 @@ const emptyForm = (type) => ({
 
 
 
-export default function DepositPaymentAccountsPanel({ editable = false }) {
+export default function DepositPaymentAccountsPanel({ editable = false, accountsOnly = false }) {
 
-  const [tab, setTab] = useState("upi");
+  const tabList = accountsOnly ? TABS.filter((t) => t.id !== "keys") : TABS;
+  const [tab, setTab] = useState(tabList[0]?.id || "upi");
 
   const [gateways, setGateways] = useState([]);
 
@@ -201,7 +202,7 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
       <div className="flex flex-wrap gap-2">
 
-        {TABS.map((t) => (
+        {tabList.map((t) => (
 
           <button
 
@@ -225,7 +226,7 @@ export default function DepositPaymentAccountsPanel({ editable = false }) {
 
 
 
-      {tab === "keys" ? (
+      {!accountsOnly && tab === "keys" ? (
 
         editable ? (
 

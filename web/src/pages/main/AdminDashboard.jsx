@@ -4,7 +4,7 @@ import { mainApi } from "../../lib/api.js";
 import { useAuth } from "../../lib/store.jsx";
 import { inr, dateStr } from "../../lib/format.js";
 import { Stat, Badge, Modal, Field, Alert, PasswordInput } from "../../components/ui.jsx";
-import PaymentGatewaysPanel from "../../components/PaymentGatewaysPanel.jsx";
+import SuperAdminGatewaysHub from "../../components/shared/SuperAdminGatewaysHub.jsx";
 import MainDashboardShell from "../../components/main/MainDashboardShell.jsx";
 import MainAdminOrdersPanel from "../../components/main/MainAdminOrdersPanel.jsx";
 import MainAdminInvoicesPanel from "../../components/main/MainAdminInvoicesPanel.jsx";
@@ -59,14 +59,11 @@ export default function AdminDashboard() {
       {tab === "orders" && <MainAdminOrdersPanel key={refreshKey} />}
       {tab === "invoices" && <MainAdminInvoicesPanel key={refreshKey} />}
       {tab === "users" && <UsersAdmin isSuper={isSuper} key={refreshKey} />}
-      {tab === "gateways" && (
-        <PaymentGatewaysPanel
-          key={refreshKey}
-          fetchGateways={() => mainApi("/admin/gateways")}
-          editable={isSuper}
-          loadSettings={isSuper ? () => mainApi("/admin/settings/gateways") : undefined}
-          saveSettings={isSuper ? (body) => mainApi("/admin/settings/gateways", { method: "PUT", body }) : undefined}
-        />
+      {tab === "gateways" && isSuper && (
+        <SuperAdminGatewaysHub key={refreshKey} api={mainApi} />
+      )}
+      {tab === "gateways" && !isSuper && (
+        <p className="text-muted-foreground">Only Super Admin can manage payment gateways.</p>
       )}
       {tab === "platform-update" && isSuper && (
         <PlatformUpdatePanel api={mainApi} key={refreshKey} />

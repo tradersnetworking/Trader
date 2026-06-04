@@ -7,6 +7,7 @@ import { getAdminNav, translateNavLabel } from "../../lib/invest-nav.js";
 import { useI18n } from "../../lib/i18n/context.jsx";
 import { filterAdminNav, DEFAULT_ADMIN_PERMISSIONS, ALL_ADMIN_PERMISSIONS, ADMIN_TAB_PERMISSIONS } from "../../lib/adminPermissions.js";
 import { TabPanel, DashboardTabFallback, PermissionGate, AdminLoadingPermissions } from "../../components/invest/DashboardTabFallback.jsx";
+import SuperAdminGatewaysHub from "../../components/shared/SuperAdminGatewaysHub.jsx";
 import {
   AdminOverviewPanel,
   LedgerTable,
@@ -200,7 +201,7 @@ export default function InvestAdminDashboard() {
         return gate("support_tickets", "Mail Desk", <TabPanel><SupportMailPanel /></TabPanel>);
       case "gateways":
         return isSuper ? (
-          <TabPanel><DepositPaymentAccountsPanel editable={isSuper} /></TabPanel>
+          <TabPanel><SuperAdminGatewaysHub api={investApi} showDepositAccounts /></TabPanel>
         ) : (
           <DashboardTabFallback title="Payment Gateways" message="Only Super Admin can manage payment gateways." onGoOverview={() => setTab("overview")} />
         );

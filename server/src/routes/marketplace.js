@@ -8,6 +8,7 @@ import { listGateways, createOrder } from "../payments/gateways.js";
 import { payoutGatewayStatus } from "../payments/payouts.js";
 import { getAllSettings, setSettings } from "../services/investSettings.js";
 import { filterGatewaySettingsPayload, pickGatewaySettings } from "../data/gatewaySettingKeys.js";
+import { buildAdminVisibilityView, savePaymentModeVisibility } from "../services/paymentModeVisibility.js";
 import { upload, fileUrl } from "../utils/upload.js";
 import { BULK_QUANTITY_UNITS, getCatalogStats } from "../data/categories.js";
 import {
@@ -960,7 +961,27 @@ router.get(
   authRequired(SCOPE),
   isAdmin,
   asyncH(async (_req, res) => {
-    res.json({ collection: await listGateways(), payouts: await payoutGatewayStatus() });
+    const collection = await listGateways();
+    const payouts = await payoutGatewayStatus();
+    const view = await buildAdminVisibilityView(collection, payouts);
+    res.json({ collection, payouts, visibility: view.modes });
+  })
+);
+
+router.put(
+  "/admin/payment-mode-visibility",
+  authRequired(SCOPE),
+  superOnly,
+  asyncH(async (req, res) => {
+    const { modes } = req.body;
+    if (!modes || typeof modes !== "object") {
+      return res.status(400).json({ error: "modes object required" });
+    }
+    await savePaymentModeVisibility(modes);
+    const collection = await listGateways();
+    const payouts = await payoutGatewayStatus();
+    const view = await buildAdminVisibilityView(collection, payouts);
+    res.json({ ok: true, modes: view.modes, message: "Payment mode visibility updated." });
   })
 );
 

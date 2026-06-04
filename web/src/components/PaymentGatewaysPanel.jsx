@@ -27,6 +27,10 @@ const GATEWAY_LABELS = {
 
   eximpe: "EximPe",
 
+  phonepe: "PhonePe",
+
+  paypal: "PayPal",
+
   litepay: "LitePay",
 
   stripe: "Stripe",
@@ -46,6 +50,8 @@ const GATEWAY_LABELS = {
   PAYU: "PayU Payouts",
 
   EASEBUZZ: "Easebuzz Payouts",
+
+  razorpayx: "RazorpayX Payouts",
 
 };
 
@@ -215,15 +221,18 @@ export default function PaymentGatewaysPanel({ fetchGateways, editable, saveSett
   }, []);
 
   const patchVisibility = async (modeId, patch) => {
-    if (!editable) return;
+    if (!editable || !onVisibilityChange) return;
     const key = String(modeId).toLowerCase();
     const next = { ...visibility, [key]: { ...(visibility[key] || { deposit: true, withdraw: true }), ...patch } };
     setVisibility(next);
+    setErr("");
     try {
-      await onVisibilityChange?.({ [key]: next[key] });
-      setMsg("Visibility updated for investors.");
+      const res = await onVisibilityChange({ [key]: next[key] });
+      const modes = normalizeVisibility(res?.modes ?? res?.visibility);
+      if (modes && Object.keys(modes).length) setVisibility(modes);
+      setMsg(`Visibility saved for ${GATEWAY_LABELS[key] || GATEWAY_LABELS[modeId] || key}.`);
     } catch (e2) {
-      setErr(e2.message);
+      setErr(e2.message || "Failed to update visibility.");
       loadGateways();
     }
   };
