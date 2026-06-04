@@ -1,6 +1,6 @@
 # Akshaya Investment Platform — End-to-End Audit Report
 
-**Date:** 2026-06-01  
+**Date:** 2026-06-04 (re-verified)  
 **Production:** `https://invest.akshayaexim.com` · VPS `187.127.103.79` · `/opt/akshaya-exim`  
 **Scope:** Invest portal (auth, KYC, deposits, investments, ROI, referrals, withdrawals, admin, notifications, deploy)
 
@@ -10,22 +10,24 @@
 
 | Area | Score /100 | Status |
 |------|------------|--------|
-| Frontend stability | **94** | Admin API errors surfaced; RBAC UI aligned |
-| Backend stability | **96** | Atomic payout/deposit claims; RBAC OR permissions |
-| Database integrity | **92** | Status-gated updates prevent double credit |
-| Security | **90** | HSTS + security headers; treasury-gated referral pay |
-| Performance | **88** | Static caching, nginx 100M; smoke + E2E API tests |
-| Production readiness | **94** | Deployed via Docker; prod audit script |
-| Scalability | **85** | Single-node VPS; Redis rate limits optional |
+| Frontend stability | **95** | Build OK; KYC testids; prod SPA shells pass |
+| Backend stability | **96** | Atomic payout/deposit; Redis rate limits live |
+| Database integrity | **93** | Status-gated financial updates |
+| Security | **91** | RBAC, ClamAV hook, HSTS, staged KYC validation |
+| Performance | **90** | Load test 233 r/s, p95 80ms, 0% errors |
+| Production readiness | **95** | Docker + Redis + ClamAV + healthchecks |
+| Scalability | **86** | Redis on VPS; horizontal scale not multi-node |
 
-**Full automated suite:** `npm run audit:full` — **PASSED** on production (2026-06-01).
+**Full automated suite:** `npm run audit:full` — **PASSED** on production (2026-06-04).
 
 | Step | Command | Result |
 |------|---------|--------|
 | Unit | `npm run test:unit` | 8/8 pass |
-| Smoke | `npm run smoke:invest` (with `INVEST_API`) | pass |
+| Smoke | `npm run smoke:invest` | pass |
 | Prod | `npm run audit:prod` | pass |
-| Workflow | `npm run audit:workflow` | pass (admin skipped — custom prod password) |
+| Load | `npm run audit:load` | pass (4662 req, 0% fail) |
+| Workflow | `npm run audit:workflow` | pass (admin skipped — set E2E_ADMIN_PASSWORD) |
+| Playwright KYC | `npm run test:e2e:prod` | pass (PDF staged upload) |
 
 **E2E (local):** `npm run test:e2e` — Playwright invest specs.
 
@@ -302,6 +304,8 @@ See **`docs/KYC_UPLOAD_AUDIT_REPORT.md`** for full detail.
 | `scripts/api-workflow-audit.mjs` | Authenticated API probe |
 | `scripts/production-audit.mjs` | Live prod smoke |
 | `scripts/smoke-invest.mjs` | Invest API smoke |
+| `docs/AUDIT_COMPLETE_2026-06-04.md` | Latest verified run summary |
+| `docs/E2E_AND_HARDENING.md` | Load / E2E / Redis / ClamAV |
 
 ---
 
@@ -311,6 +315,6 @@ The platform **passes production smoke and unit tests** for public APIs, auth pr
 
 **Zero critical** open items from the pre-audit list (RBAC drift on overview, deposits reject, referral pay-any-admin, maturity approve) are **addressed in code**; verification on VPS requires redeploy.
 
-**Overall platform score (weighted): 92/100**
+**Overall platform score (weighted): 93/100**
 
-Target **100/100** requires: load test at expected QPS, full Playwright KYC upload UI path on prod, ClamAV (`KYC_VIRUS_SCAN_CMD`), Redis for multi-instance rate limits.
+Remaining for **100/100:** prod `E2E_ADMIN_PASSWORD` admin probe, `E2E_UI=1` full KYC UI Playwright, formal pen-test, dedicated SMS gateway (platform uses email + WhatsApp Business + Telegram alerts instead).
