@@ -79,6 +79,15 @@ import {
   payAllPendingReferrals,
 } from "../services/referralPayoutJob.js";
 import {
+  getKycDraft,
+  saveKycDraft,
+  stageKycFileUpload,
+  deleteStagedKycUpload,
+} from "../services/kycDocumentUploads.js";
+import { kycSingleUpload } from "../utils/upload.js";
+import { kycUploadRateLimit } from "../middleware/rateLimit.js";
+import { isAllowedKycUploadField } from "../constants/kycUploadFields.js";
+import {
   getEmailCommunicationBundle,
   saveEmailCommunicationConfig,
   sendPurposeTestEmail,
@@ -549,6 +558,69 @@ router.post(
   })
 );
 
+router.get(
+  "/investors/:id/kyc/draft",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const inv = await investDb.investor.findUnique({ where: { id: req.params.id } });
+    if (!inv || inv.role !== "INVESTOR") return res.status(404).json({ error: "Investor not found" });
+    res.json(await getKycDraft(req.params.id));
+  })
+);
+
+router.put(
+  "/investors/:id/kyc/draft",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const inv = await investDb.investor.findUnique({ where: { id: req.params.id } });
+    if (!inv || inv.role !== "INVESTOR") return res.status(404).json({ error: "Investor not found" });
+    const { step, form } = req.body || {};
+    res.json(await saveKycDraft(req.params.id, { step, form }));
+  })
+);
+
+router.post(
+  "/investors/:id/kyc/files/:fieldKey",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  kycUploadRateLimit,
+  (req, res, next) => {
+    kycSingleUpload(req, res, (err) => {
+      if (err) return next(err);
+      next();
+    });
+  },
+  asyncH(async (req, res) => {
+    const inv = await investDb.investor.findUnique({ where: { id: req.params.id } });
+    if (!inv || inv.role !== "INVESTOR") return res.status(404).json({ error: "Investor not found" });
+    const fieldKey = String(req.params.fieldKey || "");
+    if (!isAllowedKycUploadField(fieldKey)) {
+      return res.status(400).json({ error: "Invalid document type.", code: "INVALID_FIELD" });
+    }
+    const result = await stageKycFileUpload(req.params.id, fieldKey, req.file);
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error, code: result.code });
+    res.json(result);
+  })
+);
+
+router.delete(
+  "/investors/:id/kyc/files/:fieldKey",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("manage_investors"),
+  asyncH(async (req, res) => {
+    const fieldKey = String(req.params.fieldKey || "");
+    const result = await deleteStagedKycUpload(req.params.id, fieldKey);
+    if (!result.ok) return res.status(result.status || 400).json({ error: result.error });
+    res.json({ ok: true });
+  })
+);
+
 router.post(
   "/investors/:id/kyc",
   authRequired(SCOPE),
@@ -832,6 +904,8 @@ router.post(
         ? `Crypto deposit ${dep.cryptoAmount} ${dep.cryptoSymbol || ""} (${dep.cryptoNetwork || ""}) → ₹${creditInr} approved`
         : `Deposit via ${dep.method} approved`;
     await addLedger(dep.investorId, { type: "DEPOSIT", direction: "CREDIT", amount: creditInr, reference: dep.id, note });
+    const { creditPlatformCommissionOnDeposit } = await import("../services/platformCommission.js");
+    await creditPlatformCommissionOnDeposit(dep.investorId, creditInr, dep.id).catch(() => {});
     if (dep.remarks?.startsWith("__promo__:")) {
       const [, code, bonusStr] = dep.remarks.split(":");
       const promo = await investDb.promoCode.findUnique({ where: { code } });

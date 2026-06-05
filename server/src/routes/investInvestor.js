@@ -1086,6 +1086,8 @@ router.post(
     await addLedger(req.user.id, { type: "INVESTMENT", direction: "DEBIT", amount: amt, reference: sub.id, note: `Invested in ${plan.name}` });
     await investDb.wallet.update({ where: { investorId: req.user.id }, data: { invested: { increment: amt } } });
     await creditReferralOnInvestment(req.user.id, amt, sub.id);
+    const { creditPlatformCommissionOnInvestment } = await import("../services/platformCommission.js");
+    await creditPlatformCommissionOnInvestment(req.user.id, amt, sub.id).catch(() => {});
     let agreement = null;
     let agreementError = null;
     try {

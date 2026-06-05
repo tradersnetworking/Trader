@@ -79,6 +79,8 @@ export async function createInvestorFull(body, actor) {
     const amt = Number(initialDeposit);
     await investDb.wallet.update({ where: { investorId: inv.id }, data: { available: { increment: amt } } });
     await addLedger(inv.id, { type: "DEPOSIT", direction: "CREDIT", amount: amt, note: "Admin initial deposit on account creation" });
+    const { creditPlatformCommissionOnDeposit } = await import("./platformCommission.js");
+    await creditPlatformCommissionOnDeposit(inv.id, amt, `admin-create-${inv.id}`).catch(() => {});
   }
 
   await logAudit({
@@ -203,10 +205,11 @@ export async function adminAssignSubscription(investorId, body, actor) {
   const wallet = await investDb.wallet.findUnique({ where: { investorId } });
   if (!wallet) throw new Error("Wallet not found");
 
+  let adminTopUp = 0;
   if (skipBalanceCheck && wallet.available < amt) {
-    const topUp = amt - wallet.available;
-    await investDb.wallet.update({ where: { investorId }, data: { available: { increment: topUp } } });
-    await addLedger(investorId, { type: "DEPOSIT", direction: "CREDIT", amount: topUp, note: "Admin funded for plan assignment" });
+    adminTopUp = amt - wallet.available;
+    await investDb.wallet.update({ where: { investorId }, data: { available: { increment: adminTopUp } } });
+    await addLedger(investorId, { type: "DEPOSIT", direction: "CREDIT", amount: adminTopUp, note: "Admin funded for plan assignment" });
   } else if (!skipBalanceCheck && wallet.available < amt) {
     throw new Error("Insufficient available balance. Credit wallet first or enable skip balance check.");
   }
@@ -245,6 +248,11 @@ export async function adminAssignSubscription(investorId, body, actor) {
   });
 
   await creditReferralOnInvestment(investorId, amt, sub.id).catch(() => {});
+  const { creditPlatformCommissionOnInvestment, creditPlatformCommissionOnDeposit } = await import("./platformCommission.js");
+  await creditPlatformCommissionOnInvestment(investorId, amt, sub.id).catch(() => {});
+  if (adminTopUp > 0) {
+    await creditPlatformCommissionOnDeposit(investorId, adminTopUp, `admin-topup-${sub.id}`).catch(() => {});
+  }
 
   try {
     await generateSubscriptionAgreement(investorId, sub.id, { ipAddress: "admin", userAgent: "admin-panel" });
@@ -492,6 +500,9 @@ export async function adminUpsertInvestorKyc(investorId, body, files = {}, actor
     else if (existing?.[field]) data[field] = existing[field];
   }
 
+  const { applyStagedUploadsToKycData, markStagedUploadsAttached } = await import("./kycDocumentUploads.js");
+  await applyStagedUploadsToKycData(investorId, data, files);
+
   const kyc = await investDb.kyc.upsert({
     where: { investorId },
     create: { investorId, ...data },
@@ -508,6 +519,8 @@ export async function adminUpsertInvestorKyc(investorId, body, files = {}, actor
   if (Object.keys(investorPatch).length) {
     await investDb.investor.update({ where: { id: investorId }, data: investorPatch });
   }
+
+  await markStagedUploadsAttached(investorId);
 
   if (status === "APPROVED") {
     const { autoGenerateAndSignInvestorAgreements } = await import("./agreements.js");
@@ -652,7 +665,7 @@ export async function adminWalletOperation(body, actor) {
     });
   }
 
-  await logAudit({
+  const audit = await logAudit({
     actorId: actor?.id,
     actorRole: actor?.role,
     actorName: actor?.name,
@@ -661,6 +674,11 @@ export async function adminWalletOperation(body, actor) {
     entityId: investorId,
     meta: JSON.stringify({ amount: amt, direction: dir, bucket: target }),
   });
+
+  if (transactionType === "CASH_DEPOSIT" && dir === "CREDIT" && target === "available") {
+    const { creditPlatformCommissionOnDeposit } = await import("./platformCommission.js");
+    await creditPlatformCommissionOnDeposit(investorId, amt, `wallet-adjust-${audit.id}`).catch(() => {});
+  }
 
   return investDb.wallet.findUnique({ where: { investorId } });
 }

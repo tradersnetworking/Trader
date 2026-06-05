@@ -21,6 +21,8 @@ export async function autoApproveDeposit(depositId, gatewayRef) {
     reference: dep.id,
     note: `Deposit via ${dep.method} (webhook)`,
   });
+  const { creditPlatformCommissionOnDeposit } = await import("./platformCommission.js");
+  await creditPlatformCommissionOnDeposit(dep.investorId, dep.amount, dep.id).catch(() => {});
 
   if (dep.remarks?.startsWith("__promo__:")) {
     const [, code, bonusStr] = dep.remarks.split(":");

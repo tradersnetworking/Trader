@@ -18,6 +18,8 @@ export default function KycDocumentField({
   stagedUploads = {},
   onStaged,
   fileHashes = {},
+  uploadDocument = uploadKycDocument,
+  deleteDocument = deleteKycDocument,
 }) {
   const staged = stagedUploads[name];
   const inputId = useId();
@@ -76,7 +78,7 @@ export default function KycDocumentField({
   const remove = async () => {
     setLocalErr("");
     try {
-      if (staged?.id) await deleteKycDocument(name);
+      if (staged?.id || staged?.url) await deleteDocument(name);
     } catch (e) {
       setLocalErr(e.message);
       return;
