@@ -4,6 +4,7 @@ import { inr } from "../../lib/format.js";
 import { Field, Alert } from "../ui.jsx";
 import { PartnersCmsPanel } from "./AdminExtrasPanels.jsx";
 import DataPortabilityPanel from "../shared/DataPortabilityPanel.jsx";
+import PlatformBackupPanel from "../shared/PlatformBackupPanel.jsx";
 
 /* -------- Wallet Operations -------- */
 export function WalletOperationsPanel() {
@@ -202,5 +203,10 @@ export function NotificationManagementPanel() {
 
 /* -------- Backup & Export -------- */
 export function BackupExportPanel({ canImport = false }) {
-  return <DataPortabilityPanel portal="invest" canImport={canImport} />;
+  return (
+    <div className="page-stack">
+      {canImport && <PlatformBackupPanel api={investApi} />}
+      <DataPortabilityPanel portal="invest" canImport={canImport} />
+    </div>
+  );
 }

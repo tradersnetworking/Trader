@@ -209,7 +209,7 @@ export default function DataPortabilityPanel({ portal = "invest", canImport = fa
 
       <div className="card p-4 text-xs text-muted-foreground space-y-1">
         <p><strong>Not included in exports:</strong> password hashes, reset tokens, SMTP passwords, KYC document files, agreement PDF binaries.</p>
-        <p><strong>Server backup:</strong> For full disk/database backup, use your hosting panel or <code>deploy/backup.sh</code> on the server.</p>
+        <p><strong>Full server backup:</strong> Super Admin can create and restore complete snapshots (databases + uploads) in the section above.</p>
       </div>
     </div>
   );

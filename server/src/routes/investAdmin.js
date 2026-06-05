@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { registerPlatformDeployRoutes } from "./platformDeployRoutes.js";
+import { registerPlatformBackupRoutes } from "./platformBackupRoutes.js";
 import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
 import { asyncH, authRequired, requireRole, requirePermission, requireAnyPermission } from "../middleware.js";
@@ -2603,5 +2604,6 @@ router.post(
 );
 
 registerPlatformDeployRoutes(router, { authRequired, asyncH, superOnly, scope: "invest" });
+registerPlatformBackupRoutes(router, { authRequired, asyncH, superOnly, scope: "invest" });
 
 export default router;
