@@ -54,7 +54,7 @@ export default function InvestorOverviewPanel({
     const showSkeleton = !silent && !hasLoadedRef.current;
     if (showSkeleton) setLoading(true);
     const qs = buildStatsQuery(p, from, to);
-    investApi(`/dashboard${qs}`)
+    investApi(`/dashboard?${qs}`)
       .then((d) => {
         setData(d);
         setLoadErr("");
