@@ -41,9 +41,12 @@ export default function MainDashboardShell({
     sidebarScrollTop.current = e.currentTarget.scrollTop;
   }, []);
 
+  const closeUserMenu = useCallback(() => setUserOpen(false), []);
+
   const handleTabChange = useCallback(
     (id) => {
       saveSidebarScroll();
+      setUserOpen(false);
       onTabChange(id);
     },
     [onTabChange, saveSidebarScroll]
@@ -61,7 +64,21 @@ export default function MainDashboardShell({
 
   useEffect(() => {
     setMobileOpen(false);
+    setUserOpen(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!userOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setUserOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [userOpen]);
+
+  useEffect(() => {
+    if (mobileOpen) setUserOpen(false);
+  }, [mobileOpen]);
 
   const links = navItems.filter((n) => n.id);
   const mobilePrimary = mobilePrimaryIds.length
@@ -277,7 +294,10 @@ export default function MainDashboardShell({
               {onRefresh && (
                 <button
                   type="button"
-                  onClick={onRefresh}
+                  onClick={() => {
+                    closeUserMenu();
+                    onRefresh();
+                  }}
                   disabled={refreshing}
                   className="icon-btn icon-btn-sm relative md:icon-btn-md md:inline-flex"
                   aria-label={refreshing ? "Refreshing" : "Refresh"}
@@ -298,7 +318,7 @@ export default function MainDashboardShell({
           </div>
         </header>
 
-        <main className="invest-main-scroll flex-1 overflow-y-auto">
+        <main className="invest-main-scroll flex-1 overflow-y-auto" onScroll={closeUserMenu}>
           <div className="invest-page-main">
             <ErrorBoundary>{children}</ErrorBoundary>
           </div>
@@ -327,7 +347,10 @@ export default function MainDashboardShell({
         })}
         <button
           type="button"
-          onClick={() => setMobileOpen((v) => !v)}
+          onClick={() => {
+            closeUserMenu();
+            setMobileOpen((v) => !v);
+          }}
           className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${mobileOpen ? "text-primary" : "text-muted-foreground"}`}
         >
           <span className={`flex h-9 w-9 items-center justify-center rounded-xl sm:h-10 sm:w-10 ${mobileOpen ? "bg-primary/15 ring-2 ring-primary/35" : "bg-muted/60"}`}>

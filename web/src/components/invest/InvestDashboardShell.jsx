@@ -59,9 +59,12 @@ export default function InvestDashboardShell({
     sidebarScrollTop.current = e.currentTarget.scrollTop;
   }, []);
 
+  const closeUserMenu = useCallback(() => setUserOpen(false), []);
+
   const handleTabChange = useCallback(
     (id) => {
       saveSidebarScroll();
+      setUserOpen(false);
       onTabChange(id);
     },
     [onTabChange, saveSidebarScroll]
@@ -79,7 +82,21 @@ export default function InvestDashboardShell({
 
   useEffect(() => {
     setMobileOpen(false);
+    setUserOpen(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!userOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setUserOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [userOpen]);
+
+  useEffect(() => {
+    if (mobileOpen) setUserOpen(false);
+  }, [mobileOpen]);
 
   const links = navItems.filter((n) => n.id);
   const mobilePrimary = role === "admin"
@@ -416,7 +433,10 @@ export default function InvestDashboardShell({
             <button
               type="button"
               className="icon-btn icon-btn-sm shrink-0 md:hidden"
-              onClick={() => setMobileOpen(true)}
+              onClick={() => {
+                closeUserMenu();
+                setMobileOpen(true);
+              }}
               aria-label="Open menu"
             >
               ☰
@@ -469,7 +489,10 @@ export default function InvestDashboardShell({
               {onRefresh && (
                 <button
                   type="button"
-                  onClick={onRefresh}
+                  onClick={() => {
+                    closeUserMenu();
+                    onRefresh();
+                  }}
                   disabled={refreshing}
                   className="icon-btn icon-btn-sm relative md:icon-btn-md md:inline-flex"
                   aria-label={refreshing ? t("dashboard.refreshing") : t("dashboard.refresh")}
@@ -484,7 +507,10 @@ export default function InvestDashboardShell({
               {onNotificationsClick && !kycOnlyMode && (
               <button
                 type="button"
-                onClick={onNotificationsClick}
+                onClick={() => {
+                  closeUserMenu();
+                  onNotificationsClick?.();
+                }}
                 className="icon-btn icon-btn-sm relative md:icon-btn-md md:inline-flex"
                 aria-label={t("dashboard.notifications")}
               >
@@ -518,6 +544,7 @@ export default function InvestDashboardShell({
               : ""
           }`}
           aria-hidden={dashboardLocked ? true : undefined}
+          onScroll={closeUserMenu}
         >
           <div className="invest-page-main">
             <ErrorBoundary key={activeTab}>{children}</ErrorBoundary>
@@ -566,7 +593,10 @@ export default function InvestDashboardShell({
         {mobileMore.length > 0 && (
         <button
           type="button"
-          onClick={() => setMobileOpen((v) => !v)}
+          onClick={() => {
+            closeUserMenu();
+            setMobileOpen((v) => !v);
+          }}
           className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-semibold ${mobileOpen ? "text-primary" : "text-muted-foreground"}`}
           aria-expanded={mobileOpen}
           aria-label={t("nav.more")}
