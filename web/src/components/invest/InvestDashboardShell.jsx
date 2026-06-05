@@ -524,9 +524,7 @@ export default function InvestDashboardShell({
               )}
               <ThemeToggle compact className="md:hidden" />
               <ThemeToggle className="hidden md:inline-flex" />
-              <span className="hidden min-[480px]:inline-flex">
-                <LanguageSelector compact />
-              </span>
+              <LanguageSelector compact />
               <div className="relative">
                 <button type="button" onClick={() => setUserOpen((v) => !v)} aria-label="Account">
                   <UserAvatar user={user} size={36} />

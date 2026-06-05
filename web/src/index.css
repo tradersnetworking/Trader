@@ -387,7 +387,10 @@
     @apply relative inline-flex;
   }
   .lang-chip {
-    @apply inline-flex h-8 min-w-[2.75rem] max-w-[2.75rem] cursor-pointer items-center justify-center gap-0.5 rounded-lg border px-1.5 text-[10px] font-bold uppercase outline-none transition;
+    @apply inline-flex h-8 min-w-[3.25rem] max-w-[4.5rem] cursor-pointer items-center justify-center gap-0.5 rounded-lg border px-1.5 text-[10px] font-bold uppercase outline-none transition;
+  }
+  .lang-chip-globe {
+    @apply h-3 w-3 opacity-80;
   }
   .lang-chip-code {
     @apply leading-none tracking-wide;
