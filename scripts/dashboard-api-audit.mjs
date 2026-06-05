@@ -8,6 +8,8 @@ const INVESTOR_EMAIL = process.env.E2E_INVESTOR_EMAIL || "investor@akshayaexim.c
 const INVESTOR_PASSWORD = process.env.E2E_INVESTOR_PASSWORD || "Investor@123";
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL || "superadmin@akshayaexim.com";
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || "Admin@12345";
+const INVESTOR_TOKEN = process.env.INVEST_INVESTOR_TOKEN;
+const ADMIN_TOKEN = process.env.INVEST_ADMIN_TOKEN;
 
 let failed = 0;
 let passed = 0;
@@ -59,12 +61,23 @@ async function checkGroup(label, routes, token) {
 
 console.log("Dashboard API audit\nBase:", BASE, "\n");
 
-const inv = await login(INVESTOR_EMAIL, INVESTOR_PASSWORD);
-if (inv.otp) bad("Investor login", "OTP required — mail may be working");
-else if (inv.error) bad("Investor login", inv.error);
-else {
-  ok("Investor login", inv.user?.email);
-  const t = inv.token;
+let invToken = INVESTOR_TOKEN;
+if (process.env.INVEST_SKIP_INVESTOR === "1") invToken = invToken || "skip";
+if (invToken === "skip") {
+  /* admin-only audit */
+} else if (!invToken) {
+  const inv = await login(INVESTOR_EMAIL, INVESTOR_PASSWORD);
+  if (inv.otp) bad("Investor login", "OTP required — mail may be working");
+  else if (inv.error) bad("Investor login", inv.error);
+  else {
+    ok("Investor login", inv.user?.email);
+    invToken = inv.token;
+  }
+} else {
+  ok("Investor token", "from INVEST_INVESTOR_TOKEN");
+}
+if (invToken && invToken !== "skip") {
+  const t = invToken;
   await checkGroup("INVESTOR", [
     ["/api/invest/dashboard", (d) => d.stats != null || d.wallet != null],
     ["/api/invest/wallet", (d) => d.wallet != null || typeof d.available === "number"],
@@ -74,7 +87,7 @@ else {
     ["/api/invest/maturity-choices", (d) => Array.isArray(d.subscriptions)],
     ["/api/invest/notifications", (d) => typeof d.count === "number"],
     ["/api/invest/notifications/list", (d) => Array.isArray(d.notifications)],
-    ["/api/invest/wallet/history", (d) => Array.isArray(d.entries) || Array.isArray(d.transactions)],
+    ["/api/invest/wallet/history", (d) => Array.isArray(d.ledger) || Array.isArray(d.entries) || Array.isArray(d.transactions)],
     ["/api/invest/deposits", (d) => Array.isArray(d.deposits)],
     ["/api/invest/payouts", (d) => Array.isArray(d.payouts)],
     ["/api/invest/agreements", (d) => Array.isArray(d.agreements)],
@@ -90,13 +103,21 @@ else {
   ], t);
 }
 
-const adm = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
-if (adm.otp) bad("Admin login", "OTP required");
-else if (adm.error) bad("Admin login", adm.error);
-else if (!["ADMIN", "SUPERADMIN"].includes(adm.user?.role)) bad("Admin login", `role=${adm.user?.role}`);
-else {
-  ok("Admin login", `${adm.user.role} ${adm.user.email}`);
-  const at = adm.token;
+let admToken = ADMIN_TOKEN;
+if (!admToken) {
+  const adm = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
+  if (adm.otp) bad("Admin login", "OTP required");
+  else if (adm.error) bad("Admin login", adm.error);
+  else if (!["ADMIN", "SUPERADMIN"].includes(adm.user?.role)) bad("Admin login", `role=${adm.user?.role}`);
+  else {
+    ok("Admin login", `${adm.user.role} ${adm.user.email}`);
+    admToken = adm.token;
+  }
+} else {
+  ok("Admin token", "from INVEST_ADMIN_TOKEN");
+}
+if (admToken) {
+  const at = admToken;
   await checkGroup("ADMIN", [
     ["/api/invest/admin/dashboard", (d) => d.stats != null],
     ["/api/invest/admin/permissions", (d) => Array.isArray(d.permissions)],
