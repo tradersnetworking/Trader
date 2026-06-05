@@ -1,6 +1,6 @@
 # Platform Discovery Map
 
-**Generated:** 2026-06-04  
+**Generated:** 2026-06-05  
 **Source:** `scripts/generate-platform-discovery.mjs`
 
 ## Frontend routes (invest subdomain)
@@ -25,7 +25,7 @@
 
 Admin tabs are driven by `web/src/lib/invest-nav.js` + `AdminDashboard.jsx` (lazy panels).
 
-## Invest API routes (248 endpoints)
+## Invest API routes (252 endpoints)
 
 | Method | Path |
 |--------|------|
@@ -67,6 +67,10 @@ Admin tabs are driven by `web/src/lib/invest-nav.js` + `AdminDashboard.jsx` (laz
 | PUT | `/api/invest/admin/investors/:id/full` |
 | DELETE | `/api/invest/admin/investors/:id/kyc` |
 | POST | `/api/invest/admin/investors/:id/kyc` |
+| GET | `/api/invest/admin/investors/:id/kyc/draft` |
+| PUT | `/api/invest/admin/investors/:id/kyc/draft` |
+| DELETE | `/api/invest/admin/investors/:id/kyc/files/:fieldKey` |
+| POST | `/api/invest/admin/investors/:id/kyc/files/:fieldKey` |
 | POST | `/api/invest/admin/investors/:id/reset-password` |
 | POST | `/api/invest/admin/investors/:id/subscribe` |
 | POST | `/api/invest/admin/investors/create-full` |

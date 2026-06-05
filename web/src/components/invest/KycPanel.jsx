@@ -32,6 +32,7 @@ import {
 } from "../../lib/kyc-document-fields.js";
 import KycSignatureField from "./KycSignatureField.jsx";
 import KycDocumentField from "./KycDocumentField.jsx";
+import KycUploadResumeBar from "./KycUploadResumeBar.jsx";
 import { saveKycDraftApi, unpackKycDraftForm } from "../../lib/kyc-upload.js";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
@@ -149,8 +150,12 @@ export default function KycPanel({
   const [confirmed, setConfirmed] = useState(false);
   const [draftResumed, setDraftResumed] = useState(false);
   const [resumeStep, setResumeStep] = useState(null);
+  const [uploadSummary, setUploadSummary] = useState(null);
+  const [clearedFields, setClearedFields] = useState({});
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const docExisting = (key) => (clearedFields[key] ? undefined : kyc?.[key]);
 
   const persistDraft = (overrides = {}) => {
     if (!canEdit || submitted) return Promise.resolve();
@@ -193,6 +198,13 @@ export default function KycPanel({
         delete next[name];
         return next;
       });
+      setClearedFields((c) => ({ ...c, [name]: true }));
+    } else {
+      setClearedFields((c) => {
+        const next = { ...c };
+        delete next[name];
+        return next;
+      });
     }
     persistDraft();
   };
@@ -226,6 +238,7 @@ export default function KycPanel({
           if (draftSig) setSignatureData(draftSig);
           if (draftSigMode) setSignatureMode(draftSigMode);
         }
+        if (d.uploadSummary) setUploadSummary(d.uploadSummary);
         if (typeof d.step === "number" && d.step >= 0 && d.step < STEPS.length && canRestoreDraft) {
           setStep(d.step);
           if (d.resumed) {
@@ -544,7 +557,9 @@ export default function KycPanel({
 
       {draftResumed && canEdit && (
         <Alert type="success">
-          Your progress is saved automatically. Resuming from step {STEPS[resumeStep ?? step]?.title || resumeStep + 1} — complete the remaining fields and uploads, then submit.
+          Your progress is saved automatically. Resuming from step {STEPS[resumeStep ?? step]?.title || resumeStep + 1}
+          {uploadSummary?.completed > 0 ? ` — ${uploadSummary.completed} document(s) already uploaded` : ""}.
+          Use View / Replace / Modify on each file below.
         </Alert>
       )}
 
@@ -875,6 +890,8 @@ export default function KycPanel({
 
 
 
+              <KycUploadResumeBar stagedUploads={stagedUploads} kyc={kyc} stepLabel="Identity documents" />
+
               <div className="space-y-3">
 
                 <KycDocumentField
@@ -886,7 +903,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.photo}
+                  existingUrl={docExisting("photo")}
                   allowCamera
                 />
 
@@ -898,7 +915,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.panDocument}
+                  existingUrl={docExisting("panDocument")}
                   allowCamera
                 />
 
@@ -911,7 +928,7 @@ export default function KycPanel({
                     stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                    existingUrl={kyc?.aadhaarFront}
+                    existingUrl={docExisting("aadhaarFront")}
                     allowCamera
                   />
                   <KycDocumentField
@@ -922,7 +939,7 @@ export default function KycPanel({
                     stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                    existingUrl={kyc?.aadhaarBack}
+                    existingUrl={docExisting("aadhaarBack")}
                     allowCamera
                   />
                 </div>
@@ -934,7 +951,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.aadhaarDocument}
+                  existingUrl={docExisting("aadhaarDocument")}
                   allowCamera
                 />
 
@@ -947,7 +964,7 @@ export default function KycPanel({
                     stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                    existingUrl={kyc?.passportDocument}
+                    existingUrl={docExisting("passportDocument")}
                     allowCamera
                   />
                 )}
@@ -961,7 +978,7 @@ export default function KycPanel({
                     stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                    existingUrl={kyc?.driversLicenseDocument}
+                    existingUrl={docExisting("driversLicenseDocument")}
                     allowCamera
                   />
                 )}
@@ -974,7 +991,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.addressProof}
+                  existingUrl={docExisting("addressProof")}
                   allowCamera
                 />
 
@@ -991,7 +1008,7 @@ export default function KycPanel({
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
 
-                  existingUrl={kyc?.selfie}
+                  existingUrl={docExisting("selfie")}
 
                   allowCamera
 
@@ -1008,7 +1025,7 @@ export default function KycPanel({
                   setSignatureData={setSignatureData}
                   signatureFile={signatureFile}
                   setSignatureFile={setSignatureFile}
-                  existingUrl={kyc?.signature}
+                  existingUrl={docExisting("signature")}
                 />
               </SectionFieldset>
 
@@ -1079,7 +1096,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.cancelledCheque}
+                  existingUrl={docExisting("cancelledCheque")}
                   allowCamera
                 />
               )}
@@ -1092,7 +1109,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.passbookDocument}
+                  existingUrl={docExisting("passbookDocument")}
                   allowCamera
                 />
               )}
@@ -1105,7 +1122,7 @@ export default function KycPanel({
                   stagedUploads={stagedUploads}
                   onStaged={handleStaged}
                   fileHashes={fileHashes}
-                  existingUrl={kyc?.bankStatementDocument}
+                  existingUrl={docExisting("bankStatementDocument")}
                   allowCamera
                 />
               )}

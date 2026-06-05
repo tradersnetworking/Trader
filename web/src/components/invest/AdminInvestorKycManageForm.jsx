@@ -3,6 +3,7 @@ import { investApiForm } from "../../lib/api.js";
 import { Alert, Field } from "../ui.jsx";
 import KycDocumentsList from "../shared/KycDocumentsList.jsx";
 import KycDocumentField from "./KycDocumentField.jsx";
+import KycUploadResumeBar from "./KycUploadResumeBar.jsx";
 import { KYC_DOCUMENT_FIELDS } from "../../lib/kyc-document-fields.js";
 import { validateUploadFiles } from "../../lib/upload-limits.js";
 import { makeAdminKycApi } from "../../lib/admin-kyc-upload.js";
@@ -27,6 +28,8 @@ export default function AdminInvestorKycManageForm({ detail, setDetail, onSaved,
   const [localMsg, setLocalMsg] = useState("");
   const [localErr, setLocalErr] = useState("");
   const [draftResumed, setDraftResumed] = useState(false);
+  const [clearedFields, setClearedFields] = useState({});
+  const docExisting = (key) => (clearedFields[key] ? undefined : detail?.kyc?.[key]);
 
   const investorId = detail?.id;
   const adminKyc = useMemo(() => (investorId ? makeAdminKycApi(investorId) : null), [investorId]);
@@ -100,6 +103,13 @@ export default function AdminInvestorKycManageForm({ detail, setDetail, onSaved,
     else if (!upload) {
       setFileHashes((h) => {
         const next = { ...h };
+        delete next[name];
+        return next;
+      });
+      setClearedFields((c) => ({ ...c, [name]: true }));
+    } else {
+      setClearedFields((c) => {
+        const next = { ...c };
         delete next[name];
         return next;
       });
@@ -227,13 +237,14 @@ export default function AdminInvestorKycManageForm({ detail, setDetail, onSaved,
 
       {step === 1 && (
         <div className="space-y-3">
+          <KycUploadResumeBar stagedUploads={stagedUploads} kyc={detail.kyc} stepLabel="Investor documents" />
           {detail.kyc && (
             <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Already on file</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">On file (summary)</p>
               <KycDocumentsList kyc={detail.kyc} scope="invest" compact />
             </div>
           )}
-          <p className="text-sm font-semibold text-foreground">Upload documents (saved per file)</p>
+          <p className="text-sm font-semibold text-foreground">Each document — View, Replace, Modify, or Remove</p>
           {KYC_DOCUMENT_FIELDS.map(({ key, label, imageOnly }) => (
             <KycDocumentField
               key={key}
@@ -241,7 +252,7 @@ export default function AdminInvestorKycManageForm({ detail, setDetail, onSaved,
               name={key}
               imageOnly={imageOnly}
               allowCamera={imageOnly}
-              existingUrl={detail.kyc?.[key]}
+              existingUrl={docExisting(key)}
               stagedUploads={stagedUploads}
               fileHashes={fileHashes}
               onStaged={handleStaged}

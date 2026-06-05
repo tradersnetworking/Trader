@@ -15,12 +15,33 @@ import { KYC_UPLOAD_FIELD_KEYS } from "../constants/kycUploadFields.js";
 
 export async function listStagedKycUploads(investorId) {
   const rows = await investDb.kycDocumentUpload.findMany({
-    where: { investorId, status: { in: ["STAGED", "REJECTED"] } },
+    where: { investorId, status: { in: ["STAGED", "REJECTED", "FAILED"] } },
     orderBy: { updatedAt: "desc" },
   });
   const map = {};
-  for (const r of rows) map[r.fieldKey] = formatUploadRow(r);
+  for (const r of rows) {
+    if (!map[r.fieldKey] || r.status === "STAGED") map[r.fieldKey] = formatUploadRow(r);
+  }
   return map;
+}
+
+function mergeKycRecordUploads(kyc, uploadsMap) {
+  if (!kyc) return uploadsMap;
+  const out = { ...uploadsMap };
+  for (const fieldKey of KYC_UPLOAD_FIELD_KEYS) {
+    const url = kyc[fieldKey];
+    if (!url || out[fieldKey]?.status === "STAGED") continue;
+    if (!out[fieldKey] || out[fieldKey].status === "FAILED") {
+      out[fieldKey] = {
+        fieldKey,
+        url,
+        status: "STAGED",
+        label: KYC_DOC_LABELS[fieldKey] || fieldKey,
+        failReason: null,
+      };
+    }
+  }
+  return out;
 }
 
 function formatUploadRow(r) {
@@ -50,9 +71,13 @@ export async function getKycDraft(investorId) {
     }
   }
   const step = typeof kyc?.draftStep === "number" ? kyc.draftStep : 0;
+  const uploadedFields = [...KYC_UPLOAD_FIELD_KEYS].filter((key) => {
+    const u = uploads[key];
+    return u?.url && u.status !== "FAILED";
+  });
   const hasProgress =
     Boolean(form) ||
-    Object.keys(uploads).length > 0 ||
+    uploadedFields.length > 0 ||
     kyc?.uploadStatus === "IN_PROGRESS";
   return {
     step,
@@ -62,6 +87,11 @@ export async function getKycDraft(investorId) {
     kycStatus: kyc?.status || "NOT_SUBMITTED",
     resumed: hasProgress && step >= 0,
     savedAt: kyc?.updatedAt || null,
+    uploadSummary: {
+      completed: uploadedFields.length,
+      total: KYC_UPLOAD_FIELD_KEYS.size,
+      fields: uploadedFields,
+    },
   };
 }
 
@@ -102,7 +132,7 @@ export async function stageKycFileUpload(investorId, fieldKey, file) {
     return { ok: false, status: 400, error: magic.message, code: magic.code };
   }
 
-  const quality = await validateMulterFile(file, KYC_DOC_LABELS[fieldKey] || fieldKey);
+  const quality = await validateMulterFile(file, KYC_DOC_LABELS[fieldKey] || fieldKey, { strict: false });
   if (!quality.ok) {
     safeUnlink(file.path);
     await recordFailedUpload(investorId, fieldKey, quality.message);
@@ -207,6 +237,13 @@ export async function deleteStagedKycUpload(investorId, fieldKey) {
   });
   if (row?.storedName) safeUnlink(path.join(uploadsDir, row.storedName));
   await investDb.kycDocumentUpload.deleteMany({ where: { investorId, fieldKey } });
+  const kyc = await investDb.kyc.findUnique({ where: { investorId } });
+  if (kyc?.[fieldKey]) {
+    await investDb.kyc.update({
+      where: { investorId },
+      data: { [fieldKey]: null, uploadStatus: "IN_PROGRESS" },
+    });
+  }
   return { ok: true };
 }
 
