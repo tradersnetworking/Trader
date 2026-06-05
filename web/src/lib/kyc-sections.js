@@ -181,3 +181,14 @@ export function applyDocumentReviewDecision(kyc, documentKey, status, remarks) {
   }
   return { ...kyc, sectionReviews: next };
 }
+
+/** Keep nested investor (and other relations) when merging a review API payload. */
+export function mergeKycReviewResponse(prev, next) {
+  if (!next) return prev;
+  if (!prev) return next;
+  return { ...prev, ...next, investor: next.investor ?? prev.investor };
+}
+
+export function kycInvestorDisplayName(k) {
+  return k?.fullName?.trim() || k?.investor?.name?.trim() || k?.investor?.email?.split("@")[0] || "—";
+}

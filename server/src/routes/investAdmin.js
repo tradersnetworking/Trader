@@ -941,6 +941,15 @@ router.post(
 );
 
 /* ---------------- KYC: approve/reject ---------------- */
+async function kycAdminPayload(kycId) {
+  const { attachSectionReviews } = await import("../services/kycSections.js");
+  const row = await investDb.kyc.findUnique({
+    where: { id: kycId },
+    include: { investor: true },
+  });
+  return attachSectionReviews(row);
+}
+
 router.get(
   "/kyc",
   authRequired(SCOPE),
@@ -1009,7 +1018,7 @@ router.post(
       const { notifyKycDecision } = await import("../services/investNotifications.js");
       await notifyKycDecision(existing.investor, { ...kyc, status: "REJECTED", remarks });
     }
-    res.json({ kyc: attachSectionReviews(kyc) });
+    res.json({ kyc: await kycAdminPayload(kyc.id) });
   })
 );
 
@@ -1074,7 +1083,7 @@ router.post(
       const { notifyKycDecision } = await import("../services/investNotifications.js");
       await notifyKycDecision(existing.investor, { ...kyc, status: "REJECTED", remarks });
     }
-    res.json({ kyc: attachSectionReviews(kyc) });
+    res.json({ kyc: await kycAdminPayload(kyc.id) });
   })
 );
 
@@ -1129,7 +1138,7 @@ router.post(
       const { notifyKycDecision } = await import("../services/investNotifications.js");
       await notifyKycDecision(existing.investor, kyc);
     }
-    res.json({ kyc: attachSectionReviews(kyc) });
+    res.json({ kyc: await kycAdminPayload(kyc.id) });
   })
 );
 

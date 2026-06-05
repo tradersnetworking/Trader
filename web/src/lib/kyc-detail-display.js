@@ -2,10 +2,10 @@ import { primaryIdTypeLabel } from "./kycForm.js";
 
 /** Read-only KYC field rows for investor/admin detail views. */
 export const KYC_DETAIL_FIELDS = [
-  ["Full name", (k) => k.fullName],
+  ["Full name", (k) => k.fullName || k.investor?.name],
   ["Guardian", (k) => (k.guardianType && k.guardianName ? `${k.guardianType}: ${k.guardianName}` : null)],
   ["Father's name", (k) => k.fatherName],
-  ["Email", (k) => k.investor?.email],
+  ["Email", (k) => k.investor?.email || k.email],
   ["Phone", (k) => k.phone],
   ["WhatsApp", (k) => (k.whatsappNumber ? `${k.whatsappCountryCode || "+91"} ${k.whatsappNumber}` : null)],
   ["Date of birth", (k) => k.dob],

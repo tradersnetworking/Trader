@@ -4,9 +4,12 @@ import { investApi } from "../../lib/api.js";
 import { investPath } from "../../lib/site.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
+import { isKycFullySubmitted } from "../../lib/kyc-full-submit.js";
 import {
   applyDocumentReviewDecision,
   applySectionReviewDecision,
+  kycInvestorDisplayName,
+  mergeKycReviewResponse,
   parseSectionReviews,
 } from "../../lib/kyc-sections.js";
 
@@ -15,7 +18,7 @@ export default function AdminKycPanel({ onUpdated }) {
   const [registered, setRegistered] = useState([]);
   const [filter, setFilter] = useState("");
   const [viewKyc, setViewKyc] = useState(null);
-  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewBusyKey, setReviewBusyKey] = useState(null);
   const [loadErr, setLoadErr] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -23,7 +26,13 @@ export default function AdminKycPanel({ onUpdated }) {
     investApi("/admin/investors")
       .then((d) => {
         const inv = (d.investors || []).filter((i) => i.role === "INVESTOR");
-        setRegistered(inv.filter((i) => !i.kyc || i.kyc?.status === "NOT_SUBMITTED"));
+        setRegistered(
+          inv.filter((i) => {
+            const st = i.kyc?.status;
+            if (!i.kyc || st === "NOT_SUBMITTED") return true;
+            return st === "PENDING" && !isKycFullySubmitted(i.kyc);
+          })
+        );
       })
       .catch(() => setRegistered([]));
 
@@ -64,24 +73,31 @@ export default function AdminKycPanel({ onUpdated }) {
   };
 
   const decideSection = useCallback(async (id, section, status, remarks) => {
-    setReviewBusy(true);
+    const busyKey = `section:${section}`;
+    setReviewBusyKey(busyKey);
     setViewKyc((prev) => (prev?.id === id ? applySectionReviewDecision(prev, section, status, remarks) : prev));
     setItems((prev) =>
       prev.map((k) => (k.id === id ? applySectionReviewDecision(k, section, status, remarks) : k))
     );
     try {
-      await investApi(`/admin/kyc/${id}/section`, { method: "POST", body: { section, status, remarks } });
-      await load();
+      const res = await investApi(`/admin/kyc/${id}/section`, { method: "POST", body: { section, status, remarks } });
+      if (res?.kyc) {
+        setViewKyc((prev) => (prev?.id === id ? mergeKycReviewResponse(prev, res.kyc) : prev));
+        setItems((prev) => prev.map((k) => (k.id === id ? mergeKycReviewResponse(k, res.kyc) : k)));
+      } else {
+        await load();
+      }
     } catch (e) {
       setLoadErr(e.message || "Section review failed.");
       await load();
     } finally {
-      setReviewBusy(false);
+      setReviewBusyKey(null);
     }
   }, []);
 
   const decideDocument = useCallback(async (id, documentKey, status, remarks) => {
-    setReviewBusy(true);
+    const busyKey = `doc:${documentKey}`;
+    setReviewBusyKey(busyKey);
     setViewKyc((prev) =>
       prev?.id === id ? applyDocumentReviewDecision(prev, documentKey, status, remarks) : prev
     );
@@ -89,18 +105,23 @@ export default function AdminKycPanel({ onUpdated }) {
       prev.map((k) => (k.id === id ? applyDocumentReviewDecision(k, documentKey, status, remarks) : k))
     );
     try {
-      await investApi(`/admin/kyc/${id}/document`, { method: "POST", body: { documentKey, status, remarks } });
-      await load();
+      const res = await investApi(`/admin/kyc/${id}/document`, { method: "POST", body: { documentKey, status, remarks } });
+      if (res?.kyc) {
+        setViewKyc((prev) => (prev?.id === id ? mergeKycReviewResponse(prev, res.kyc) : prev));
+        setItems((prev) => prev.map((k) => (k.id === id ? mergeKycReviewResponse(k, res.kyc) : k)));
+      } else {
+        await load();
+      }
     } catch (e) {
       setLoadErr(e.message || "Document review failed.");
       await load();
     } finally {
-      setReviewBusy(false);
+      setReviewBusyKey(null);
     }
   }, []);
 
   const decideFinal = useCallback(async (id, status, remarks) => {
-    setReviewBusy(true);
+    setReviewBusyKey("final");
     try {
       await investApi(`/admin/kyc/${id}/final`, { method: "POST", body: { status, remarks } });
       setViewKyc(null);
@@ -108,7 +129,7 @@ export default function AdminKycPanel({ onUpdated }) {
     } catch (e) {
       setLoadErr(e.message || "Final decision failed.");
     } finally {
-      setReviewBusy(false);
+      setReviewBusyKey(null);
     }
   }, []);
 
@@ -143,7 +164,7 @@ export default function AdminKycPanel({ onUpdated }) {
         open={Boolean(viewKyc)}
         kyc={viewKyc}
         onClose={() => setViewKyc(null)}
-        reviewBusy={reviewBusy}
+        reviewBusyKey={reviewBusyKey}
         onSectionDecision={decideSection}
         onDocumentDecision={decideDocument}
         onFinalApprove={handleFinalApprove}
@@ -198,7 +219,7 @@ export default function AdminKycPanel({ onUpdated }) {
             {items.map((k) => (
               <tr key={k.id} className="border-t border-border">
                 <td className="p-3">
-                  <div className="font-medium text-foreground">{k.fullName || k.investor?.name}</div>
+                  <div className="font-medium text-foreground">{kycInvestorDisplayName(k)}</div>
                   <div className="text-xs text-muted-foreground">{k.investor?.email}</div>
                 </td>
                 <td className="p-3 text-xs text-muted-foreground">
@@ -227,15 +248,18 @@ export default function AdminKycPanel({ onUpdated }) {
 
       {registered.length > 0 && (
         <div className="space-y-2 border-t border-border pt-6">
-          <h4 className="text-sm font-bold text-foreground">Registered users without KYC ({registered.length})</h4>
+          <h4 className="text-sm font-bold text-foreground">
+            Registered users without complete KYC ({registered.length})
+          </h4>
           <p className="text-xs text-muted-foreground">
-            These accounts signed up (Google or email) but have not submitted KYC yet — they will not appear in the table above.
+            Accounts with no KYC or an incomplete draft — they do not appear in the review table above until fully submitted.
           </p>
           <div className="app-table-wrap card overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="p-3">Name</th>
+                  <th className="p-3">KYC status</th>
                   <th className="p-3">Sign-in</th>
                   <th className="p-3">Email</th>
                   <th className="p-3">Joined</th>
@@ -245,7 +269,12 @@ export default function AdminKycPanel({ onUpdated }) {
               <tbody>
                 {registered.map((i) => (
                   <tr key={i.id} className="border-t border-border">
-                    <td className="p-3 font-medium">{i.name}</td>
+                    <td className="p-3 font-medium">{i.name || i.kyc?.fullName || i.email?.split("@")[0] || "—"}</td>
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {!i.kyc || i.kyc.status === "NOT_SUBMITTED"
+                        ? "Not started"
+                        : "Incomplete draft"}
+                    </td>
                     <td className="p-3 text-xs">{i.hasGoogle ? (i.hasPassword ? "Google + Email" : "Google") : "Email"}</td>
                     <td className="p-3 text-muted-foreground">{i.email}</td>
                     <td className="p-3 text-xs text-muted-foreground">

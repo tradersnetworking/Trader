@@ -18,7 +18,7 @@ export default function KycFullViewModal({
   onFinalReject,
   onApprove,
   onReject,
-  reviewBusy = false,
+  reviewBusyKey = null,
 }) {
   const [docReject, setDocReject] = useState(null);
 
@@ -47,11 +47,13 @@ export default function KycFullViewModal({
         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           {KYC_DETAIL_FIELDS.map(([label, get]) => {
             const v = get(kyc);
-            if (!v) return null;
+            if (!canReview && !v) return null;
             return (
               <div key={label} className="rounded-lg border border-border bg-muted/20 px-3 py-2">
                 <div className="text-xs text-muted-foreground">{label}</div>
-                <div className="mt-0.5 break-words font-medium text-foreground">{v}</div>
+                <div className={`mt-0.5 break-words font-medium ${v ? "text-foreground" : "text-muted-foreground"}`}>
+                  {v || "—"}
+                </div>
               </div>
             );
           })}
@@ -66,7 +68,7 @@ export default function KycFullViewModal({
         {canReview && (
           <KycAdminSectionReview
             kyc={kyc}
-            busy={reviewBusy}
+            reviewBusyKey={reviewBusyKey}
             onSectionDecision={onSectionDecision}
             onFinalApprove={onFinalApprove}
             onFinalReject={onFinalReject}
@@ -86,7 +88,7 @@ export default function KycFullViewModal({
             locked={kyc.status === "APPROVED"}
             adminReview={canReview}
             canReview={canReview}
-            reviewBusy={reviewBusy}
+            reviewBusyKey={reviewBusyKey}
             onApproveDocument={approveDocument}
             onRejectDocument={(documentKey, docLabel) =>
               setDocReject({
@@ -116,7 +118,7 @@ export default function KycFullViewModal({
         open={Boolean(docReject)}
         title={docReject?.title}
         subtitle={docReject?.subtitle}
-        busy={reviewBusy}
+        busy={Boolean(docReject && reviewBusyKey === `doc:${docReject.documentKey}`)}
         onClose={() => setDocReject(null)}
         onConfirm={confirmDocReject}
       />

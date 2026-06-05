@@ -20,7 +20,7 @@ export default function KycDocumentsList({
   locked = false,
   adminReview = false,
   canReview = false,
-  reviewBusy = false,
+  reviewBusyKey = null,
   onApproveDocument,
   onRejectDocument,
 }) {
@@ -62,6 +62,8 @@ export default function KycDocumentsList({
         const docStatus = documentReviewStatus(kyc, row.key);
         const sectionStatus = reviews[sectionId]?.status || "PENDING";
         const isDataUrl = row.url?.startsWith("data:");
+        const rowBusy = reviewBusyKey === `doc:${row.key}`;
+        const anyReviewBusy = reviewBusyKey != null;
 
         return (
           <div
@@ -126,23 +128,25 @@ export default function KycDocumentsList({
                   <>
                     <button
                       type="button"
-                      disabled={reviewBusy || docStatus === "APPROVED"}
+                      disabled={rowBusy || docStatus === "APPROVED"}
+                      aria-busy={rowBusy}
                       className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-emerald-600 disabled:opacity-50"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (anyReviewBusy) return;
                         onApproveDocument(row.key);
                       }}
                     >
-                      {reviewBusy ? "…" : "Approve"}
+                      {rowBusy ? "Saving…" : "Approve"}
                     </button>
                     <button
                       type="button"
-                      disabled={reviewBusy}
                       className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-rose-600"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (anyReviewBusy) return;
                         onRejectDocument(row.key, row.label);
                       }}
                     >
