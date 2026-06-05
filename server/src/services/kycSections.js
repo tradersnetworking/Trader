@@ -9,7 +9,75 @@ export const KYC_SECTION_LABELS = {
   signature: "Signature",
 };
 
-const EMPTY_REVIEW = { status: "PENDING", remarks: null, reviewedAt: null };
+const EMPTY_REVIEW = { status: "PENDING", remarks: null, reviewedAt: null, docs: {} };
+
+/** Document field → review section (mirrors web kyc-document-fields.js). */
+export const KYC_DOCUMENT_SECTION = {
+  photo: "identity",
+  panDocument: "identity",
+  aadhaarFront: "identity",
+  aadhaarBack: "identity",
+  aadhaarDocument: "identity",
+  passportDocument: "identity",
+  driversLicenseDocument: "identity",
+  addressProof: "personal",
+  selfie: "identity",
+  signature: "signature",
+  signatureData: "signature",
+  cancelledCheque: "banking",
+  passbookDocument: "banking",
+  bankStatementDocument: "banking",
+};
+
+export function sectionForDocumentKey(key) {
+  return KYC_DOCUMENT_SECTION[key] || null;
+}
+
+export function presentDocumentsInSection(kyc, sectionId) {
+  if (!kyc) return [];
+  const keys = [];
+  for (const [key, sec] of Object.entries(KYC_DOCUMENT_SECTION)) {
+    if (sec !== sectionId) continue;
+    if (key === "signatureData") {
+      if (kyc.signatureData) keys.push(key);
+      continue;
+    }
+    if (key === "signature") {
+      if (kyc.signature) keys.push(key);
+      continue;
+    }
+    if (kyc[key]) keys.push(key);
+  }
+  return [...new Set(keys)];
+}
+
+function normalizeSectionEntry(s) {
+  const docs = s?.docs && typeof s.docs === "object" ? { ...s.docs } : {};
+  return {
+    status: s?.status || "PENDING",
+    remarks: s?.remarks || null,
+    reviewedAt: s?.reviewedAt || null,
+    docs,
+  };
+}
+
+export function recomputeSectionStatusFromDocs(reviews, kyc, sectionId) {
+  const section = reviews[sectionId] || { ...EMPTY_REVIEW };
+  const present = presentDocumentsInSection(kyc, sectionId);
+  if (!present.length) return section;
+  const docs = section.docs || {};
+  if (present.some((k) => docs[k] === "REJECTED")) {
+    section.status = "REJECTED";
+  } else if (present.every((k) => docs[k] === "APPROVED")) {
+    section.status = "APPROVED";
+    section.remarks = null;
+    section.reviewedAt = new Date().toISOString();
+  } else {
+    section.status = "PENDING";
+  }
+  reviews[sectionId] = section;
+  return section;
+}
 
 export function parseSectionReviews(kyc) {
   if (!kyc?.sectionReviews) return null;
@@ -18,12 +86,7 @@ export function parseSectionReviews(kyc) {
     if (!raw || typeof raw !== "object") return null;
     const out = {};
     for (const id of KYC_SECTIONS) {
-      const s = raw[id];
-      out[id] = {
-        status: s?.status || "PENDING",
-        remarks: s?.remarks || null,
-        reviewedAt: s?.reviewedAt || null,
-      };
+      out[id] = normalizeSectionEntry(raw[id]);
     }
     return out;
   } catch {
@@ -37,7 +100,7 @@ export function serializeSectionReviews(reviews) {
 
 export function initSectionReviewsPending() {
   const reviews = {};
-  for (const id of KYC_SECTIONS) reviews[id] = { ...EMPTY_REVIEW };
+  for (const id of KYC_SECTIONS) reviews[id] = { ...EMPTY_REVIEW, docs: {} };
   return reviews;
 }
 
@@ -105,13 +168,43 @@ export function resetSectionsForResubmit(reviews, sectionIds) {
   return next;
 }
 
-export function setSectionDecision(reviews, sectionId, status, remarks) {
+export function setSectionDecision(reviews, sectionId, status, remarks, kyc = null) {
   const next = { ...(reviews || initSectionReviewsPending()) };
+  const prev = next[sectionId] || { ...EMPTY_REVIEW, docs: {} };
+  const docs = { ...(prev.docs || {}) };
+  if (status === "APPROVED" && kyc) {
+    for (const key of presentDocumentsInSection(kyc, sectionId)) {
+      docs[key] = "APPROVED";
+    }
+  } else if (status === "REJECTED" && kyc) {
+    for (const key of presentDocumentsInSection(kyc, sectionId)) {
+      if (docs[key] !== "APPROVED") docs[key] = "REJECTED";
+    }
+  }
   next[sectionId] = {
     status,
     remarks: status === "REJECTED" ? remarks || "Please correct and resubmit this section." : null,
     reviewedAt: new Date().toISOString(),
+    docs,
   };
+  return next;
+}
+
+export function setDocumentDecision(reviews, kyc, documentKey, status, remarks) {
+  const sectionId = sectionForDocumentKey(documentKey);
+  if (!sectionId) return reviews;
+  const next = { ...(reviews || initSectionReviewsPending()) };
+  const prev = next[sectionId] || { ...EMPTY_REVIEW, docs: {} };
+  const docs = { ...(prev.docs || {}) };
+  docs[documentKey] = status;
+  next[sectionId] = { ...prev, docs };
+  if (status === "REJECTED") {
+    next[sectionId].status = "REJECTED";
+    next[sectionId].remarks = remarks || "Please re-upload this document.";
+    next[sectionId].reviewedAt = new Date().toISOString();
+  } else {
+    recomputeSectionStatusFromDocs(next, kyc, sectionId);
+  }
   return next;
 }
 

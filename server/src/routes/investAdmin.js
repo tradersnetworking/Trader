@@ -994,7 +994,7 @@ router.post(
       });
     }
     let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
-    reviews = setSectionDecision(reviews, section, status, remarks);
+    reviews = setSectionDecision(reviews, section, status, remarks, existing);
     const nextStatus = deriveKycStatusAfterSectionReview(reviews);
     const kyc = await investDb.kyc.update({
       where: { id: existing.id },
@@ -1002,6 +1002,71 @@ router.post(
         sectionReviews: serializeSectionReviews(reviews),
         status: nextStatus,
         remarks: nextStatus === "REJECTED" ? String(remarks || "").trim() : existing.remarks,
+        verifiedAt: null,
+      },
+    });
+    if (existing.investor && status === "REJECTED") {
+      const { notifyKycDecision } = await import("../services/investNotifications.js");
+      await notifyKycDecision(existing.investor, { ...kyc, status: "REJECTED", remarks });
+    }
+    res.json({ kyc: attachSectionReviews(kyc) });
+  })
+);
+
+router.post(
+  "/kyc/:id/document",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("review_kyc"),
+  asyncH(async (req, res) => {
+    const { documentKey, status, remarks } = req.body;
+    const {
+      parseSectionReviews,
+      serializeSectionReviews,
+      setDocumentDecision,
+      deriveKycStatusAfterSectionReview,
+      attachSectionReviews,
+      initSectionReviewsPending,
+      sectionForDocumentKey,
+      KYC_DOCUMENT_SECTION,
+    } = await import("../services/kycSections.js");
+    const key = String(documentKey || "");
+    if (!KYC_DOCUMENT_SECTION[key]) {
+      return res.status(400).json({ error: "Invalid document key" });
+    }
+    if (!["APPROVED", "REJECTED"].includes(status)) {
+      return res.status(400).json({ error: "Status must be APPROVED or REJECTED" });
+    }
+    if (status === "REJECTED" && !String(remarks || "").trim()) {
+      return res.status(400).json({ error: "Rejection reason is required for this document" });
+    }
+    const existing = await investDb.kyc.findUnique({ where: { id: req.params.id }, include: { investor: true } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!["PENDING", "REJECTED"].includes(existing.status)) {
+      return res.status(400).json({ error: "KYC is not open for document review" });
+    }
+    const sectionId = sectionForDocumentKey(key);
+    const hasDoc =
+      key === "signatureData"
+        ? Boolean(existing.signatureData)
+        : key === "signature"
+          ? Boolean(existing.signature)
+          : Boolean(existing[key]);
+    if (!hasDoc) {
+      return res.status(400).json({ error: "This document was not uploaded" });
+    }
+    let reviews = parseSectionReviews(existing) || initSectionReviewsPending();
+    reviews = setDocumentDecision(reviews, existing, key, status, remarks);
+    const nextStatus = deriveKycStatusAfterSectionReview(reviews);
+    const kyc = await investDb.kyc.update({
+      where: { id: existing.id },
+      data: {
+        sectionReviews: serializeSectionReviews(reviews),
+        status: nextStatus,
+        remarks:
+          nextStatus === "REJECTED" && reviews[sectionId]?.status === "REJECTED"
+            ? String(remarks || reviews[sectionId]?.remarks || "").trim()
+            : existing.remarks,
         verifiedAt: null,
       },
     });

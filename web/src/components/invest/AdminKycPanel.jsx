@@ -4,7 +4,11 @@ import { investApi } from "../../lib/api.js";
 import { investPath } from "../../lib/site.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
-import { applySectionReviewDecision, parseSectionReviews } from "../../lib/kyc-sections.js";
+import {
+  applyDocumentReviewDecision,
+  applySectionReviewDecision,
+  parseSectionReviews,
+} from "../../lib/kyc-sections.js";
 
 export default function AdminKycPanel({ onUpdated }) {
   const [items, setItems] = useState([]);
@@ -76,6 +80,25 @@ export default function AdminKycPanel({ onUpdated }) {
     }
   }, []);
 
+  const decideDocument = useCallback(async (id, documentKey, status, remarks) => {
+    setReviewBusy(true);
+    setViewKyc((prev) =>
+      prev?.id === id ? applyDocumentReviewDecision(prev, documentKey, status, remarks) : prev
+    );
+    setItems((prev) =>
+      prev.map((k) => (k.id === id ? applyDocumentReviewDecision(k, documentKey, status, remarks) : k))
+    );
+    try {
+      await investApi(`/admin/kyc/${id}/document`, { method: "POST", body: { documentKey, status, remarks } });
+      await load();
+    } catch (e) {
+      setLoadErr(e.message || "Document review failed.");
+      await load();
+    } finally {
+      setReviewBusy(false);
+    }
+  }, []);
+
   const decideFinal = useCallback(async (id, status, remarks) => {
     setReviewBusy(true);
     try {
@@ -122,6 +145,7 @@ export default function AdminKycPanel({ onUpdated }) {
         onClose={() => setViewKyc(null)}
         reviewBusy={reviewBusy}
         onSectionDecision={decideSection}
+        onDocumentDecision={decideDocument}
         onFinalApprove={handleFinalApprove}
         onFinalReject={handleFinalReject}
       />

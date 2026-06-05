@@ -13,6 +13,7 @@ export default function KycFullViewModal({
   readOnly = false,
   investorTitle,
   onSectionDecision,
+  onDocumentDecision,
   onFinalApprove,
   onFinalReject,
   onApprove,
@@ -27,11 +28,11 @@ export default function KycFullViewModal({
   const modalTitle = readOnly ? `Submitted KYC — ${title}` : `Review KYC — ${title}`;
   const canReview = !readOnly && ["PENDING", "REJECTED"].includes(kyc.status) && onSectionDecision;
 
-  const approveSection = (sectionId) => onSectionDecision?.(kyc.id, sectionId, "APPROVED");
+  const approveDocument = (documentKey) => onDocumentDecision?.(kyc.id, documentKey, "APPROVED");
 
   const confirmDocReject = async (remarks) => {
     if (!docReject) return;
-    await onSectionDecision?.(kyc.id, docReject.section, "REJECTED", remarks);
+    await onDocumentDecision?.(kyc.id, docReject.documentKey, "REJECTED", remarks);
     setDocReject(null);
   };
 
@@ -75,8 +76,8 @@ export default function KycFullViewModal({
         <div>
           <h4 className="mb-2 text-sm font-bold text-foreground">Uploaded documents</h4>
           <p className="mb-3 text-xs text-muted-foreground">
-            Use <strong>View</strong> to preview each file. <strong>Approve</strong> or <strong>Reject</strong> updates
-            that document&apos;s KYC section for the investor.
+            Use <strong>View</strong> to preview each file. <strong>Approve</strong> or <strong>Reject</strong> applies
+            to that file only. A section is approved once every uploaded file in it is approved.
           </p>
           <KycDocumentsList
             kyc={kyc}
@@ -86,12 +87,12 @@ export default function KycFullViewModal({
             adminReview={canReview}
             canReview={canReview}
             reviewBusy={reviewBusy}
-            onApproveSection={approveSection}
-            onRejectSection={(section, docLabel) =>
+            onApproveDocument={approveDocument}
+            onRejectDocument={(documentKey, docLabel) =>
               setDocReject({
-                section,
+                documentKey,
                 title: `Reject — ${docLabel}`,
-                subtitle: `This rejects the "${KYC_SECTION_LABELS[section]}" section. Reason is shown to the investor.`,
+                subtitle: `Reason is shown to the investor for this document.`,
               })
             }
           />

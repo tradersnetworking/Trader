@@ -1,7 +1,6 @@
 import SecureUploadLink from "../invest/SecureUploadLink.jsx";
 import { KYC_DOCUMENT_FIELDS, filenameFromUrl, sectionForDocumentKey } from "../../lib/kyc-document-fields.js";
-import { KYC_SECTION_LABELS } from "../../lib/kyc-sections.js";
-import { parseSectionReviews } from "../../lib/kyc-sections.js";
+import { KYC_SECTION_LABELS, documentReviewStatus, parseSectionReviews } from "../../lib/kyc-sections.js";
 
 function sectionStatusClass(status) {
   if (status === "APPROVED") return "bg-emerald-500/15 text-emerald-600";
@@ -22,8 +21,8 @@ export default function KycDocumentsList({
   adminReview = false,
   canReview = false,
   reviewBusy = false,
-  onApproveSection,
-  onRejectSection,
+  onApproveDocument,
+  onRejectDocument,
 }) {
   const reviews = parseSectionReviews(kyc) || {};
 
@@ -50,7 +49,7 @@ export default function KycDocumentsList({
     return <p className="py-4 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>;
   }
 
-  const showDocActions = adminReview && canReview && !locked && onApproveSection && onRejectSection;
+  const showDocActions = adminReview && canReview && !locked && onApproveDocument && onRejectDocument;
 
   return (
     <div
@@ -60,6 +59,7 @@ export default function KycDocumentsList({
     >
       {rows.map((row) => {
         const sectionId = sectionForDocumentKey(row.key);
+        const docStatus = documentReviewStatus(kyc, row.key);
         const sectionStatus = reviews[sectionId]?.status || "PENDING";
         const isDataUrl = row.url?.startsWith("data:");
 
@@ -72,10 +72,13 @@ export default function KycDocumentsList({
               <p className="font-medium text-foreground">{row.label}</p>
               {adminReview && (
                 <p className="mt-0.5 text-[10px] text-muted-foreground">
-                  Section: {KYC_SECTION_LABELS[sectionId]}{" "}
-                  <span className={`ml-1 rounded px-1.5 py-0.5 font-bold uppercase ${sectionStatusClass(sectionStatus)}`}>
-                    {sectionStatus}
+                  {KYC_SECTION_LABELS[sectionId]} ·{" "}
+                  <span className={`rounded px-1.5 py-0.5 font-bold uppercase ${sectionStatusClass(docStatus)}`}>
+                    {docStatus}
                   </span>
+                  {sectionStatus !== docStatus && (
+                    <span className="ml-1 text-muted-foreground/80">(section {sectionStatus.toLowerCase()})</span>
+                  )}
                 </p>
               )}
               {row.url && !isDataUrl ? (
@@ -123,12 +126,12 @@ export default function KycDocumentsList({
                   <>
                     <button
                       type="button"
-                      disabled={reviewBusy || sectionStatus === "APPROVED"}
+                      disabled={reviewBusy || docStatus === "APPROVED"}
                       className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-emerald-600 disabled:opacity-50"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onApproveSection(sectionId);
+                        onApproveDocument(row.key);
                       }}
                     >
                       {reviewBusy ? "…" : "Approve"}
@@ -140,7 +143,7 @@ export default function KycDocumentsList({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        onRejectSection(sectionId, row.label);
+                        onRejectDocument(row.key, row.label);
                       }}
                     >
                       Reject

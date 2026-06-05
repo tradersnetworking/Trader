@@ -1,4 +1,23 @@
 /** Client mirror of server/src/services/kycSections.js */
+import { KYC_DOCUMENT_SECTION, sectionForDocumentKey } from "./kyc-document-fields.js";
+
+function presentDocumentsInSection(kyc, sectionId) {
+  if (!kyc) return [];
+  const keys = [];
+  for (const [key, sec] of Object.entries(KYC_DOCUMENT_SECTION)) {
+    if (sec !== sectionId) continue;
+    if (key === "signatureData") {
+      if (kyc.signatureData) keys.push(key);
+      continue;
+    }
+    if (key === "signature") {
+      if (kyc.signature) keys.push(key);
+      continue;
+    }
+    if (kyc[key]) keys.push(key);
+  }
+  return [...new Set(keys)];
+}
 
 export const KYC_SECTIONS = ["personal", "identity", "banking", "signature"];
 
@@ -38,9 +57,17 @@ function normalizeReviews(raw) {
       status: s?.status || "PENDING",
       remarks: s?.remarks || null,
       reviewedAt: s?.reviewedAt || null,
+      docs: s?.docs && typeof s.docs === "object" ? { ...s.docs } : {},
     };
   }
   return out;
+}
+
+export function documentReviewStatus(kyc, documentKey) {
+  const sectionId = sectionForDocumentKey(documentKey);
+  if (!sectionId) return "PENDING";
+  const reviews = parseSectionReviews(kyc);
+  return reviews?.[sectionId]?.docs?.[documentKey] || "PENDING";
 }
 
 export function getRejectedSections(kyc) {
@@ -88,18 +115,69 @@ export function sectionStatusBadge(status) {
   return "pending";
 }
 
+function emptySectionReview() {
+  return { status: "PENDING", remarks: null, reviewedAt: null, docs: {} };
+}
+
+function recomputeSectionFromDocs(reviews, kyc, sectionId) {
+  const section = reviews[sectionId];
+  if (!section?.docs) return;
+  const present = presentDocumentsInSection(kyc, sectionId);
+  if (!present.length) return;
+  if (present.some((k) => section.docs[k] === "REJECTED")) {
+    section.status = "REJECTED";
+  } else if (present.every((k) => section.docs[k] === "APPROVED")) {
+    section.status = "APPROVED";
+    section.remarks = null;
+    section.reviewedAt = new Date().toISOString();
+  } else {
+    section.status = "PENDING";
+  }
+}
+
 /** Optimistic client-side section decision before server confirms. */
 export function applySectionReviewDecision(kyc, section, status, remarks) {
   if (!kyc) return kyc;
   const reviews = parseSectionReviews(kyc) || {};
   const next = {};
   for (const id of KYC_SECTIONS) {
-    next[id] = reviews[id] || { status: "PENDING", remarks: null, reviewedAt: null };
+    next[id] = reviews[id] || emptySectionReview();
+  }
+  const docs = { ...(next[section].docs || {}) };
+  if (status === "APPROVED") {
+    for (const key of presentDocumentsInSection(kyc, section)) {
+      docs[key] = "APPROVED";
+    }
   }
   next[section] = {
+    ...next[section],
     status,
     remarks: status === "REJECTED" ? String(remarks || "").trim() || null : null,
     reviewedAt: new Date().toISOString(),
+    docs,
   };
+  return { ...kyc, sectionReviews: next };
+}
+
+/** Optimistic per-document decision — only marks that file, not the whole section. */
+export function applyDocumentReviewDecision(kyc, documentKey, status, remarks) {
+  if (!kyc) return kyc;
+  const sectionId = sectionForDocumentKey(documentKey);
+  if (!sectionId) return kyc;
+  const reviews = parseSectionReviews(kyc) || {};
+  const next = {};
+  for (const id of KYC_SECTIONS) {
+    next[id] = reviews[id] || emptySectionReview();
+  }
+  const docs = { ...(next[sectionId].docs || {}) };
+  docs[documentKey] = status;
+  next[sectionId] = { ...next[sectionId], docs };
+  if (status === "REJECTED") {
+    next[sectionId].status = "REJECTED";
+    next[sectionId].remarks = String(remarks || "").trim() || null;
+    next[sectionId].reviewedAt = new Date().toISOString();
+  } else {
+    recomputeSectionFromDocs(next, kyc, sectionId);
+  }
   return { ...kyc, sectionReviews: next };
 }
