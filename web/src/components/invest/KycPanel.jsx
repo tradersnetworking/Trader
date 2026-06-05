@@ -77,8 +77,8 @@ function initForm(kyc) {
 }
 
 /** Wraps a KYC step section with sectional review status (approved / rejected / editable). */
-function SectionFieldset({ section, kyc, children }) {
-  const editable = !kyc || canEditSection(kyc, section);
+function SectionFieldset({ section, kyc, revisionMode = false, children }) {
+  const editable = revisionMode || !kyc || canEditSection(kyc, section);
   const rejected = kyc && isSectionRejected(kyc, section);
   const approved = kyc && isSectionApproved(kyc, section);
   const remarks = parseSectionReviews(kyc)?.[section]?.remarks;
@@ -753,7 +753,7 @@ export default function KycPanel({
 
 
           {step === 0 && (
-            <SectionFieldset section="personal" kyc={kyc}>
+            <SectionFieldset section="personal" kyc={kyc} revisionMode={revisionMode}>
             <div className="space-y-3">
               <Alert type="info">Step 2 will ask you to upload passport photo, PAN, Aadhaar, and bank proof. Use clear, sharp images or unlocked PDFs only (blurry or password-protected files are rejected).</Alert>
               <Field label="Full legal name *">
@@ -826,7 +826,7 @@ export default function KycPanel({
                 Upload clear, sharp photos or unlocked PDFs only. Blurry images and password-protected PDFs are rejected automatically.
               </div>
 
-              <SectionFieldset section="identity" kyc={kyc}>
+              <SectionFieldset section="identity" kyc={kyc} revisionMode={revisionMode}>
               <Alert type="info">
                 <strong>PAN Card</strong> and <strong>Aadhaar</strong> are compulsory for every investor (number + upload
                 below). Also select which document is your <strong>primary ID</strong> from the list.
@@ -1017,7 +1017,7 @@ export default function KycPanel({
               </div>
               </SectionFieldset>
 
-              <SectionFieldset section="signature" kyc={kyc}>
+              <SectionFieldset section="signature" kyc={kyc} revisionMode={revisionMode}>
                 <KycSignatureField
                   signatureMode={signatureMode}
                   setSignatureMode={setSignatureMode}
@@ -1036,7 +1036,7 @@ export default function KycPanel({
 
 
           {step === 2 && (
-            <SectionFieldset section="banking" kyc={kyc}>
+            <SectionFieldset section="banking" kyc={kyc} revisionMode={revisionMode}>
             <div className="mt-4 space-y-3">
 
               <Field label="Bank Name *">

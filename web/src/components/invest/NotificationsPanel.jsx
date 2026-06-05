@@ -7,23 +7,28 @@ export default function NotificationsPanel({ onRead }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
+  const load = ({ refreshBadge = false } = {}) => {
     setLoading(true);
-    investApi("/notifications/list").then((d) => {
-      setItems(d.notifications || []);
-      onRead?.();
-    }).catch(() => {}).finally(() => setLoading(false));
+    investApi("/notifications/list")
+      .then((d) => {
+        setItems(d.notifications || []);
+        if (refreshBadge) onRead?.();
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const markRead = async (id) => {
     await investApi(`/notifications/${id}/read`, { method: "POST" });
-    load();
+    load({ refreshBadge: true });
   };
 
   const markAll = async () => {
     await investApi("/notifications/read-all", { method: "POST" });
-    load();
+    load({ refreshBadge: true });
   };
 
   return (

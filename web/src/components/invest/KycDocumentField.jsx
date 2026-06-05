@@ -132,11 +132,8 @@ export default function KycDocumentField({
     onStaged?.(name, null, null);
   };
 
-  const pickReplace = () => {
-    if (!readOnly && !uploading) galleryRef.current?.click();
-  };
-
   const accept = imageOnly ? KYC_ACCEPT_IMAGE : KYC_ACCEPT_DOCS;
+  const canPickFile = !readOnly && !uploading;
 
   return (
     <div
@@ -197,18 +194,14 @@ export default function KycDocumentField({
             </button>
             {!readOnly && (
               <>
-                <button
-                  type="button"
+                <label
+                  htmlFor={canPickFile ? inputId : undefined}
                   data-testid={`kyc-replace-${name}`}
-                  className="btn-outline px-3 py-1.5 text-xs"
-                  disabled={uploading}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pickReplace();
-                  }}
+                  className={`btn-outline inline-flex cursor-pointer px-3 py-1.5 text-xs ${uploading ? "pointer-events-none opacity-50" : ""}`}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   Replace
-                </button>
+                </label>
                 {showCamera && (
                   <button
                     type="button"
@@ -254,18 +247,14 @@ export default function KycDocumentField({
 
       {!isUploaded && !pending && !readOnly && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <button
-            type="button"
+          <label
+            htmlFor={canPickFile ? inputId : undefined}
             data-testid={`kyc-upload-btn-${name}`}
-            className="btn-outline w-full text-sm sm:w-auto"
-            disabled={uploading}
-            onClick={(e) => {
-              e.stopPropagation();
-              pickReplace();
-            }}
+            className={`btn-outline inline-flex w-full cursor-pointer justify-center text-sm sm:w-auto ${uploading ? "pointer-events-none opacity-50" : ""}`}
+            onClick={(e) => e.stopPropagation()}
           >
             {imageOnly ? "Upload photo" : "Upload file"}
-          </button>
+          </label>
           {showCamera && (
             <button
               type="button"
@@ -283,7 +272,16 @@ export default function KycDocumentField({
         </div>
       )}
 
-      <input id={inputId} ref={galleryRef} type="file" accept={accept} className="sr-only" onChange={onGalleryChange} />
+      <input
+        id={inputId}
+        ref={galleryRef}
+        type="file"
+        accept={accept}
+        tabIndex={-1}
+        className="fixed left-[-9999px] top-0 h-px w-px opacity-0"
+        onChange={onGalleryChange}
+        disabled={!canPickFile}
+      />
 
       {(localErr || staged?.failReason) && (
         <p className="mt-2 text-[11px] font-medium text-rose-500">{localErr || staged.failReason}</p>

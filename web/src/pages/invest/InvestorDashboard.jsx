@@ -133,6 +133,18 @@ export default function InvestorDashboard() {
     setTab("money", { moneyTab: "deposit", resumePlan: "1" });
   }, [setTab]);
 
+  const refreshNotificationBadge = useCallback(async () => {
+    try {
+      const [summary, inbox] = await Promise.all([
+        investApi("/notifications").catch(() => ({ count: 0 })),
+        investApi("/notifications/list").catch(() => ({ unreadCount: 0 })),
+      ]);
+      setNotificationCount((summary.count || 0) + (inbox.unreadCount || 0));
+    } catch {
+      /* keep previous count */
+    }
+  }, []);
+
   const fetchCore = useCallback(async ({ soft = false } = {}) => {
     if (!soft) setKycLoaded(false);
     setKycLoadError(null);
@@ -368,7 +380,7 @@ export default function InvestorDashboard() {
         </TabPanel>
       )}
       {dashboardUnlocked && tab === "notifications" && (
-        <TabPanel><NotificationsPanel onRead={fetchCore} /></TabPanel>
+        <TabPanel><NotificationsPanel onRead={refreshNotificationBadge} /></TabPanel>
       )}
       {tab === "kyc" &&
         (kycRestricted ? (
@@ -377,7 +389,7 @@ export default function InvestorDashboard() {
             kycPhase={kycPhase}
             pendingPayoutChange={pendingPayoutChange}
             pendingKycRevision={pendingKycRevision}
-            onRefresh={fetchCore}
+            onRefresh={() => fetchCore({ soft: true })}
           />
         ) : (
           <div className="invest-kyc-tab-root">
@@ -387,7 +399,7 @@ export default function InvestorDashboard() {
                 investor={invest}
                 pendingPayoutChange={pendingPayoutChange}
                 pendingKycRevision={pendingKycRevision}
-                onRefresh={fetchCore}
+                onRefresh={() => fetchCore({ soft: true })}
                 initialSubTab={sp.get("payout") === "1" || sp.get("kycSub") === "accounts" ? "accounts" : undefined}
               />
             </TabPanel>
