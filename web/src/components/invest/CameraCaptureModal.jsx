@@ -12,6 +12,7 @@ export default function CameraCaptureModal({
   title = "Take photo",
   defaultFacing = "environment",
   hint,
+  zIndex = 210,
 }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -137,7 +138,7 @@ export default function CameraCaptureModal({
   const flipShort = "Flip camera";
 
   return (
-    <Modal open={open} onClose={handleClose} title={title} wide>
+    <Modal open={open} onClose={handleClose} title={title} wide zIndex={zIndex}>
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
           {hint ||

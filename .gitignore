@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+deploy/.env
 deploy/.env.vps
 *.db
 *.db.bak*

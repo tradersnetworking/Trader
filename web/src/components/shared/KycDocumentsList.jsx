@@ -125,15 +125,23 @@ export default function KycDocumentsList({
                       type="button"
                       disabled={reviewBusy || sectionStatus === "APPROVED"}
                       className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-emerald-600 disabled:opacity-50"
-                      onClick={() => onApproveSection(sectionId)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onApproveSection(sectionId);
+                      }}
                     >
-                      Approve
+                      {reviewBusy ? "…" : "Approve"}
                     </button>
                     <button
                       type="button"
                       disabled={reviewBusy}
                       className="btn-outline flex items-center justify-center px-2 py-2 text-xs font-semibold text-rose-600"
-                      onClick={() => onRejectSection(sectionId, row.label)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onRejectSection(sectionId, row.label);
+                      }}
                     >
                       Reject
                     </button>

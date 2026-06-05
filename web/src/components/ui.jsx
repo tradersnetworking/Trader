@@ -241,7 +241,7 @@ export function Stat({ label, value, accent = "navy" }) {
 
 
 
-export function Modal({ open, onClose, title, children, wide }) {
+export function Modal({ open, onClose, title, children, wide, zIndex = 200 }) {
   useEffect(() => {
     if (!open) return undefined;
     const prev = document.body.style.overflow;
@@ -253,11 +253,21 @@ export function Modal({ open, onClose, title, children, wide }) {
 
   if (!open || typeof document === "undefined") return null;
 
+  const closeIfBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose?.();
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/50 p-4"
+      style={{ zIndex }}
+      onClick={closeIfBackdrop}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div
         className={`card w-full ${wide ? "max-w-4xl" : "max-w-md"} max-h-[92vh] overflow-y-auto p-6`}
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-foreground">{title}</h3>

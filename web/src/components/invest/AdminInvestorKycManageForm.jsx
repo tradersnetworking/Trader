@@ -251,7 +251,7 @@ export default function AdminInvestorKycManageForm({ detail, setDetail, onSaved,
               label={label}
               name={key}
               imageOnly={imageOnly}
-              allowCamera={imageOnly}
+              allowCamera
               existingUrl={docExisting(key)}
               stagedUploads={stagedUploads}
               fileHashes={fileHashes}

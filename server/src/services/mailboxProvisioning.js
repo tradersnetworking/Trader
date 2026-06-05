@@ -13,6 +13,7 @@ import {
 import { getSetting, setSettings } from "./investSettings.js";
 import {
   saveEmailCommunicationConfig,
+  ensureTransactionalNoreplyRouting,
   MAIN_EMAIL_COMM_CONFIG,
   DEFAULT_EMAIL_COMM_CONFIG,
 } from "./emailCommunication.js";
@@ -30,20 +31,26 @@ function imapHost() {
   return process.env.IMAP_HOST || "imap.hostinger.com";
 }
 
+function sharedMailboxPassword() {
+  return process.env.MAILBOX_PASSWORD || process.env.SMTP_PASS || "";
+}
+
 function portalMailboxPassword(portal) {
+  const shared = sharedMailboxPassword();
   if (portal === "main") {
-    return (
+    return process.env.MAIN_MAILBOX_SMTP_PASS || process.env.MAIN_MAILBOX_PASSWORD || shared || "";
+  }
+  return process.env.INVEST_MAILBOX_SMTP_PASS || process.env.INVEST_MAILBOX_PASSWORD || shared || "";
+}
+
+function hasMailboxPasswordEnv() {
+  return Boolean(
+    process.env.MAILBOX_PASSWORD ||
+      process.env.SMTP_PASS ||
       process.env.MAIN_MAILBOX_SMTP_PASS ||
       process.env.MAIN_MAILBOX_PASSWORD ||
-      process.env.SMTP_PASS ||
-      ""
-    );
-  }
-  return (
-    process.env.INVEST_MAILBOX_SMTP_PASS ||
-    process.env.INVEST_MAILBOX_PASSWORD ||
-    process.env.SMTP_PASS ||
-    ""
+      process.env.INVEST_MAILBOX_SMTP_PASS ||
+      process.env.INVEST_MAILBOX_PASSWORD
   );
 }
 
@@ -54,16 +61,37 @@ function applyProviderTemplate(mailbox, portal, { forcePassword = false } = {}) 
     port: String(process.env.SMTP_PORT || "587"),
     secure: process.env.SMTP_SECURE === "true",
     user: mailbox.address,
-    pass: forcePassword && pass ? pass : mailbox.smtp?.pass || pass || "",
+    pass: pass && (forcePassword || !mailbox.smtp?.pass) ? pass : mailbox.smtp?.pass || "",
   };
   const imap = {
     host: imapHost(),
     port: String(process.env.IMAP_PORT || "993"),
     secure: process.env.IMAP_SECURE !== "false",
     user: mailbox.address,
-    pass: forcePassword && pass ? pass : mailbox.imap?.pass || pass || "",
+    pass: pass && (forcePassword || !mailbox.imap?.pass) ? pass : mailbox.imap?.pass || "",
   };
   return { ...mailbox, smtp, imap };
+}
+
+async function syncLegacySmtpSettings(portal) {
+  const pass = portalMailboxPassword(portal);
+  if (!pass) return null;
+  const config = await getMailboxConfig(portal, true);
+  const noreply = config.mailboxes.find((m) => m.id === "noreply");
+  if (!noreply?.address) return null;
+  const pairs = {
+    smtp_host: smtpHost(),
+    smtp_port: String(process.env.SMTP_PORT || "587"),
+    smtp_secure: process.env.SMTP_SECURE === "true" ? "true" : "false",
+    smtp_user: noreply.address,
+    smtp_pass: pass,
+    default_communication_email: noreply.address,
+    mail_from: `${noreply.name} <${noreply.address}>`,
+  };
+  if (portal === "invest") {
+    await setSettings(pairs);
+  }
+  return pairs;
 }
 
 /** Apply SMTP/IMAP hosts + username (= email); optional shared password from env. */
@@ -117,21 +145,29 @@ export async function ensureMailboxAddressesSeeded(portal) {
 /** Run on seed / deploy: create configs, wire SMTP template, set default communication routing. */
 export async function ensureAllEmailInfrastructure({ provisionSmtp = true } = {}) {
   const results = [];
+  const passwordReady = hasMailboxPasswordEnv();
   for (const portal of ["main", "invest"]) {
     results.push(await ensureMailboxAddressesSeeded(portal));
     results.push(await ensureEmailCommunicationConfig(portal));
-    if (provisionSmtp) {
-      results.push(await provisionPortalMailboxes(portal, { force: false, forcePassword: Boolean(portalMailboxPassword(portal)) }));
+    results.push(await ensureTransactionalNoreplyRouting(portal));
+    if (provisionSmtp && passwordReady) {
+      results.push(
+        await provisionPortalMailboxes(portal, {
+          force: true,
+          forcePassword: true,
+        })
+      );
+      results.push({ portal, legacySmtp: await syncLegacySmtpSettings(portal) });
+    } else if (provisionSmtp) {
+      results.push(await provisionPortalMailboxes(portal, { force: false, forcePassword: false }));
     }
   }
   const curSupport = await getSetting("support_email");
-  if (!curSupport) {
-    await setSettings({
-      support_email: "support@akshayaexim.in",
-      default_communication_email: "noreply@akshayaexim.in",
-      mail_from: "AKSHAYA INVESTMENTS <noreply@akshayaexim.in>",
-    });
-  }
+  await setSettings({
+    support_email: curSupport || "support@akshayaexim.in",
+    default_communication_email: "noreply@akshayaexim.in",
+    mail_from: "AKSHAYA INVESTMENTS <noreply@akshayaexim.in>",
+  });
   return results;
 }
 

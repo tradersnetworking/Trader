@@ -249,6 +249,18 @@ export default function InvestDashboardShell({
               <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
             </div>
           </div>
+          {role === "admin" && ["ADMIN", "SUPERADMIN"].includes(user?.role) && (
+            <button
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => {
+                setUserOpen(false);
+                onTabChange?.("account");
+              }}
+            >
+              My Account
+            </button>
+          )}
           {role === "admin" && user?.role === "SUPERADMIN" && (
             <Link
               to={investPath("/dashboard?preview=investor")}
@@ -274,11 +286,11 @@ export default function InvestDashboardShell({
               onClick={() => {
                 setUserOpen(false);
                 openStaffPortal({ fromPortal: "invest", toPortal: "main", next: "/admin" }).catch((e) =>
-                  alert(e.message || "Could not open marketplace dashboard")
+                  alert(e.message || "Could not open market dashboard")
                 );
               }}
             >
-              Marketplace Dashboard
+              Market Dashboard
             </button>
           )}
           {kycRestricted && role === "investor" && (

@@ -418,7 +418,14 @@ async function seedInvest() {
   const { seedRolePermissions } = await import("./services/rbac.js");
   await seedRolePermissions();
   const { ensureAllEmailInfrastructure, listDefaultMailboxAddresses } = await import("./services/mailboxProvisioning.js");
-  await ensureAllEmailInfrastructure({ provisionSmtp: Boolean(process.env.SMTP_PASS || process.env.INVEST_MAILBOX_SMTP_PASS) });
+  await ensureAllEmailInfrastructure({
+    provisionSmtp: Boolean(
+      process.env.MAILBOX_PASSWORD ||
+        process.env.SMTP_PASS ||
+        process.env.INVEST_MAILBOX_SMTP_PASS ||
+        process.env.MAIN_MAILBOX_SMTP_PASS
+    ),
+  });
   console.log("  Invest mailboxes:", listDefaultMailboxAddresses("invest").map((m) => m.address).join(", "));
   console.log("  INVEST done.");
 }

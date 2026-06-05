@@ -87,3 +87,19 @@ export function sectionStatusBadge(status) {
   if (status === "REJECTED") return "rejected";
   return "pending";
 }
+
+/** Optimistic client-side section decision before server confirms. */
+export function applySectionReviewDecision(kyc, section, status, remarks) {
+  if (!kyc) return kyc;
+  const reviews = parseSectionReviews(kyc) || {};
+  const next = {};
+  for (const id of KYC_SECTIONS) {
+    next[id] = reviews[id] || { status: "PENDING", remarks: null, reviewedAt: null };
+  }
+  next[section] = {
+    status,
+    remarks: status === "REJECTED" ? String(remarks || "").trim() || null : null,
+    reviewedAt: new Date().toISOString(),
+  };
+  return { ...kyc, sectionReviews: next };
+}

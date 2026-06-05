@@ -9,6 +9,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+config({ path: resolve(root, "deploy/.env") });
 config({ path: resolve(root, "server/.env") });
 
 const { ensureAllEmailInfrastructure, provisionPortalMailboxes, listDefaultMailboxAddresses } =

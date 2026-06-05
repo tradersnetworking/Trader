@@ -41,7 +41,7 @@ echo "[entrypoint] Ensuring mailbox configs (5 x main .com, 5 x invest .in)…"
 cd /app/server
 node --input-type=module <<'MAIL_EOF' || true
 import { ensureAllEmailInfrastructure } from "./src/services/mailboxProvisioning.js";
-const r = await ensureAllEmailInfrastructure({ provisionSmtp: Boolean(process.env.SMTP_PASS || process.env.INVEST_MAILBOX_SMTP_PASS || process.env.MAIN_MAILBOX_SMTP_PASS) });
+const r = await ensureAllEmailInfrastructure({ provisionSmtp: Boolean(process.env.MAILBOX_PASSWORD || process.env.SMTP_PASS || process.env.INVEST_MAILBOX_SMTP_PASS || process.env.MAIN_MAILBOX_SMTP_PASS) });
 console.log("[entrypoint] Mail provision:", JSON.stringify(r));
 MAIL_EOF
 cd /app

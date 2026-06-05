@@ -66,22 +66,28 @@ export default function KycAdminSectionReview({ kyc, onSectionDecision, onFinalA
                     type="button"
                     disabled={busy}
                     className="btn-outline px-2 py-2 text-xs font-semibold text-emerald-600"
-                    onClick={() => act(id, "APPROVED")}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      act(id, "APPROVED");
+                    }}
                   >
-                    Approve
+                    {busy ? "…" : "Approve"}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className="btn-outline px-2 py-2 text-xs font-semibold text-rose-600"
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setRejectDialog({
                         type: "section",
                         section: id,
                         title: `Reject — ${KYC_SECTION_LABELS[id]}`,
                         subtitle: "This reason is shown to the investor on their dashboard and KYC page.",
-                      })
-                    }
+                      });
+                    }}
                   >
                     Reject
                   </button>

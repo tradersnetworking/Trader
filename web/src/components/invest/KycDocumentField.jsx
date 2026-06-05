@@ -4,6 +4,13 @@ import { uploadKycDocument, deleteKycDocument, validateBeforeKycUpload } from ".
 import CameraCaptureModal from "./CameraCaptureModal.jsx";
 import SecureUploadPreviewDialog from "./SecureUploadPreviewDialog.jsx";
 
+function isPreviewable(url, mimeType) {
+  if (!url) return false;
+  if (String(url).startsWith("blob:")) return true;
+  if (mimeType?.startsWith("image/")) return true;
+  return /\.(jpe?g|png|webp|gif)/i.test(String(url));
+}
+
 /**
  * Per-document KYC upload — shows Uploaded badge, View / Replace / Modify / Remove when resuming.
  */
@@ -25,35 +32,65 @@ export default function KycDocumentField({
   const staged = stagedUploads[name];
   const inputId = useId();
   const galleryRef = useRef(null);
+  const blobRef = useRef(null);
   const [localErr, setLocalErr] = useState("");
   const [progress, setProgress] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [localPreview, setLocalPreview] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
 
-  const url = staged?.url || existingUrl;
+  const url = staged?.url || localPreview || existingUrl;
   const failed = staged?.status === "FAILED";
-  const isUploaded = Boolean(url && !failed);
-  const fromPreviousSession = isUploaded && !staged?.id && Boolean(existingUrl);
+  const pending = uploading || staged?.status === "UPLOADING";
+  const isUploaded = Boolean(url && !failed && !pending);
+  const fromPreviousSession = isUploaded && !staged?.id && !localPreview && Boolean(existingUrl);
+  const showCamera = allowCamera !== false;
 
   useEffect(() => {
-    if (!url || !String(url).match(/\.(jpe?g|png|webp|gif)/i)) {
-      setPreviewUrl(null);
+    return () => {
+      if (blobRef.current) {
+        URL.revokeObjectURL(blobRef.current);
+        blobRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPreviewable(url, staged?.mimeType)) {
+      setPreviewUrl(url);
       return undefined;
     }
-    setPreviewUrl(url);
+    setPreviewUrl(null);
     return undefined;
-  }, [url]);
+  }, [url, staged?.mimeType]);
 
-  const runUpload = async (file) => {
-    const preErr = validateBeforeKycUpload(file, { imageOnly });
+  const setOptimisticPreview = (file) => {
+    if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+    const blobUrl = URL.createObjectURL(file);
+    blobRef.current = blobUrl;
+    setLocalPreview(blobUrl);
+    onStaged?.(name, { fieldKey: name, url: blobUrl, status: "UPLOADING", mimeType: file.type }, null);
+  };
+
+  const clearOptimisticPreview = () => {
+    if (blobRef.current) {
+      URL.revokeObjectURL(blobRef.current);
+      blobRef.current = null;
+    }
+    setLocalPreview(null);
+  };
+
+  const runUpload = async (file, { fromCamera = false } = {}) => {
+    const preErr = validateBeforeKycUpload(file, { imageOnly: fromCamera || imageOnly });
     if (preErr) {
       setLocalErr(preErr);
       return;
     }
     setLocalErr("");
+    setOptimisticPreview(file);
     setUploading(true);
     setProgress(0);
     try {
@@ -61,11 +98,13 @@ export default function KycDocumentField({
         onProgress: setProgress,
         knownHashes: fileHashes,
       });
+      clearOptimisticPreview();
       onStaged?.(name, res.upload, res.sha256);
       setProgress(100);
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 5000);
     } catch (e) {
+      clearOptimisticPreview();
       setLocalErr(e.message || "Upload failed");
       onStaged?.(name, { status: "FAILED", failReason: e.message, fieldKey: name }, null);
     } finally {
@@ -83,6 +122,7 @@ export default function KycDocumentField({
   const remove = async () => {
     if (readOnly) return;
     setLocalErr("");
+    clearOptimisticPreview();
     try {
       if (staged?.id || staged?.url || existingUrl) await deleteDocument(name);
     } catch (e) {
@@ -102,7 +142,7 @@ export default function KycDocumentField({
     <div
       data-testid={`kyc-field-${name}`}
       className={`rounded-xl border border-dashed p-4 ${
-        failed ? "border-rose-500/50 bg-rose-500/5" : isUploaded ? "border-emerald-500/25 bg-emerald-500/[0.03]" : "border-border bg-muted/40"
+        failed ? "border-rose-500/50 bg-rose-500/5" : isUploaded || pending ? "border-emerald-500/25 bg-emerald-500/[0.03]" : "border-border bg-muted/40"
       }`}
     >
       <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -114,6 +154,9 @@ export default function KycDocumentField({
           {hint && <p className="mt-0.5 text-[10px] text-muted-foreground">{hint}</p>}
           <p className="mt-0.5 text-[10px] text-muted-foreground">JPG, JPEG, PNG, or PDF — max 10 MB</p>
         </div>
+        {pending && (
+          <span className="badge shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400">Uploading…</span>
+        )}
         {isUploaded && (
           <span className="badge shrink-0 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
             {savedFlash ? "Uploaded · saved" : "Uploaded"}
@@ -132,10 +175,11 @@ export default function KycDocumentField({
         <img src={previewUrl} alt="" className="mb-3 h-28 w-28 rounded-lg border border-border object-cover" />
       )}
 
-      {isUploaded && (
+      {(isUploaded || pending) && url && (
         <div className="mb-3 rounded-lg border border-border/80 bg-background/60 p-2">
           <p className="mb-2 truncate text-xs text-muted-foreground">
             {staged?.sizeBytes ? `${Math.round(staged.sizeBytes / 1024)} KB — ` : ""}
+            {pending && !staged?.sizeBytes ? "Saving… — " : ""}
             {filenameFromUrl(url)}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -143,8 +187,11 @@ export default function KycDocumentField({
               type="button"
               data-testid={`kyc-view-${name}`}
               className="btn-outline px-3 py-1.5 text-xs"
-              disabled={!url}
-              onClick={() => setViewOpen(true)}
+              disabled={!url || pending}
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewOpen(true);
+              }}
             >
               View
             </button>
@@ -155,30 +202,25 @@ export default function KycDocumentField({
                   data-testid={`kyc-replace-${name}`}
                   className="btn-outline px-3 py-1.5 text-xs"
                   disabled={uploading}
-                  onClick={pickReplace}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickReplace();
+                  }}
                 >
                   Replace
                 </button>
-                {allowCamera && imageOnly && (
+                {showCamera && (
                   <button
                     type="button"
                     data-testid={`kyc-modify-${name}`}
                     className="btn-gold px-3 py-1.5 text-xs"
                     disabled={uploading}
-                    onClick={() => setCameraOpen(true)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCameraOpen(true);
+                    }}
                   >
-                    Modify
-                  </button>
-                )}
-                {!imageOnly && (
-                  <button
-                    type="button"
-                    data-testid={`kyc-modify-${name}`}
-                    className="btn-gold px-3 py-1.5 text-xs"
-                    disabled={uploading}
-                    onClick={pickReplace}
-                  >
-                    Modify
+                    {imageOnly ? "Modify" : "Camera"}
                   </button>
                 )}
                 <button
@@ -186,7 +228,10 @@ export default function KycDocumentField({
                   data-testid={`kyc-remove-${name}`}
                   className="btn-outline px-3 py-1.5 text-xs text-rose-600"
                   disabled={uploading}
-                  onClick={remove}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove();
+                  }}
                 >
                   Remove
                 </button>
@@ -207,19 +252,31 @@ export default function KycDocumentField({
         </div>
       )}
 
-      {!isUploaded && !readOnly && (
+      {!isUploaded && !pending && !readOnly && (
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           <button
             type="button"
             data-testid={`kyc-upload-btn-${name}`}
             className="btn-outline w-full text-sm sm:w-auto"
             disabled={uploading}
-            onClick={pickReplace}
+            onClick={(e) => {
+              e.stopPropagation();
+              pickReplace();
+            }}
           >
             {imageOnly ? "Upload photo" : "Upload file"}
           </button>
-          {allowCamera && imageOnly && (
-            <button type="button" className="btn-gold w-full text-sm sm:w-auto" disabled={uploading} onClick={() => setCameraOpen(true)}>
+          {showCamera && (
+            <button
+              type="button"
+              data-testid={`kyc-camera-btn-${name}`}
+              className="btn-gold w-full text-sm sm:w-auto"
+              disabled={uploading}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCameraOpen(true);
+              }}
+            >
               Open camera
             </button>
           )}
@@ -237,10 +294,11 @@ export default function KycDocumentField({
       <CameraCaptureModal
         open={cameraOpen}
         onClose={() => setCameraOpen(false)}
-        onCapture={runUpload}
+        onCapture={(file) => runUpload(file, { fromCamera: true })}
         title={label || "Take photo"}
         defaultFacing={name === "selfie" ? "user" : "environment"}
         hint={name === "selfie" ? "Use front camera with your ID beside your face." : "Capture a clear photo of your document."}
+        zIndex={210}
       />
     </div>
   );

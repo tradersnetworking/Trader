@@ -199,6 +199,18 @@ export default function MainDashboardShell({
               User Dashboard
             </Link>
           )}
+          {mode === "admin" && ["ADMIN", "SUPERADMIN"].includes(user?.role) && (
+            <button
+              type="button"
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+              onClick={() => {
+                setUserOpen(false);
+                onTabChange?.("account");
+              }}
+            >
+              My Account
+            </button>
+          )}
           {showCrossPortalSwitch() && ["ADMIN", "SUPERADMIN"].includes(user?.role) && (
             <button
               type="button"
@@ -206,11 +218,11 @@ export default function MainDashboardShell({
               onClick={() => {
                 setUserOpen(false);
                 openStaffPortal({ fromPortal: "main", toPortal: "invest", next: "/admin" }).catch((e) =>
-                  alert(e.message || "Could not open investment dashboard")
+                  alert(e.message || "Could not open invest dashboard")
                 );
               }}
             >
-              Investment Dashboard
+              Invest Dashboard
             </button>
           )}
           <button

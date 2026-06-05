@@ -7,9 +7,9 @@ export function applyStaffSiblingLogin(res, { loginMain, loginInvest }) {
   if (res?.investToken && res?.investUser && loginInvest) loginInvest(res.investToken, res.investUser);
 }
 
-/** Cross-portal dashboard switch is hidden — investors and marketplace users stay on their host. */
+/** Staff (ADMIN / SUPERADMIN) may switch between marketplace and invest hosts. */
 export function showCrossPortalSwitch() {
-  return false;
+  return true;
 }
 
 /** True when switching between production subdomains (separate localStorage). */

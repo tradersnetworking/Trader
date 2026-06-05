@@ -19,7 +19,7 @@ export default function KycRejectReasonDialog({ open, title, subtitle, onClose, 
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={title || "Rejection reason"}>
+    <Modal open={open} onClose={onClose} title={title || "Rejection reason"} zIndex={210}>
       <div className="space-y-4">
         {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         <Field label={`Reason (shown to investor, min ${MIN_LEN} characters)`}>

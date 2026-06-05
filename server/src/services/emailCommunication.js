@@ -24,6 +24,24 @@ export const DEFAULT_EMAIL_PURPOSE_META = {
 
 export const DEFAULT_EMAIL_PURPOSES = Object.keys(DEFAULT_EMAIL_PURPOSE_META);
 
+/** OTP + money movement emails always send from noreply@. */
+export const NOREPLY_TRANSACTIONAL_PURPOSES = [
+  "otp",
+  "registration",
+  "password_reset",
+  "deposit_submitted",
+  "deposit_approved",
+  "deposit_rejected",
+  "withdrawal_submitted",
+  "withdrawal_approved",
+  "withdrawal_rejected",
+  "investment",
+  "roi_reminder",
+  "withdrawal_confirm",
+  "login",
+  "email_verify",
+];
+
 const MAIN_PURPOSE_META_EXTRA = {
   quote_received: { label: "Quote / RFQ Received", description: "When a buyer submits a quote request", group: "Trade" },
   order_confirmed: { label: "Order Confirmed", description: "When an order is confirmed on marketplace", group: "Trade" },
@@ -143,6 +161,22 @@ export async function getEmailCommunicationConfig(portal = "invest") {
 export async function saveEmailCommunicationConfig(config, portal = "invest") {
   await setSettings({ [configKey(portal)]: JSON.stringify(config) });
   return getEmailCommunicationConfig(portal);
+}
+
+/** Ensure OTP, deposits, withdrawals, and investments use the noreply mailbox. */
+export async function ensureTransactionalNoreplyRouting(portal = "invest") {
+  const config = await getEmailCommunicationConfig(portal);
+  const allowed = new Set(purposesFor(portal));
+  let changed = false;
+  for (const purpose of NOREPLY_TRANSACTIONAL_PURPOSES) {
+    if (!allowed.has(purpose)) continue;
+    if (config.assignments[purpose] !== "noreply") {
+      config.assignments[purpose] = "noreply";
+      changed = true;
+    }
+  }
+  if (changed) await saveEmailCommunicationConfig(config, portal);
+  return { portal, updated: changed };
 }
 
 export async function getEmailCommunicationBundle(portal = "invest") {

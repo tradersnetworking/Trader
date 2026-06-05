@@ -4,7 +4,7 @@ import { investApi } from "../../lib/api.js";
 import { investPath } from "../../lib/site.js";
 import { Badge } from "../ui.jsx";
 import KycFullViewModal from "./KycFullViewModal.jsx";
-import { parseSectionReviews } from "../../lib/kyc-sections.js";
+import { applySectionReviewDecision, parseSectionReviews } from "../../lib/kyc-sections.js";
 
 export default function AdminKycPanel({ onUpdated }) {
   const [items, setItems] = useState([]);
@@ -59,36 +59,44 @@ export default function AdminKycPanel({ onUpdated }) {
     rejected: items.filter((k) => k.status === "REJECTED").length,
   };
 
-  const withBusy = useCallback(async (fn) => {
+  const decideSection = useCallback(async (id, section, status, remarks) => {
     setReviewBusy(true);
+    setViewKyc((prev) => (prev?.id === id ? applySectionReviewDecision(prev, section, status, remarks) : prev));
+    setItems((prev) =>
+      prev.map((k) => (k.id === id ? applySectionReviewDecision(k, section, status, remarks) : k))
+    );
     try {
-      await fn();
+      await investApi(`/admin/kyc/${id}/section`, { method: "POST", body: { section, status, remarks } });
+      await load();
+    } catch (e) {
+      setLoadErr(e.message || "Section review failed.");
       await load();
     } finally {
       setReviewBusy(false);
     }
   }, []);
 
-  const decideSection = (id, section, status, remarks) =>
-    withBusy(() =>
-      investApi(`/admin/kyc/${id}/section`, { method: "POST", body: { section, status, remarks } })
-    );
-
-  const decideFinal = (id, status, remarks) =>
-    withBusy(() =>
-      investApi(`/admin/kyc/${id}/final`, { method: "POST", body: { status, remarks } })
-    );
+  const decideFinal = useCallback(async (id, status, remarks) => {
+    setReviewBusy(true);
+    try {
+      await investApi(`/admin/kyc/${id}/final`, { method: "POST", body: { status, remarks } });
+      setViewKyc(null);
+      await load();
+    } catch (e) {
+      setLoadErr(e.message || "Final decision failed.");
+    } finally {
+      setReviewBusy(false);
+    }
+  }, []);
 
   const handleFinalApprove = (k) => {
     if (!window.confirm("Final approve this KYC? Investor gets full dashboard access.")) return;
     decideFinal(k.id, "APPROVED");
-    setViewKyc(null);
   };
 
   const handleFinalReject = (k, remarks) => {
     if (!remarks?.trim()) return;
     decideFinal(k.id, "REJECTED", remarks.trim());
-    setViewKyc(null);
   };
 
   const sectionSummary = (k) => {
