@@ -44,17 +44,51 @@ async function getLegacyDbTransporter() {
   }
 }
 
-/** True when invest (or main) portal can send outbound mail. */
+let smtpVerifiedCache = { at: 0, ok: null, portal: null };
+
+/** True only when SMTP credentials exist AND auth was verified recently. */
 export async function isOutboundMailConfigured(portal = "invest") {
-  if (envTransporter) return true;
-  if (await getLegacyDbTransporter()) return true;
-  try {
-    const { getMailboxConfig, isMailboxSmtpConfigured } = await import("../services/mailboxConfig.js");
-    const cfg = await getMailboxConfig(portal, true);
-    return cfg.mailboxes.some((m) => isMailboxSmtpConfigured(m));
-  } catch {
+  const now = Date.now();
+  if (smtpVerifiedCache.portal === portal && smtpVerifiedCache.ok != null && now - smtpVerifiedCache.at < 5 * 60 * 1000) {
+    return smtpVerifiedCache.ok;
+  }
+
+  let canSend = false;
+  if (envTransporter) canSend = true;
+  else if (await getLegacyDbTransporter()) canSend = true;
+  else {
+    try {
+      const { getMailboxConfig, isMailboxSmtpConfigured } = await import("../services/mailboxConfig.js");
+      const cfg = await getMailboxConfig(portal, true);
+      canSend = cfg.mailboxes.some((m) => isMailboxSmtpConfigured(m));
+    } catch {
+      canSend = false;
+    }
+  }
+
+  if (!canSend) {
+    smtpVerifiedCache = { at: now, ok: false, portal };
     return false;
   }
+
+  try {
+    const { probeSmtpAuth, smtpRelayPassword, smtpRelayUser } = await import("../services/smtpTransport.js");
+    const { getDefaultMailbox } = await import("../services/mailboxConfig.js");
+    const box = await getDefaultMailbox(portal, true);
+    const user = smtpRelayUser(portal, box);
+    const pass = box?.smtp?.pass || smtpRelayPassword(portal);
+    const probe = await probeSmtpAuth({ user, pass });
+    smtpVerifiedCache = { at: now, ok: probe.ok, portal };
+    if (!probe.ok) console.warn(`[MAIL] SMTP not verified for ${portal} — login OTP will be skipped`);
+    return probe.ok;
+  } catch {
+    smtpVerifiedCache = { at: now, ok: false, portal };
+    return false;
+  }
+}
+
+export function invalidateOutboundMailCache() {
+  smtpVerifiedCache = { at: 0, ok: null, portal: null };
 }
 
 async function resolveSendContext({ portal = "invest", purpose, mailboxId }) {

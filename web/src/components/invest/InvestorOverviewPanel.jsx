@@ -28,6 +28,7 @@ import { HeroKpi } from "./HeroKpi.jsx";
 import { buildStatsQuery } from "../../lib/finance-period.js";
 import { useAuth } from "../../lib/store.jsx";
 import { investEligibility } from "../../lib/investCompliance.js";
+import { Alert } from "../ui.jsx";
 
 export default function InvestorOverviewPanel({
   onNavigate,
@@ -42,6 +43,7 @@ export default function InvestorOverviewPanel({
   const { invest: authInvest } = useAuth();
   const profile = investor || authInvest;
   const [data, setData] = useState(null);
+  const [loadErr, setLoadErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("all");
   const [customFrom, setCustomFrom] = useState("");
@@ -55,9 +57,12 @@ export default function InvestorOverviewPanel({
     investApi(`/dashboard${qs}`)
       .then((d) => {
         setData(d);
+        setLoadErr("");
         hasLoadedRef.current = true;
       })
-      .catch(() => {})
+      .catch((e) => {
+        setLoadErr(e.message || "Could not load dashboard");
+      })
       .finally(() => {
         if (showSkeleton) setLoading(false);
       });
@@ -118,6 +123,15 @@ export default function InvestorOverviewPanel({
       />
 
       <KycCompleteNotice investor={profile} kyc={kyc} onCompleteKyc={() => onNavigate("kyc")} />
+
+      {loadErr && (
+        <Alert type="error">
+          {loadErr}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => load()}>
+            Retry
+          </button>
+        </Alert>
+      )}
 
       <OverviewActionBar
         onDeposit={() => onNavigate("money", { moneyTab: "deposit" })}

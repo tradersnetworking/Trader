@@ -1,20 +1,25 @@
 import { useEffect, useState } from "react";
 import { investApi } from "../../lib/api.js";
 import { dateStr } from "../../lib/format.js";
-import { Badge } from "../ui.jsx";
+import { Alert, Badge } from "../ui.jsx";
 
 export default function NotificationsPanel({ onRead }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   const load = ({ refreshBadge = false } = {}) => {
     setLoading(true);
+    setErr("");
     investApi("/notifications/list")
       .then((d) => {
         setItems(d.notifications || []);
         if (refreshBadge) onRead?.();
       })
-      .catch(() => {})
+      .catch((e) => {
+        setErr(e.message || "Could not load notifications");
+        setItems([]);
+      })
       .finally(() => setLoading(false));
   };
   useEffect(() => {
@@ -37,6 +42,7 @@ export default function NotificationsPanel({ onRead }) {
         <h2 className="text-lg font-bold text-foreground">Notifications</h2>
         <button type="button" className="text-xs font-semibold text-gold-600" onClick={markAll}>Mark all read</button>
       </div>
+      {err && <Alert type="error">{err}</Alert>}
       {loading ? <p className="text-sm text-muted-foreground">Loading…</p> : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">No notifications yet.</p>
       ) : (

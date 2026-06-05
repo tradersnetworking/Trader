@@ -656,6 +656,7 @@ function Profile({ kyc, investor: investorProp }) {
   const kycApproved = kyc?.status === "APPROVED";
   const [form, setForm] = useState(() => profileFormFromSources(investor, kyc));
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
   const isStaff = ["ADMIN", "SUPERADMIN"].includes(invest?.role);
 
   useEffect(() => {
@@ -664,9 +665,15 @@ function Profile({ kyc, investor: investorProp }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    await investApi("/profile", { method: "PUT", body: form });
-    setMsg("Saved.");
-    refreshInvest();
+    setMsg("");
+    setErr("");
+    try {
+      await investApi("/profile", { method: "PUT", body: form });
+      setMsg("Saved.");
+      refreshInvest();
+    } catch (e) {
+      setErr(e.message || "Could not save profile.");
+    }
   };
   return (
     <div className="card max-w-xl p-4 sm:p-6">
@@ -688,6 +695,7 @@ function Profile({ kyc, investor: investorProp }) {
       )}
       {isStaff && <StaffPortalLinks portal="invest" className="mb-4" />}
       <form onSubmit={submit} className="space-y-4">
+        {err && <Alert type="error">{err}</Alert>}
         {msg && <Alert type="success">{msg}</Alert>}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Name">

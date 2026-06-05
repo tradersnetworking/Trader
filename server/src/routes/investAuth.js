@@ -272,13 +272,8 @@ router.post(
           devOtp: otp.devOtp,
         });
       } catch (e) {
-        console.error("[auth/login] OTP email failed:", e.message);
-        if (!["ADMIN", "SUPERADMIN"].includes(investor.role)) {
-          return res.status(503).json({
-            error: "Could not send login verification email. Try again later or contact support.",
-          });
-        }
-        /* Staff: allow sign-in when SMTP fails so admin dashboard stays reachable */
+        /* Mail broken — allow password login so dashboards stay reachable for all roles */
+        console.warn("[auth/login] OTP email failed — allowing password login:", e.message);
       }
     } else if (!loginOtpDisabled && !mailReady) {
       console.warn("[auth/login] Skipping login OTP — outbound mail not configured");

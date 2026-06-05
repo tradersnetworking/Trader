@@ -21,6 +21,7 @@
     "audit": "node scripts/portal-audit.mjs",
     "audit:prod": "node scripts/production-audit.mjs",
     "audit:workflow": "node scripts/api-workflow-audit.mjs",
+    "audit:dashboard": "node scripts/dashboard-api-audit.mjs",
     "audit:full": "node scripts/run-full-audit.mjs",
     "audit:discovery": "node scripts/generate-platform-discovery.mjs",
     "audit:security-headers": "node scripts/security-headers-audit.mjs",

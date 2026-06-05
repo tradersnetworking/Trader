@@ -62,8 +62,22 @@ export function TreasuryPanel() {
 
 export function CohortAnalyticsPanel() {
   const [data, setData] = useState(null);
-  useEffect(() => { investApi("/admin/analytics/cohorts?months=12").then(setData).catch(() => {}); }, []);
-  if (!data) return <p className="text-sm text-muted-foreground">Loading analytics…</p>;
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    setLoading(true);
+    setErr("");
+    investApi("/admin/analytics/cohorts?months=12")
+      .then(setData)
+      .catch((e) => {
+        setErr(e.message || "Could not load analytics");
+        setData(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+  if (loading) return <p className="text-sm text-muted-foreground">Loading analytics…</p>;
+  if (err) return <Alert type="error">{err}</Alert>;
+  if (!data) return <p className="text-sm text-muted-foreground">No analytics data yet.</p>;
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-4">
