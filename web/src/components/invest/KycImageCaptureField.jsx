@@ -127,6 +127,7 @@ export default function KycImageCaptureField({
         open={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={applyFile}
+        onGalleryFallback={() => galleryRef.current?.click()}
         title={label || "Take photo"}
         defaultFacing={name === "selfie" ? "user" : "environment"}
         hint={

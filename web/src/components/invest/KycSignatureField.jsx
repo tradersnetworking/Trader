@@ -307,6 +307,7 @@ export default function KycSignatureField({
               applyFile(f);
               setCameraOpen(false);
             }}
+            onGalleryFallback={() => uploadRef.current?.click()}
             title="Capture signature"
             defaultFacing="environment"
             hint="Flip to the camera that works best for photographing your signature on white paper."

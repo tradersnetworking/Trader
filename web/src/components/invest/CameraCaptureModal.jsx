@@ -3,12 +3,14 @@ import { Modal } from "../ui.jsx";
 
 /**
  * Live camera capture with front / back camera toggle.
+ * Falls back to native file capture or gallery when getUserMedia is blocked.
  * @param {"user"|"environment"} defaultFacing — "user" = front, "environment" = rear
  */
 export default function CameraCaptureModal({
   open,
   onClose,
   onCapture,
+  onGalleryFallback,
   title = "Take photo",
   defaultFacing = "environment",
   hint,
@@ -16,6 +18,7 @@ export default function CameraCaptureModal({
 }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const nativeInputRef = useRef(null);
   const streamRef = useRef(null);
   const [facing, setFacing] = useState(defaultFacing);
   const [error, setError] = useState("");
@@ -34,39 +37,48 @@ export default function CameraCaptureModal({
     if (open) setFacing(defaultFacing);
   }, [open, defaultFacing]);
 
+  const attachStream = useCallback(async (stream) => {
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+    }
+    setReady(true);
+  }, []);
+
   const startCamera = useCallback(
     async (facingMode) => {
       stopStream();
       setError("");
       setReady(false);
       if (!navigator.mediaDevices?.getUserMedia) {
-        setError("Camera is not supported in this browser. Use Upload photo instead.");
+        setError("Camera is not supported in this browser. Upload a photo from your gallery instead.");
         return;
       }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: facingMode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
+      const attempts = [
+        { video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+        { video: { facingMode: facingMode }, audio: false },
+        { video: true, audio: false },
+      ];
+      let lastErr = null;
+      for (const constraints of attempts) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          await attachStream(stream);
+          return;
+        } catch (e) {
+          lastErr = e;
         }
-        setReady(true);
-      } catch (e) {
-        const msg =
-          e?.name === "NotAllowedError"
-            ? "Camera permission denied. Allow camera access or upload a photo from your gallery."
-            : e?.message || "Could not open camera";
-        setError(msg);
       }
+      const msg =
+        lastErr?.name === "NotAllowedError" || lastErr?.name === "SecurityError"
+          ? "Camera permission denied. Allow camera access in your browser settings, or upload a photo from your gallery."
+          : lastErr?.name === "NotFoundError"
+            ? "No camera found on this device. Upload a photo from your gallery instead."
+            : lastErr?.message || "Could not open camera";
+      setError(msg);
     },
-    [stopStream]
+    [attachStream, stopStream]
   );
 
   useEffect(() => {
@@ -133,6 +145,21 @@ export default function CameraCaptureModal({
     onClose?.();
   };
 
+  const handleGalleryFallback = () => {
+    stopStream();
+    onClose?.();
+    onGalleryFallback?.();
+  };
+
+  const handleNativeCapture = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    onCapture?.(file);
+    stopStream();
+    onClose?.();
+  };
+
   const facingLabel = facing === "user" ? "Front camera" : "Back camera";
   const flipLabel = facing === "user" ? "Use back camera" : "Use front camera";
   const flipShort = "Flip camera";
@@ -145,9 +172,32 @@ export default function CameraCaptureModal({
             "Use the flip control to switch cameras, then tap Capture. Ensure good lighting and a clear image."}
         </p>
         {error ? (
-          <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
-            {error}
-          </p>
+          <div className="space-y-3">
+            <p className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-400">
+              {error}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {onGalleryFallback && (
+                <button type="button" className="btn-gold btn-block w-full text-sm sm:w-auto" onClick={handleGalleryFallback}>
+                  Upload from gallery
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn-outline btn-block w-full text-sm sm:w-auto"
+                onClick={() => nativeInputRef.current?.click()}
+              >
+                Use device camera app
+              </button>
+              <button
+                type="button"
+                className="btn-outline btn-block w-full text-sm sm:w-auto"
+                onClick={() => startCamera(facing)}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="relative mx-auto aspect-[3/4] max-h-[min(60vh,480px)] w-full overflow-hidden rounded-xl border border-border bg-black">
             <video
@@ -183,6 +233,16 @@ export default function CameraCaptureModal({
           </div>
         )}
         <canvas ref={canvasRef} className="hidden" aria-hidden />
+        <input
+          ref={nativeInputRef}
+          type="file"
+          accept="image/*"
+          capture={facing}
+          className="fixed left-[-9999px] top-0 h-px w-px opacity-0"
+          tabIndex={-1}
+          aria-hidden
+          onChange={handleNativeCapture}
+        />
         <div className="flex min-w-0 flex-col gap-2">
           {ready && !error && (
             <button
@@ -193,6 +253,16 @@ export default function CameraCaptureModal({
               title={flipLabel}
             >
               {flipLabel}
+            </button>
+          )}
+          {onGalleryFallback && !error && (
+            <button
+              type="button"
+              className="btn-outline btn-block w-full text-sm"
+              onClick={handleGalleryFallback}
+              disabled={busy}
+            >
+              Upload from gallery instead
             </button>
           )}
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

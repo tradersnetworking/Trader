@@ -293,6 +293,7 @@ export default function KycDocumentField({
         open={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={(file) => runUpload(file, { fromCamera: true })}
+        onGalleryFallback={() => galleryRef.current?.click()}
         title={label || "Take photo"}
         defaultFacing={name === "selfie" ? "user" : "environment"}
         hint={name === "selfie" ? "Use front camera with your ID beside your face." : "Capture a clear photo of your document."}
