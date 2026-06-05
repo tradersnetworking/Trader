@@ -71,7 +71,6 @@ export async function replySupportMail(id, { to, subject, body, attachments }, p
     purpose: "ticket_reply",
     attachments,
     portal,
-    mailboxId: "support",
   });
   await investDb.supportMailMessage.update({ where: { id }, data: { status: "REPLIED" } });
   return { ok: true };
@@ -80,7 +79,7 @@ export async function replySupportMail(id, { to, subject, body, attachments }, p
 export async function composeSupportMail({ to, subject, body, attachments }, portal = "invest") {
   if (!to || !subject || !body) throw new Error("To, subject and body are required");
   const supportBox = await getMailbox(portal, "support", false);
-  await sendMail({ to, subject, html: body, purpose: "ticket_reply", attachments, portal, mailboxId: "support" });
+  await sendMail({ to, subject, html: body, purpose: "ticket_reply", attachments, portal });
   await investDb.supportMailMessage.create({
     data: {
       messageId: `outbound-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

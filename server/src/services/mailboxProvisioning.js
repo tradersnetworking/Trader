@@ -10,6 +10,7 @@ import {
   DEFAULT_MAIN_MAILBOXES,
   DEFAULT_INVEST_MAILBOXES,
 } from "./mailboxConfig.js";
+import { probeSmtpAuth, smtpRelayUser } from "./smtpTransport.js";
 import { getSetting, setSettings } from "./investSettings.js";
 import {
   saveEmailCommunicationConfig,
@@ -56,11 +57,20 @@ function hasMailboxPasswordEnv() {
 
 function applyProviderTemplate(mailbox, portal, { forcePassword = false } = {}) {
   const pass = portalMailboxPassword(portal);
+  const port = String(process.env.SMTP_PORT || "465");
+  const secure = process.env.SMTP_SECURE === "true" || port === "465";
+  const relayUser =
+    portal === "main"
+      ? process.env.MAIN_SMTP_RELAY_USER || process.env.SMTP_RELAY_USER || process.env.SMTP_USER || mailbox.address
+      : process.env.INVEST_SMTP_RELAY_USER ||
+        process.env.SMTP_RELAY_USER ||
+        process.env.SMTP_USER ||
+        mailbox.address;
   const smtp = {
     host: smtpHost(),
-    port: String(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true",
-    user: mailbox.address,
+    port,
+    secure,
+    user: relayUser,
     pass: pass && (forcePassword || !mailbox.smtp?.pass) ? pass : mailbox.smtp?.pass || "",
   };
   const imap = {
@@ -107,16 +117,44 @@ export async function provisionPortalMailboxes(portal, { force = false, forcePas
   await saveMailboxConfig(portal, merged);
   const bundle = await getMailboxConfig(portal, false);
   const configured = merged.mailboxes.filter(isMailboxSmtpConfigured).length;
+  const noreply = merged.mailboxes.find((m) => m.id === "noreply");
+  const pass = portalMailboxPassword(portal) || noreply?.smtp?.pass;
+  const authUser = smtpRelayUser(portal, noreply);
+  let smtpProbe = null;
+  if (pass && authUser) {
+    smtpProbe = await probeSmtpAuth({ user: authUser, pass });
+    if (smtpProbe.ok) {
+      const withProfile = {
+        ...merged,
+        mailboxes: merged.mailboxes.map((mb) => ({
+          ...mb,
+          smtp: {
+            ...mb.smtp,
+            host: smtpProbe.host,
+            port: String(smtpProbe.port),
+            secure: smtpProbe.secure,
+            user: authUser,
+          },
+        })),
+      };
+      await saveMailboxConfig(portal, withProfile);
+    }
+  }
   return {
     portal,
     domain: portal === "main" ? "akshayaexim.com" : "akshayaexim.in",
     addresses: merged.mailboxes.map((m) => m.address),
     smtpConfigured: configured,
-    passwordApplied: Boolean(portalMailboxPassword(portal)),
-    message:
-      configured === 5
-        ? "All 5 mailboxes have SMTP configured."
-        : "SMTP hosts and users set — add mailbox passwords in Mail Settings or set SMTP_PASS in server env.",
+    passwordApplied: Boolean(pass),
+    smtpVerified: Boolean(smtpProbe?.ok),
+    smtpAuthUser: authUser,
+    smtpProbe,
+    message: smtpProbe?.ok
+      ? smtpProbe.message
+      : smtpProbe?.hint ||
+        (configured === 5
+          ? "SMTP saved but login not verified — check Hostinger mailbox password and third-party access."
+          : "SMTP hosts and users set — add mailbox passwords in Mail Settings or set SMTP_PASS in server env."),
   };
 }
 

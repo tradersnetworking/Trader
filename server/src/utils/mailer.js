@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { config } from "../config.js";
+import { smtpAuthUser } from "../services/mailboxConfig.js";
 
 function smtpAuthReady({ host, user, pass }) {
   return !!(String(host || "").trim() && String(user || "").trim() && String(pass || "").length > 0);
@@ -9,11 +10,14 @@ function createEnvTransporter() {
   if (!smtpAuthReady({ host: config.smtp.host, user: config.smtp.user, pass: config.smtp.pass })) {
     return null;
   }
+  const port = config.smtp.port || 465;
   return nodemailer.createTransport({
     host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
+    port,
+    secure: config.smtp.secure ?? port === 465,
+    requireTLS: !config.smtp.secure && port === 587,
     auth: { user: config.smtp.user, pass: config.smtp.pass },
+    tls: { minVersion: "TLSv1.2" },
   });
 }
 
@@ -26,11 +30,14 @@ async function getLegacyDbTransporter() {
     const { getAllSettings } = await import("../services/investSettings.js");
     const s = await getAllSettings(true);
     if (!smtpAuthReady({ host: s.smtp_host, user: s.smtp_user, pass: s.smtp_pass })) return null;
+    const port = Number(s.smtp_port) || 465;
     return nodemailer.createTransport({
       host: s.smtp_host,
-      port: Number(s.smtp_port) || 587,
-      secure: s.smtp_secure === "true",
+      port,
+      secure: s.smtp_secure === "true" || port === 465,
+      requireTLS: s.smtp_secure !== "true" && port === 587,
       auth: { user: s.smtp_user, pass: s.smtp_pass },
+      tls: { minVersion: "TLSv1.2" },
     });
   } catch {
     return null;
@@ -74,12 +81,14 @@ async function resolveSendContext({ portal = "invest", purpose, mailboxId }) {
     const { getMailbox, createSmtpTransporter, isMailboxSmtpConfigured } = await import("../services/mailboxConfig.js");
     const mailbox = await getMailbox(portal, resolvedMailboxId, true);
     if (mailbox && isMailboxSmtpConfigured(mailbox)) {
-      const cacheKey = `${portal}:${mailbox.id}:${mailbox.smtp.host}:${mailbox.smtp.user}`;
+      const authUser = smtpAuthUser(portal, mailbox);
+      const cacheKey = `${portal}:${mailbox.id}:${mailbox.smtp.host}:${authUser}`;
       if (!transporterCache.has(cacheKey)) {
-        transporterCache.set(cacheKey, createSmtpTransporter(mailbox));
+        transporterCache.set(cacheKey, createSmtpTransporter(mailbox, portal));
       }
       if (!from && mailbox.address) from = `${mailbox.name} <${mailbox.address}>`;
-      return { transporter: transporterCache.get(cacheKey), from, mailboxId: mailbox.id };
+      const replyTo = from && authUser && !String(from).includes(authUser) ? mailbox.address : undefined;
+      return { transporter: transporterCache.get(cacheKey), from, replyTo, mailboxId: mailbox.id, authUser };
     }
     if (!from && mailbox?.address) from = `${mailbox.name} <${mailbox.address}>`;
   } catch {
@@ -140,11 +149,38 @@ export async function sendMail({ to, subject, html, text, purpose, attachments, 
     }
   }
 
+  const authUser = ctx.authUser;
+  let sendFrom = from;
+  let replyTo = ctx.replyTo;
+  if (authUser && sendFrom && !String(sendFrom).includes(authUser)) {
+    sendFrom = authUser.includes("<") ? authUser : `Akshaya Exim <${authUser}>`;
+    if (!replyTo && from) {
+      const match = String(from).match(/<([^>]+)>/);
+      replyTo = match?.[1] || from;
+    }
+  }
+
   try {
-    const info = await transporter.sendMail({ from, to, subject, html, text, attachments });
+    const info = await transporter.sendMail({
+      from: sendFrom,
+      to,
+      subject,
+      html,
+      text,
+      attachments,
+      replyTo: replyTo || undefined,
+    });
     return { ok: true, messageId: info?.messageId };
   } catch (err) {
+    const authFailed = /535|authentication failed|invalid login/i.test(err.message || "");
+    if (authFailed) transporterCache.clear();
     console.error(`[MAIL] Send failed (${purpose || "general"} → ${to}):`, err.message);
-    return { failed: true, error: err.message || "Mail send failed" };
+    return {
+      failed: true,
+      error: err.message || "Mail send failed",
+      hint: authFailed
+        ? "SMTP login rejected — verify mailbox exists in Hostinger, password is correct, and Titan third-party access is enabled."
+        : undefined,
+    };
   }
 }

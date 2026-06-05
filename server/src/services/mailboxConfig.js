@@ -1,5 +1,5 @@
-import nodemailer from "nodemailer";
 import { getSetting, setSettings } from "./investSettings.js";
+import { createSmtpTransport, probeSmtpAuth, smtpHost, smtpRelayPassword, smtpRelayUser } from "./smtpTransport.js";
 
 export const MAILBOX_IDS = {
   main: ["noreply", "support", "finance", "compliance", "trade"],
@@ -12,7 +12,7 @@ const CONFIG_KEYS = {
 };
 
 function emptySmtp() {
-  return { host: "", port: "587", secure: false, user: "", pass: "" };
+  return { host: "", port: "465", secure: true, user: "", pass: "" };
 }
 
 function emptyImap() {
@@ -143,27 +143,38 @@ export function isMailboxImapConfigured(mailbox) {
   return !!(mailbox?.imap?.host && mailbox?.imap?.user && mailbox?.imap?.pass);
 }
 
-export function createSmtpTransporter(mailbox) {
+export function createSmtpTransporter(mailbox, portal = "invest") {
   if (!isMailboxSmtpConfigured(mailbox)) return null;
-  return nodemailer.createTransport({
-    host: mailbox.smtp.host,
-    port: Number(mailbox.smtp.port) || 587,
-    secure: mailbox.smtp.secure === true || mailbox.smtp.secure === "true",
-    auth: { user: mailbox.smtp.user, pass: mailbox.smtp.pass },
-  });
+  return createSmtpTransport(mailbox, portal);
+}
+
+export function smtpAuthUser(portal, mailbox) {
+  return smtpRelayUser(portal, mailbox);
 }
 
 export async function getTransporterForMailbox(portal, mailboxId) {
   const mailbox = await getMailbox(portal, mailboxId, true);
-  return createSmtpTransporter(mailbox);
+  return createSmtpTransporter(mailbox, portal);
 }
 
 export async function testMailboxSmtp(portal, mailboxId) {
-  const transporter = await getTransporterForMailbox(portal, mailboxId);
-  if (!transporter) throw new Error("SMTP not configured for this mailbox");
-  await transporter.verify();
-  const mailbox = await getMailbox(portal, mailboxId, false);
-  return { ok: true, message: `SMTP verified for ${mailbox.address}` };
+  const mailbox = await getMailbox(portal, mailboxId, true);
+  if (!isMailboxSmtpConfigured(mailbox)) throw new Error("SMTP not configured for this mailbox");
+  const user = smtpRelayUser(portal, mailbox);
+  const pass = mailbox.smtp.pass || smtpRelayPassword(portal);
+  const probe = await probeSmtpAuth({ user, pass });
+  if (!probe.ok) {
+    const err = new Error(probe.error || "SMTP authentication failed");
+    err.hint = probe.hint;
+    err.attempts = probe.attempts;
+    throw err;
+  }
+  const safe = await getMailbox(portal, mailboxId, false);
+  return {
+    ok: true,
+    message: probe.message || `SMTP verified for ${safe.address}`,
+    profile: { host: probe.host, port: probe.port, secure: probe.secure, authUser: user },
+  };
 }
 
 export async function testMailboxImap(portal, mailboxId) {

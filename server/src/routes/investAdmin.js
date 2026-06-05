@@ -1724,7 +1724,7 @@ router.post(
         : await testMailboxSmtp("invest", mailboxId);
       res.json(result);
     } catch (e) {
-      res.status(500).json({ ok: false, message: e.message });
+      res.status(500).json({ ok: false, message: e.message, hint: e.hint, attempts: e.attempts });
     }
   })
 );
