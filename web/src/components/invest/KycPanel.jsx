@@ -32,7 +32,7 @@ import {
 } from "../../lib/kyc-document-fields.js";
 import KycSignatureField from "./KycSignatureField.jsx";
 import KycDocumentField from "./KycDocumentField.jsx";
-import { saveKycDraftApi } from "../../lib/kyc-upload.js";
+import { saveKycDraftApi, unpackKycDraftForm } from "../../lib/kyc-upload.js";
 import SecureUploadLink from "./SecureUploadLink.jsx";
 import { validateSignatureBase64 } from "../../lib/signatureQuality.js";
 import {
@@ -147,8 +147,20 @@ export default function KycPanel({
   const [submitting, setSubmitting] = useState(false);
 
   const [confirmed, setConfirmed] = useState(false);
+  const [draftResumed, setDraftResumed] = useState(false);
+  const [resumeStep, setResumeStep] = useState(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const persistDraft = (overrides = {}) => {
+    if (!canEdit || submitted) return Promise.resolve();
+    return saveKycDraftApi({
+      step: overrides.step ?? step,
+      form: overrides.form ?? form,
+      signatureData: overrides.signatureData ?? signatureData,
+      signatureMode: overrides.signatureMode ?? signatureMode,
+    }).catch(() => {});
+  };
 
   const onIdTypeChange = (nextType) => {
     set("idType", nextType);
@@ -182,6 +194,7 @@ export default function KycPanel({
         return next;
       });
     }
+    persistDraft();
   };
 
   const submitted =
@@ -197,11 +210,29 @@ export default function KycPanel({
     if (submitted && !revisionMode) return;
     investApi("/kyc/draft")
       .then((d) => {
-        if (d.uploads) setStagedUploads(d.uploads);
-        if (d.form && (!kyc || kyc.status === "NOT_SUBMITTED" || kyc.status === "REJECTED")) {
-          setForm((f) => ({ ...f, ...d.form }));
+        if (d.uploads) setStagedUploads((prev) => ({ ...prev, ...d.uploads }));
+        const canRestoreDraft =
+          !submitted ||
+          revisionMode ||
+          !kyc ||
+          kyc.status === "NOT_SUBMITTED" ||
+          kyc.status === "REJECTED" ||
+          (kyc.status === "PENDING" && !isKycFullySubmitted(kyc));
+        if (d.form && canRestoreDraft) {
+          const { form: draftForm, signatureData: draftSig, signatureMode: draftSigMode } = unpackKycDraftForm(d.form);
+          if (draftForm && Object.keys(draftForm).length) {
+            setForm((f) => ({ ...f, ...draftForm }));
+          }
+          if (draftSig) setSignatureData(draftSig);
+          if (draftSigMode) setSignatureMode(draftSigMode);
         }
-        if (typeof d.step === "number" && d.step >= 0 && d.step < STEPS.length) setStep(d.step);
+        if (typeof d.step === "number" && d.step >= 0 && d.step < STEPS.length && canRestoreDraft) {
+          setStep(d.step);
+          if (d.resumed) {
+            setDraftResumed(true);
+            setResumeStep(d.step);
+          }
+        }
       })
       .catch(() => {});
   }, [kyc?.id, submitted, revisionMode]);
@@ -209,10 +240,10 @@ export default function KycPanel({
   useEffect(() => {
     if (!canEdit || submitted) return undefined;
     const t = window.setTimeout(() => {
-      saveKycDraftApi({ step, form }).catch(() => {});
+      persistDraft();
     }, 900);
     return () => window.clearTimeout(t);
-  }, [form, step, canEdit, submitted]);
+  }, [form, step, signatureData, signatureMode, canEdit, submitted]);
 
   const existingDocs = useMemo(
 
@@ -509,6 +540,18 @@ export default function KycPanel({
           {pendingKycRevision && "KYC update pending team approval — your current approved KYC remains in use. "}
           {pendingPayoutChange && "Bank/UPI change pending team approval — withdrawals still use your current approved details."}
         </Alert>
+      )}
+
+      {draftResumed && canEdit && (
+        <Alert type="success">
+          Your progress is saved automatically. Resuming from step {STEPS[resumeStep ?? step]?.title || resumeStep + 1} — complete the remaining fields and uploads, then submit.
+        </Alert>
+      )}
+
+      {canEdit && (
+        <p className="text-xs text-muted-foreground">
+          Progress and uploads are saved as you go. You can leave and continue later from the same step.
+        </p>
       )}
 
       {forced && (

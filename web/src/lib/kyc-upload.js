@@ -1,5 +1,5 @@
 import { getToken } from "./api.js";
-import { compressImageIfNeeded } from "./image-compress.js";
+import { compressImageIfNeeded, prepareKycImageForUpload } from "./image-compress.js";
 import { validateKycFile, KYC_MAX_BYTES } from "./kyc-document-fields.js";
 import { networkErrorMessage } from "./upload-limits.js";
 
@@ -101,7 +101,26 @@ export async function deleteKycDocument(fieldKey) {
   return data;
 }
 
-export async function saveKycDraftApi({ step, form }) {
+const DRAFT_SIG_KEY = "__draftSignatureData";
+const DRAFT_SIG_MODE_KEY = "__draftSignatureMode";
+
+export function packKycDraftForm(form, { signatureData, signatureMode } = {}) {
+  const packed = { ...form };
+  if (signatureData) packed[DRAFT_SIG_KEY] = signatureData;
+  if (signatureMode) packed[DRAFT_SIG_MODE_KEY] = signatureMode;
+  return packed;
+}
+
+export function unpackKycDraftForm(raw) {
+  if (!raw || typeof raw !== "object") return { form: null, signatureData: null, signatureMode: null };
+  const { [DRAFT_SIG_KEY]: signatureData, [DRAFT_SIG_MODE_KEY]: signatureMode, ...form } = raw;
+  return { form, signatureData: signatureData || null, signatureMode: signatureMode || null };
+}
+
+export async function saveKycDraftApi({ step, form, signatureData, signatureMode }) {
   const { investApi } = await import("./api.js");
-  return investApi("/kyc/draft", { method: "PUT", body: { step, form } });
+  return investApi("/kyc/draft", {
+    method: "PUT",
+    body: { step, form: packKycDraftForm(form, { signatureData, signatureMode }) },
+  });
 }

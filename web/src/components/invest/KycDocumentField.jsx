@@ -27,18 +27,20 @@ export default function KycDocumentField({
   const [uploading, setUploading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const url = staged?.url || existingUrl;
   const failed = staged?.status === "FAILED";
+  const isUploaded = Boolean(url && !failed);
 
   useEffect(() => {
-    if (!staged?.url || !String(staged.url).match(/\.(jpe?g|png|webp|gif)/i)) {
+    if (!url || !String(url).match(/\.(jpe?g|png|webp|gif)/i)) {
       setPreviewUrl(null);
       return undefined;
     }
-    setPreviewUrl(staged.url);
+    setPreviewUrl(url);
     return undefined;
-  }, [staged?.url]);
+  }, [url]);
 
   const runUpload = async (file) => {
     const preErr = validateBeforeKycUpload(file, { imageOnly });
@@ -134,7 +136,7 @@ export default function KycDocumentField({
             />
           </div>
           <p className="mt-1 text-[10px] text-muted-foreground">
-            {uploading ? `Uploading… ${progress}%` : progress === 100 ? "Upload complete" : ""}
+            {uploading ? `Uploading… ${progress}%` : progress === 100 ? "Saved — you can leave and continue later" : ""}
           </p>
         </div>
       )}

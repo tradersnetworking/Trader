@@ -11,6 +11,7 @@ import {
   deleteStagedKycUpload,
   applyStagedUploadsToKycData,
   markStagedUploadsAttached,
+  validateStagedKycFilesStrict,
 } from "../services/kycDocumentUploads.js";
 import { isAllowedKycUploadField } from "../constants/kycUploadFields.js";
 import { maturityDate, simpleMaturity, compoundedMaturity, monthlyReturn, validateSettlementCycle, MIN_WALLET_DEPOSIT } from "../utils/invest.js";
@@ -537,12 +538,21 @@ router.post(
     }
     await applyStagedUploadsToKycData(req.user.id, data, files);
 
+    const stagedQuality = await validateStagedKycFilesStrict(req.user.id);
+    if (!stagedQuality.ok) {
+      return res.status(400).json({
+        error: stagedQuality.error,
+        code: stagedQuality.code || "DOCUMENT_QUALITY",
+        fieldKey: stagedQuality.fieldKey,
+      });
+    }
+
     const docCheckFields = new Set(docFieldsForSections(requiredSections));
     const docChecks = await Promise.all(
       [...docCheckFields].map(async (field) => {
         const upload = files[field]?.[0];
         if (!upload) return null;
-        const check = await validateMulterFile(upload, KYC_DOC_LABELS[field] || field);
+        const check = await validateMulterFile(upload, KYC_DOC_LABELS[field] || field, { strict: true });
         return check.ok ? null : check;
       })
     );

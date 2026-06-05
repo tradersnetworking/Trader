@@ -10,7 +10,8 @@ import {
   validateKycFileMagic,
   scanUploadedFile,
 } from "./kycUploadSecurity.js";
-import { validateMulterFile, KYC_DOC_LABELS } from "../utils/documentQuality.js";
+import { validateMulterFile, validateUploadedDocument, KYC_DOC_LABELS } from "../utils/documentQuality.js";
+import { KYC_UPLOAD_FIELD_KEYS } from "../constants/kycUploadFields.js";
 
 export async function listStagedKycUploads(investorId) {
   const rows = await investDb.kycDocumentUpload.findMany({
@@ -39,7 +40,7 @@ function formatUploadRow(r) {
 
 export async function getKycDraft(investorId) {
   const kyc = await investDb.kyc.findUnique({ where: { investorId } });
-  const uploads = await listStagedKycUploads(investorId);
+  const uploads = mergeKycRecordUploads(kyc, await listStagedKycUploads(investorId));
   let form = null;
   if (kyc?.draftFormJson) {
     try {
@@ -48,12 +49,19 @@ export async function getKycDraft(investorId) {
       form = null;
     }
   }
+  const step = typeof kyc?.draftStep === "number" ? kyc.draftStep : 0;
+  const hasProgress =
+    Boolean(form) ||
+    Object.keys(uploads).length > 0 ||
+    kyc?.uploadStatus === "IN_PROGRESS";
   return {
-    step: kyc?.draftStep ?? 0,
+    step,
     form,
     uploadStatus: kyc?.uploadStatus || "NOT_STARTED",
     uploads,
     kycStatus: kyc?.status || "NOT_SUBMITTED",
+    resumed: hasProgress && step >= 0,
+    savedAt: kyc?.updatedAt || null,
   };
 }
 
@@ -160,14 +168,15 @@ export async function stageKycFileUpload(investorId, fieldKey, file) {
     },
   });
 
+  const draftPatch = { uploadStatus: "IN_PROGRESS", [fieldKey]: publicUrl };
   if (kyc) {
     await investDb.kyc.update({
       where: { investorId },
-      data: { uploadStatus: "IN_PROGRESS", [fieldKey]: publicUrl },
+      data: draftPatch,
     });
   } else {
     await investDb.kyc.create({
-      data: { investorId, status: "NOT_SUBMITTED", uploadStatus: "IN_PROGRESS", [fieldKey]: publicUrl },
+      data: { investorId, status: "NOT_SUBMITTED", draftStep: 1, ...draftPatch },
     });
   }
 
@@ -210,6 +219,21 @@ export async function applyStagedUploadsToKycData(investorId, data, files = {}) 
     if (!files[row.fieldKey]?.[0]) data[row.fieldKey] = row.publicUrl;
   }
   return staged;
+}
+
+/** Strict quality check on all staged files before final KYC submit. */
+export async function validateStagedKycFilesStrict(investorId) {
+  const staged = await investDb.kycDocumentUpload.findMany({
+    where: { investorId, status: "STAGED" },
+  });
+  for (const row of staged) {
+    if (!row.storedName) continue;
+    const filePath = path.join(uploadsDir, row.storedName);
+    const label = KYC_DOC_LABELS[row.fieldKey] || row.fieldKey;
+    const check = await validateUploadedDocument(filePath, { label, strict: true });
+    if (!check.ok) return { ok: false, error: check.message, code: check.code, fieldKey: row.fieldKey };
+  }
+  return { ok: true };
 }
 
 export async function markStagedUploadsAttached(investorId) {
