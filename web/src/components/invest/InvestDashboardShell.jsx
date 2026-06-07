@@ -414,7 +414,7 @@ export default function InvestDashboardShell({
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="invest-header sticky top-0 z-30 shrink-0 overflow-x-clip border-b backdrop-blur-md">
           <div className="border-b border-border/60 px-2 py-1.5 md:hidden">
             <BrandMark
@@ -536,7 +536,7 @@ export default function InvestDashboardShell({
         </header>
 
         <main
-          className={`invest-main-scroll flex-1 overflow-y-auto ${
+          className={`invest-main-scroll min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-auto ${
             dashboardLocked
               ? "pointer-events-none select-none blur-[4px] brightness-[0.9] saturate-[0.88]"
               : ""

@@ -559,7 +559,14 @@
 
   .invest-shell { --invest-mobile-nav-h: calc(4.25rem + env(safe-area-inset-bottom, 0px)); }
   .invest-shell.invest-shell-kyc-only { --invest-mobile-nav-h: 0px; }
-  .invest-main-scroll { @apply max-w-full overflow-x-clip; padding-bottom: 0; }
+  .invest-main-scroll {
+    @apply max-w-full overflow-x-clip;
+    min-height: 0;
+    padding-bottom: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+  }
   .invest-mobile-nav {
     @apply border-t backdrop-blur-xl;
     padding-bottom: env(safe-area-inset-bottom, 0px);
