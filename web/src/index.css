@@ -534,6 +534,18 @@
   .responsive-form-grid { @apply grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4; }
   .responsive-card-grid { @apply grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4; }
   .app-table-wrap { @apply min-w-0 touch-pan-x overflow-x-auto; -webkit-overflow-scrolling: touch; }
+  /* Scrollable member/table lists — vertical pan without trapping dashboard scroll */
+  .app-table-scroll-y {
+    @apply min-h-0 min-w-0 overflow-x-auto overflow-y-auto overscroll-y-contain;
+    max-height: min(32rem, 55dvh);
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(43 74% 49% / 0.45) transparent;
+  }
+  .app-table-scroll-y thead th {
+    @apply sticky top-0 z-10 bg-muted/95 backdrop-blur-sm;
+  }
 
   .invest-stat-grid { @apply app-stat-grid; }
   .invest-dashboard-split { @apply grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:gap-6; }

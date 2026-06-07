@@ -168,7 +168,7 @@ export default function AdminNotificationComposer({
   const isCustom = templateId === "custom";
 
   return (
-    <div className="page-stack">
+    <div className="page-stack min-h-0 min-w-0">
       <div>
         <h2 className="text-lg font-bold">{title}</h2>
         <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -336,9 +336,10 @@ export default function AdminNotificationComposer({
             </button>
           </div>
 
-          <div className="app-table-wrap card">
+          <div className="card min-h-0 min-w-0 overflow-hidden p-0">
+            <div className="app-table-scroll-y">
             <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+              <thead className="text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="p-3">
                     <input
@@ -384,6 +385,7 @@ export default function AdminNotificationComposer({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

@@ -155,7 +155,7 @@ export function NotificationManagementPanel() {
   }, []);
 
   return (
-    <div className="space-y-8">
+    <div className="min-h-0 min-w-0 space-y-8">
       <AdminNotificationComposer
         title="Send notification"
         subtitle="Choose in-app, email and/or WhatsApp. Pick a predefined template or write a custom message. Select multiple investors."
