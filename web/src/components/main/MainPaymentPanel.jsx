@@ -52,7 +52,7 @@ export function MainMyQuotesPanel() {
   }, []);
 
   return (
-    <div className="overflow-x-auto card">
+    <div className="app-table-wrap card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>
@@ -141,7 +141,7 @@ export function MainMyOrdersPanel({ onGenerateInvoice }) {
           </div>
         </Alert>
       )}
-      <div className="overflow-x-auto card">
+      <div className="app-table-wrap card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
           <tr>

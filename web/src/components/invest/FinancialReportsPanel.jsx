@@ -58,7 +58,7 @@ export function FinancialReportsPanel() {
         <p className="mt-2 text-xs text-muted-foreground">{pl.note}</p>
       </div>
 
-      <div className="card overflow-x-auto p-5">
+      <div className="app-table-wrap card p-5">
         <h4 className="mb-3 font-bold">{t("financial.trialBalance")}</h4>
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-muted-foreground">

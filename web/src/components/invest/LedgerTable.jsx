@@ -42,7 +42,7 @@ export default function LedgerTable({ fetchLedger, showInvestor = false, title =
         </div>
       )}
 
-      <div className="overflow-x-auto card">
+      <div className="app-table-wrap card">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
             <tr>

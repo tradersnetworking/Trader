@@ -46,7 +46,7 @@ export function TodayPendingPayments({ onUpdated }) {
               Open Withdrawals tab →
             </button>
           </div>
-          <div className="overflow-x-auto card">
+          <div className="app-table-wrap card">
             <table className="w-full text-sm">
               <thead className="bg-gradient-to-r from-pink-500/10 to-rose-500/5 text-left text-xs uppercase text-slate-400">
                 <tr><th className="p-3">Investor</th><th className="p-3">Amount</th><th className="p-3">Mode</th><th className="p-3">Destination</th><th className="p-3">Status</th><th className="p-3"></th></tr>
@@ -74,7 +74,7 @@ export function TodayPendingPayments({ onUpdated }) {
 
       <section className="space-y-3">
         <h3 className="font-bold">Maturity profit payments due today</h3>
-        <div className="overflow-x-auto card">
+        <div className="app-table-wrap card">
           <table className="w-full text-sm">
             <thead className="bg-gradient-to-r from-amber-500/10 to-yellow-500/5 text-left text-xs uppercase text-slate-400">
               <tr><th className="p-3">Investor</th><th className="p-3">Plan</th><th className="p-3">Profit</th><th className="p-3">Choice</th><th className="p-3">Due</th><th className="p-3">Status</th><th className="p-3"></th></tr>
@@ -114,7 +114,7 @@ export function UpcomingPayments() {
   return (
     <div>
       <p className="mb-4 text-sm text-slate-500">Investment profits maturing from tomorrow through the next 6 months.</p>
-      <div className="max-h-[70vh] overflow-y-auto card">
+      <div className="app-table-wrap card">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-violet-500/10 text-left text-xs uppercase text-slate-400">
             <tr><th className="p-3">Date</th><th className="p-3">Investor</th><th className="p-3">Plan</th><th className="p-3">Principal</th><th className="p-3">Est. Profit</th><th className="p-3">Choice</th><th className="p-3">Status</th></tr>

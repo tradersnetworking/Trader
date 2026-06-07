@@ -204,7 +204,7 @@ export default function AdminKycPanel({ onUpdated }) {
         </button>
       </div>
 
-      <div className="app-table-wrap card overflow-x-auto">
+      <div className="app-table-wrap card">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -254,7 +254,7 @@ export default function AdminKycPanel({ onUpdated }) {
           <p className="text-xs text-muted-foreground">
             Accounts with no KYC or an incomplete draft — they do not appear in the review table above until fully submitted.
           </p>
-          <div className="app-table-wrap card overflow-x-auto">
+          <div className="app-table-wrap card">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>

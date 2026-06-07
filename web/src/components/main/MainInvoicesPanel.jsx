@@ -47,6 +47,7 @@ function InvoicePrintView({ invoice, seller, onClose }) {
             </div>
           )}
         </div>
+        <div className="app-table-wrap">
         <table className="w-full border text-sm">
           <thead className="bg-muted/50">
             <tr>
@@ -67,6 +68,7 @@ function InvoicePrintView({ invoice, seller, onClose }) {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="flex justify-end">
           <div className="w-48 space-y-1 text-right">
             <div className="flex justify-between"><span>Subtotal</span><span>{inr(invoice.subtotal)}</span></div>
@@ -174,7 +176,7 @@ export default function MainInvoicesPanel({ initialViewId, onViewed }) {
         <button type="button" className="btn-primary" onClick={openCreate}>+ New invoice</button>
       </div>
 
-      <div className="overflow-x-auto card">
+      <div className="app-table-wrap card">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>

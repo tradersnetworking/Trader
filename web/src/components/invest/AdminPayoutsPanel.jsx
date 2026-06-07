@@ -137,7 +137,7 @@ export default function AdminPayoutsPanel({ onUpdated }) {
           </button>
         </form>
       </Modal>
-      <div className="app-table-wrap card overflow-x-auto">
+      <div className="app-table-wrap card">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
             <tr>

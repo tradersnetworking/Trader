@@ -126,7 +126,7 @@ function Overview({ isSuper }) {
           </div>
 
           {site.recentUsers?.length > 0 && (
-            <div className="card overflow-x-auto">
+            <div className="app-table-wrap card">
               <h3 className="border-b border-border p-3 text-sm font-bold">Recent sign-ups</h3>
               <table className="w-full text-sm">
                 <tbody>
@@ -274,7 +274,7 @@ function ProductsAdmin() {
           Apply category images
         </button>
       </div>
-      <div className="overflow-x-auto card">
+      <div className="app-table-wrap card">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Type</th><th className="p-3">Price</th><th className="p-3">Min Qty</th><th className="p-3"></th></tr></thead>
           <tbody>
@@ -324,7 +324,7 @@ function QuotesAdmin() {
   const open = (q) => { setEditing(q); setForm({ status: q.status, quotedPrice: q.quotedPrice || "", adminResponse: q.adminResponse || "" }); };
   const save = async (e) => { e.preventDefault(); await mainApi(`/quotes/${editing.id}`, { method: "PUT", body: form }); setEditing(null); load(); };
   return (
-    <div className="overflow-x-auto card">
+    <div className="app-table-wrap card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Product</th><th className="p-3">Dir</th><th className="p-3">Qty</th><th className="p-3">Contact</th><th className="p-3">Status</th><th className="p-3"></th></tr></thead>
         <tbody>
@@ -408,7 +408,7 @@ function UsersAdmin({ isSuper }) {
         <button onClick={() => { setCreateOpen(true); setErr(""); setMsg(""); }} className="btn-primary">+ Create User</button>
       </div>
       {msg && <div className="mb-3"><Alert type="success">{msg}</Alert></div>}
-      <div className="overflow-x-auto card">
+      <div className="app-table-wrap card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Name</th><th className="p-3">Email</th><th className="p-3">Type</th><th className="p-3">Role</th><th className="p-3">Active</th><th className="p-3 text-right">KYC</th></tr></thead>
         <tbody>

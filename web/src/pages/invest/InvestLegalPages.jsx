@@ -52,7 +52,7 @@ export function InvestCookiePolicy() {
 
         <h2 className="text-lg font-bold">2. Cookies We Use</h2>
         <h3 className="font-semibold">Strictly Necessary</h3>
-        <div className="app-table-wrap overflow-x-auto">
+        <div className="app-table-wrap">
           <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">
@@ -72,7 +72,7 @@ export function InvestCookiePolicy() {
         </div>
 
         <h3 className="font-semibold">Functional</h3>
-        <div className="app-table-wrap overflow-x-auto">
+        <div className="app-table-wrap">
           <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">

@@ -1,6 +1,6 @@
 /** Kuber-aligned responsive UI tokens — shared across marketplace & invest subdomains */
 
-export const APP_PAGE_STACK = "page-stack min-w-0 max-w-full";
+export const APP_PAGE_STACK = "page-stack min-h-0 min-w-0 max-w-full";
 export const APP_PAGE_TITLE = "page-title";
 export const APP_PAGE_SUBTITLE = "page-subtitle";
 
@@ -18,7 +18,7 @@ export const APP_DASHBOARD_SPLIT = "app-dashboard-split";
 export const APP_DASHBOARD_MAIN = "app-dashboard-main min-w-0-safe space-y-4 sm:space-y-6";
 export const APP_DASHBOARD_SIDE = "app-dashboard-side min-w-0-safe space-y-4 sm:space-y-6";
 
-export const APP_TABLE_WRAP = "app-table-wrap overflow-x-auto min-w-0 touch-pan-x -mx-1 px-1 sm:mx-0 sm:px-0";
+export const APP_TABLE_WRAP = "app-table-wrap min-w-0 -mx-1 px-1 sm:mx-0 sm:px-0";
 export const APP_FORM_GRID = "responsive-form-grid";
 export const APP_FORM_GRID_3 = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 min-w-0";
 export const APP_ACTION_ROW = "flex flex-row flex-wrap items-center gap-2 sm:gap-3 min-w-0";

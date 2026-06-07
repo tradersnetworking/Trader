@@ -99,7 +99,7 @@ export default function TransactionsPanel() {
       </div>
 
       {view === "requests" ? (
-        <div className="overflow-x-auto card">
+        <div className="app-table-wrap card">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-white/5">
               <tr>
@@ -131,7 +131,7 @@ export default function TransactionsPanel() {
           </table>
         </div>
       ) : (
-        <div className="overflow-x-auto card">
+        <div className="app-table-wrap card">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-400 dark:bg-white/5">
               <tr>

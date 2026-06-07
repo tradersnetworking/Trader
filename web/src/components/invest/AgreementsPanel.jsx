@@ -365,7 +365,7 @@ export function AdminAgreementsPanel({ isSuper, canManageSettings = false }) {
             </Field>
             <button className="btn-gold">Generate for investor</button>
           </form>
-          <div className="overflow-x-auto card">
+          <div className="app-table-wrap card">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr><th className="p-3">Investor</th><th className="p-3">Ref / Title</th><th className="p-3">Plan</th><th className="p-3">Status</th><th className="p-3">Date</th><th className="p-3"></th></tr>

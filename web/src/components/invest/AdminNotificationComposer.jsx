@@ -336,8 +336,7 @@ export default function AdminNotificationComposer({
             </button>
           </div>
 
-          <div className="card min-h-0 min-w-0 overflow-hidden p-0">
-            <div className="app-table-scroll-y">
+          <div className="app-table-wrap card">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="text-left text-xs uppercase text-muted-foreground">
                 <tr>
@@ -385,7 +384,6 @@ export default function AdminNotificationComposer({
                 )}
               </tbody>
             </table>
-            </div>
           </div>
         </>
       )}

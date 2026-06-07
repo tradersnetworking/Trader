@@ -86,7 +86,7 @@ export function CohortAnalyticsPanel() {
         <div className="card p-4"><div className="text-xs text-muted-foreground">First deposit</div><div className="text-2xl font-bold">{data.summary.firstDeposit}</div></div>
         <div className="card p-4"><div className="text-xs text-muted-foreground">Deposit volume</div><div className="text-2xl font-bold">{inr(data.summary.depositTotal)}</div></div>
       </div>
-      <div className="card overflow-x-auto">
+      <div className="app-table-wrap card">
         <table className="w-full text-sm">
           <thead><tr className="text-left text-xs uppercase text-muted-foreground"><th className="p-3">Month</th><th className="p-3">Signups</th><th className="p-3">KYC</th><th className="p-3">Deposits</th><th className="p-3">Conv %</th></tr></thead>
           <tbody>

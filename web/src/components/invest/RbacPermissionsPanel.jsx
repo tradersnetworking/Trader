@@ -125,7 +125,7 @@ export default function RbacPermissionsPanel() {
       {msg && <Alert type="success">{msg}</Alert>}
       {err && <Alert type="error">{err}</Alert>}
 
-      <div className="card overflow-x-auto">
+      <div className="app-table-wrap card">
         <h4 className="border-b border-border p-3 text-sm font-bold">Default — all Admin accounts</h4>
         <table className="w-full min-w-[640px] text-sm">
           <thead>
@@ -165,7 +165,7 @@ export default function RbacPermissionsPanel() {
         </table>
       </div>
 
-      <div className="card overflow-x-auto">
+      <div className="app-table-wrap card">
         <h4 className="border-b border-border p-3 text-sm font-bold">Per admin user</h4>
         <div className="border-b border-border p-3">
           <Field label="Admin account">

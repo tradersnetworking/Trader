@@ -205,7 +205,7 @@ export function ReferralAdminPanel({ canTreasury = false }) {
             </button>
           </div>
 
-          <div className="card overflow-x-auto">
+          <div className="app-table-wrap card">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase text-muted-foreground">

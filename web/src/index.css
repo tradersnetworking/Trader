@@ -516,7 +516,7 @@
   .panel-sky { @apply border border-sky-500/30 bg-sky-500/10; }
   .panel-violet { @apply border border-violet-500/30 bg-violet-500/10; }
 
-  .page-stack { @apply min-w-0 max-w-full space-y-4 sm:space-y-6; }
+  .page-stack { @apply min-h-0 min-w-0 max-w-full space-y-4 sm:space-y-6; }
   .page-title {
     @apply break-words text-xl font-bold tracking-tight sm:text-2xl md:text-3xl;
     color: hsl(var(--foreground));
@@ -533,20 +533,20 @@
   .app-dashboard-side { @apply min-w-0; }
   .responsive-form-grid { @apply grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4; }
   .responsive-card-grid { @apply grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4; }
-  .app-table-wrap { @apply min-w-0 touch-pan-x overflow-x-auto; -webkit-overflow-scrolling: touch; }
-  /* Scrollable member/table lists — vertical pan without trapping dashboard scroll */
-  .app-table-scroll-y {
-    @apply min-h-0 min-w-0 overflow-x-auto overflow-y-auto overscroll-y-contain;
+  /* Dashboard tables — vertical + horizontal scroll without trapping main dashboard scroll */
+  .app-table-wrap {
+    @apply min-h-0 min-w-0 overscroll-y-contain;
+    overflow-x: auto;
+    overflow-y: auto;
     max-height: min(32rem, 55dvh);
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     scrollbar-width: thin;
     scrollbar-color: hsl(43 74% 49% / 0.45) transparent;
   }
-  .app-table-scroll-y thead th {
+  .app-table-wrap thead th {
     @apply sticky top-0 z-10 bg-muted/95 backdrop-blur-sm;
   }
-
   .invest-stat-grid { @apply app-stat-grid; }
   .invest-dashboard-split { @apply grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:gap-6; }
 

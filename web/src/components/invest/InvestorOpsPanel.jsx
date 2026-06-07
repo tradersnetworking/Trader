@@ -644,7 +644,7 @@ export default function InvestorOpsPanel() {
             <div className="card p-4">
               <h4 className="text-sm font-bold">Login history (IP & location)</h4>
               <p className="mt-1 text-xs text-muted-foreground">One active device per account. New login signs out other devices.</p>
-              <div className="mt-3 overflow-x-auto">
+              <div className="app-table-wrap mt-3">
                 <table className="w-full min-w-[640px] text-xs">
                   <thead className="text-left uppercase text-muted-foreground">
                     <tr>
@@ -946,7 +946,7 @@ export default function InvestorOpsPanel() {
           {isAdminRole && (detail.agreements?.length > 0) && (
             <div className="card p-5">
               <h4 className="mb-3 font-bold">All agreements (including archived)</h4>
-              <div className="overflow-x-auto">
+              <div className="app-table-wrap">
                 <table className="w-full min-w-[640px] text-sm">
                   <thead className="text-left text-xs uppercase text-muted-foreground">
                     <tr>

@@ -59,7 +59,7 @@ export function AuditLogPanel() {
   const [logs, setLogs] = useState([]);
   useEffect(() => { investApi("/admin/audit-logs").then((d) => setLogs(d.logs || [])).catch(() => {}); }, []);
   return (
-    <div className="card overflow-x-auto">
+    <div className="app-table-wrap card">
       <table className="w-full text-sm">
         <thead><tr className="text-left text-xs uppercase text-muted-foreground"><th className="p-3">Time</th><th className="p-3">Actor</th><th className="p-3">Action</th><th className="p-3">Entity</th></tr></thead>
         <tbody>
