@@ -28,7 +28,7 @@ import {
   deletePaymentGateway,
 } from "../services/paymentGateways.js";
 import { logAudit, listAuditLogs } from "../services/auditLog.js";
-import { broadcastNotification, notifyInvestor } from "../services/notifications.js";
+import { notifyInvestor } from "../services/notifications.js";
 import { listPromoCodes, applyPromoCode } from "../services/promoCodes.js";
 import { getAdminDashboard, getPlatformLedger } from "../services/investDashboard.js";
 import { getFinancialReports } from "../services/financialReports.js";
@@ -765,17 +765,70 @@ router.get(
   })
 );
 
+router.get(
+  "/notifications/templates",
+  authRequired(SCOPE),
+  adminOnly,
+  requirePermission("broadcast_notifications"),
+  asyncH(async (_req, res) => {
+    const { listAdminNotificationTemplates } = await import("../services/adminNotificationTemplates.js");
+    res.json({ templates: listAdminNotificationTemplates() });
+  })
+);
+
 router.post(
   "/notifications/send",
   authRequired(SCOPE),
   adminOnly,
   requirePermission("broadcast_notifications"),
   asyncH(async (req, res) => {
-    const { investorId, title, body, type, link } = req.body;
-    if (!investorId || !title) return res.status(400).json({ error: "investorId and title required" });
-    const n = await notifyInvestor(investorId, title, body || "", { type: type || "INFO", link: link || null });
-    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "NOTIFY_USER", entity: "Notification", entityId: n?.id, meta: JSON.stringify({ investorId, title }) });
-    res.json({ notification: n });
+    const {
+      investorId,
+      investorIds,
+      channels,
+      templateId,
+      title,
+      body,
+      type,
+      link,
+      emailSubject,
+      emailText,
+      emailHtml,
+      whatsappMessage,
+    } = req.body;
+
+    const ids = investorIds?.length ? investorIds : investorId ? [investorId] : [];
+    if (!ids.length) return res.status(400).json({ error: "Select at least one investor" });
+
+    const { sendAdminNotifications } = await import("../services/adminNotificationDispatch.js");
+    const result = await sendAdminNotifications({
+      investorIds: ids,
+      channels: channels || { app: true },
+      templateId: templateId || "custom",
+      title,
+      body,
+      type,
+      link,
+      emailSubject,
+      emailText,
+      emailHtml,
+      whatsappMessage,
+    });
+
+    await logAudit({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      actorName: req.user.name,
+      action: "NOTIFY_USER",
+      entity: "Notification",
+      meta: JSON.stringify({
+        investorIds: ids,
+        templateId: templateId || "custom",
+        channels: result.channels,
+        total: result.total,
+      }),
+    });
+    res.json(result);
   })
 );
 
@@ -2284,10 +2337,41 @@ router.post(
   adminOnly,
   requirePermission("broadcast_notifications"),
   asyncH(async (req, res) => {
-    const { title, body, type, link } = req.body;
-    const result = await broadcastNotification({ title, body, type, link });
-    await logAudit({ actorId: req.user.id, actorRole: req.user.role, actorName: req.user.name, action: "BROADCAST", entity: "Notification", meta: { title, count: result.count } });
-    res.json(result);
+    const {
+      title,
+      body,
+      type,
+      link,
+      channels,
+      templateId,
+      emailSubject,
+      emailText,
+      emailHtml,
+      whatsappMessage,
+    } = req.body;
+    const { sendAdminNotifications } = await import("../services/adminNotificationDispatch.js");
+    const result = await sendAdminNotifications({
+      investorIds: undefined,
+      channels: channels || { app: true },
+      templateId: templateId || (title ? "custom" : "general"),
+      title,
+      body,
+      type,
+      link,
+      emailSubject,
+      emailText,
+      emailHtml,
+      whatsappMessage,
+    });
+    await logAudit({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      actorName: req.user.name,
+      action: "BROADCAST",
+      entity: "Notification",
+      meta: { templateId: templateId || "general", count: result.total, channels: result.channels },
+    });
+    res.json({ count: result.total, ...result });
   })
 );
 

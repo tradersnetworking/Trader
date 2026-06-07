@@ -3,6 +3,7 @@ import { investApi } from "../../lib/api.js";
 import { inr, dateStr } from "../../lib/format.js";
 import { Alert, Badge, Field, Modal } from "../ui.jsx";
 import { ReferralAdminPanel } from "./ReferralAdminPanel.jsx";
+import AdminNotificationComposer from "./AdminNotificationComposer.jsx";
 
 export function PromoCodesAdmin() {
   const [promos, setPromos] = useState([]);
@@ -103,30 +104,12 @@ export function PartnersCmsPanel() {
 }
 
 export function BroadcastNotificationsPanel() {
-  const [form, setForm] = useState({ title: "", body: "" });
-  const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
-  const send = async (e) => {
-    e.preventDefault();
-    setMsg("");
-    setErr("");
-    try {
-      const r = await investApi("/admin/notifications/broadcast", { method: "POST", body: form });
-      setMsg(`Sent to ${r.count} investors.`);
-      setForm({ title: "", body: "" });
-    } catch (e) {
-      setErr(e.message || "Broadcast failed.");
-    }
-  };
   return (
-    <form onSubmit={send} className="card max-w-lg space-y-3 p-5">
-      <h3 className="font-bold">Broadcast Notification</h3>
-      {err && <Alert type="error">{err}</Alert>}
-      {msg && <Alert type="success">{msg}</Alert>}
-      <Field label="Title"><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
-      <Field label="Message"><textarea className="input" rows={3} required value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></Field>
-      <button className="btn-gold">Send to all investors</button>
-    </form>
+    <AdminNotificationComposer
+      broadcastAll
+      title="Broadcast to all investors"
+      subtitle="Send the same message to every active investor via in-app, email and/or WhatsApp."
+    />
   );
 }
 

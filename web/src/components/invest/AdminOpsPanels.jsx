@@ -5,6 +5,7 @@ import { Field, Alert } from "../ui.jsx";
 import { PartnersCmsPanel } from "./AdminExtrasPanels.jsx";
 import DataPortabilityPanel from "../shared/DataPortabilityPanel.jsx";
 import PlatformBackupPanel from "../shared/PlatformBackupPanel.jsx";
+import AdminNotificationComposer from "./AdminNotificationComposer.jsx";
 
 /* -------- Wallet Operations -------- */
 export function WalletOperationsPanel() {
@@ -144,53 +145,31 @@ export function HomepageCmsPanel() {
 /* -------- Notification Management -------- */
 export function NotificationManagementPanel() {
   const [notifications, setNotifications] = useState([]);
-  const [investors, setInvestors] = useState([]);
-  const [form, setForm] = useState({ investorId: "", title: "", body: "", type: "INFO", link: "" });
-  const [msg, setMsg] = useState("");
 
-  const load = () => {
+  const loadRecent = () => {
     investApi("/admin/notifications/recent").then((d) => setNotifications(d.notifications || [])).catch(() => {});
-    investApi("/admin/investors").then((d) => setInvestors((d.investors || []).filter((i) => i.role === "INVESTOR"))).catch(() => {});
   };
-  useEffect(() => { load(); }, []);
 
-  const send = async (e) => {
-    e.preventDefault();
-    setMsg("");
-    try {
-      await investApi("/admin/notifications/send", { method: "POST", body: form });
-      setMsg("Notification sent.");
-      setForm({ investorId: "", title: "", body: "", type: "INFO", link: "" });
-      load();
-    } catch (e2) {
-      setMsg(e2.message);
-    }
-  };
+  useEffect(() => {
+    loadRecent();
+  }, []);
 
   return (
-    <div className="page-stack">
-      <h2 className="text-lg font-bold">Notification Management</h2>
-      <p className="text-sm text-muted-foreground">Send targeted in-app notifications to individual investors.</p>
-      {msg && <Alert type={msg.includes("sent") ? "success" : "error"}>{msg}</Alert>}
-      <form onSubmit={send} className="card max-w-xl space-y-3 p-5">
-        <Field label="Investor">
-          <select className="input" required value={form.investorId} onChange={(e) => setForm({ ...form, investorId: e.target.value })}>
-            <option value="">Select…</option>
-            {investors.map((i) => <option key={i.id} value={i.id}>{i.name} — {i.email}</option>)}
-          </select>
-        </Field>
-        <Field label="Title"><input className="input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
-        <Field label="Message"><textarea className="input" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} /></Field>
-        <Field label="Link tab (optional)"><input className="input" placeholder="e.g. deposit, kyc" value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} /></Field>
-        <button className="btn-gold">Send Notification</button>
-      </form>
+    <div className="space-y-8">
+      <AdminNotificationComposer
+        title="Send notification"
+        subtitle="Choose in-app, email and/or WhatsApp. Pick a predefined template or write a custom message. Select multiple investors."
+        onSent={loadRecent}
+      />
       <div className="card p-5">
-        <h3 className="mb-3 font-bold">Recent Notifications</h3>
+        <h3 className="mb-3 font-bold">Recent in-app notifications</h3>
         <div className="max-h-80 space-y-2 overflow-y-auto text-sm">
           {notifications.map((n) => (
             <div key={n.id} className="rounded-lg border border-border p-3">
               <div className="font-semibold">{n.title}</div>
-              <div className="text-muted-foreground">{n.investor?.name} • {new Date(n.createdAt).toLocaleString()}</div>
+              <div className="text-muted-foreground">
+                {n.investor?.name} • {new Date(n.createdAt).toLocaleString()}
+              </div>
               {n.body && <p className="mt-1">{n.body}</p>}
             </div>
           ))}
