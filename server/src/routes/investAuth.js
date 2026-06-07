@@ -272,11 +272,15 @@ router.post(
           devOtp: otp.devOtp,
         });
       } catch (e) {
-        /* Mail broken — allow password login so dashboards stay reachable for all roles */
-        console.warn("[auth/login] OTP email failed — allowing password login:", e.message);
+        console.warn("[auth/login] OTP email failed:", e.message);
+        return res.status(503).json({
+          error: e.message || "Could not send login verification email. Try again later.",
+        });
       }
     } else if (!loginOtpDisabled && !mailReady) {
-      console.warn("[auth/login] Skipping login OTP — outbound mail not configured");
+      return res.status(503).json({
+        error: "Email verification is temporarily unavailable. Please try again later.",
+      });
     }
 
     const token = await issueAuthToken(SCOPE, { id: investor.id, role: investor.role, email: investor.email }, { req });

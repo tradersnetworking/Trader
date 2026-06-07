@@ -1,16 +1,8 @@
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
-import { sendMail } from "../utils/mailer.js";
+import { issueOtp, OTP_PURPOSES } from "./otpService.js";
 import { verifyInvestor2FA } from "./twoFactor.js";
 import { getSetting } from "./investSettings.js";
-
-const OTP_TTL_MS = 10 * 60 * 1000;
-
-function hashOtp(code) {
-  return bcrypt.hash(String(code), 10);
-}
 
 export async function initiateWithdrawal(investor, { amount, mode, destination, password, totpCode }) {
   if (!investor.passwordHash) return { ok: false, error: "Password required" };
@@ -29,35 +21,20 @@ export async function initiateWithdrawal(investor, { amount, mode, destination, 
   if (maxWithdraw > 0 && amt > maxWithdraw) return { ok: false, error: `Maximum withdrawal per request is ₹${maxWithdraw.toLocaleString("en-IN")}` };
   if (!wallet || wallet.available < amt) return { ok: false, error: "Insufficient balance" };
 
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const token = nanoid(32);
-  await investDb.otpToken.create({
-    data: {
-      investorId: investor.id,
-      purpose: "withdrawal_confirm",
-      codeHash: await hashOtp(otp),
-      token,
-      expiresAt: new Date(Date.now() + OTP_TTL_MS),
-    },
-  });
-
-  await sendMail({
-    to: investor.email,
-    purpose: "otp",
+  const otpResult = await issueOtp({
+    purpose: OTP_PURPOSES.WITHDRAWAL,
+    email: investor.email,
+    investorId: investor.id,
+    investor,
     subject: "Confirm your withdrawal — AKSHYA INVESTMENTS",
-    html: `<p>Hi ${investor.name},</p><p>Your withdrawal OTP is <b>${otp}</b> (valid 10 minutes).</p><p>Amount: ₹${Number(amount).toLocaleString("en-IN")} via ${mode}</p>`,
+    html: `<p>Hi ${investor.name || "Investor"},</p><p>Your withdrawal OTP is <b>{OTP}</b> (valid 10 minutes).</p><p>Amount: ₹${Number(amount).toLocaleString("en-IN")} via ${mode}</p>`,
+    sendWhatsApp: "withdrawal",
   });
-
-  try {
-    const { sendWhatsAppOtp } = await import("./whatsappBusiness.js");
-    await sendWhatsAppOtp(investor, otp, "withdrawal");
-  } catch (err) {
-    console.error("[whatsapp:withdrawal-otp]", err.message);
-  }
+  if (!otpResult.ok) return { ok: false, error: otpResult.error || "Could not send verification email" };
 
   return {
     ok: true,
-    confirmationToken: token,
+    confirmationToken: otpResult.token,
     pending: { amount: Number(amount), mode, destination },
     message: "Email OTP sent. Submit OTP to complete withdrawal.",
   };

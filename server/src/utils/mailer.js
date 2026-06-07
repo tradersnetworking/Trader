@@ -91,6 +91,15 @@ export function invalidateOutboundMailCache() {
   smtpVerifiedCache = { at: 0, ok: null, portal: null };
 }
 
+const SINGLE_RECIPIENT_PURPOSES = new Set(["otp", "password_reset", "registration"]);
+
+export function normalizeMailRecipient(to) {
+  if (!to) return null;
+  const single = String(to).split(/[,;]/)[0].trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(single)) return null;
+  return single;
+}
+
 async function resolveSendContext({ portal = "invest", purpose, mailboxId }) {
   let from;
   let resolvedMailboxId = mailboxId;
@@ -149,6 +158,16 @@ async function resolveMailFrom(portal = "invest") {
 }
 
 export async function sendMail({ to, subject, html, text, purpose, attachments, portal = "invest", mailboxId }) {
+  if (purpose && SINGLE_RECIPIENT_PURPOSES.has(purpose)) {
+    const recipient = normalizeMailRecipient(to);
+    if (!recipient) {
+      console.error(`[MAIL] Rejected ${purpose} — invalid or missing recipient`);
+      return { failed: true, error: "Invalid recipient email" };
+    }
+    to = recipient;
+    if (purpose === "otp") mailboxId = mailboxId || "noreply";
+  }
+
   const ctx = await resolveSendContext({ portal, purpose, mailboxId });
   if (ctx.skipped) {
     console.log(`[MAIL] Skipped disabled purpose: ${purpose} → ${to}`);
@@ -204,6 +223,12 @@ export async function sendMail({ to, subject, html, text, purpose, attachments, 
       attachments,
       replyTo: replyTo || undefined,
     });
+    const resolvedMailbox = ctx.mailboxId || mailboxId;
+    if (resolvedMailbox) {
+      import("../services/mailboxSentCleanup.js")
+        .then(({ scheduleMailboxSentCleanup }) => scheduleMailboxSentCleanup(portal, resolvedMailbox))
+        .catch(() => {});
+    }
     return { ok: true, messageId: info?.messageId };
   } catch (err) {
     const authFailed = /535|authentication failed|invalid login/i.test(err.message || "");

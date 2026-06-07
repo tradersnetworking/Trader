@@ -1101,7 +1101,15 @@ router.post(
     }
     await notifyInvestor(req.user.id, "Investment confirmed", `You invested ${amt} in ${plan.name}.`, { type: "SUCCESS", link: "investments" });
     const investor = await investDb.investor.findUnique({ where: { id: req.user.id } });
-    notifyInvestmentActivity(investor, { planName: plan.name, amount: amt, settlementCycle: cycleCheck.cycle, source: "investor" });
+    notifyInvestmentActivity(investor, {
+      planName: plan.name,
+      amount: amt,
+      settlementCycle: cycleCheck.cycle,
+      source: "investor",
+      subscription: sub,
+      plan,
+      agreementId: agreement?.id,
+    }).catch(() => {});
     res.json({ subscription: sub, agreement, agreementError });
   })
 );

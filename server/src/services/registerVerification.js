@@ -1,16 +1,12 @@
 import crypto from "crypto";
-import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { investDb } from "../db.js";
-import { sendMail } from "../utils/mailer.js";
+import { issueOtp, verifyOtp, OTP_PURPOSES, isValidEmail, normalizeOtpEmail } from "./otpService.js";
 
-const OTP_TTL_MS = 10 * 60 * 1000;
 const CAPTCHA_TTL_MS = 5 * 60 * 1000;
 const VERIFY_TTL_MS = 30 * 60 * 1000;
 const SECRET = process.env.JWT_SECRET || "akshaya-register-captcha";
 
-/** @type {Map<string, { email: string, codeHash: string, expiresAt: number }>} */
-const otpSessions = new Map();
 /** @type {Map<string, { email: string, expiresAt: number }>} */
 const verifiedEmails = new Map();
 
@@ -40,46 +36,39 @@ export function generateCaptcha() {
 }
 
 export async function sendRegisterOtp(email, captchaToken, captchaAnswer) {
-  if (!email?.trim()) return { ok: false, error: "Email required" };
+  if (!isValidEmail(email)) return { ok: false, error: "Email required" };
   if (!checkCaptcha(captchaToken, captchaAnswer)) return { ok: false, error: "Incorrect captcha answer" };
 
-  const normalized = email.toLowerCase().trim();
+  const normalized = normalizeOtpEmail(email);
   const exists = await investDb.investor.findUnique({ where: { email: normalized } });
   if (exists) return { ok: false, error: "Email already registered" };
 
-  const otp = String(Math.floor(100000 + Math.random() * 900000));
-  const token = nanoid(32);
-  otpSessions.set(token, {
+  const result = await issueOtp({
+    purpose: OTP_PURPOSES.EMAIL_VERIFY,
     email: normalized,
-    codeHash: await bcrypt.hash(otp, 10),
-    expiresAt: Date.now() + OTP_TTL_MS,
-  });
-
-  await sendMail({
-    to: normalized,
-    purpose: "otp",
     subject: "Verify your email — AKSHYA INVESTMENTS",
-    html: `<p>Your AKSHYA INVESTMENTS verification code is <b>${otp}</b>. Valid for 10 minutes.</p>`,
+    intro: "Your AKSHYA INVESTMENTS verification code is",
   });
+  if (!result.ok) return result;
 
   return {
     ok: true,
-    otpSessionToken: token,
-    message: "Verification code sent to your email.",
-    devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+    otpSessionToken: result.token,
+    message: result.message,
+    devOtp: result.devOtp,
   };
 }
 
 export async function verifyRegisterOtp(otpSessionToken, email, code) {
-  const session = otpSessions.get(otpSessionToken);
-  const normalized = email.toLowerCase().trim();
-  if (!session || session.email !== normalized || Date.now() > session.expiresAt) {
-    return { ok: false, error: "Invalid or expired OTP session" };
-  }
-  const valid = await bcrypt.compare(String(code).trim(), session.codeHash);
-  if (!valid) return { ok: false, error: "Invalid verification code" };
+  const normalized = normalizeOtpEmail(email);
+  const result = await verifyOtp({
+    token: otpSessionToken,
+    purpose: OTP_PURPOSES.EMAIL_VERIFY,
+    email: normalized,
+    code,
+  });
+  if (!result.ok) return result;
 
-  otpSessions.delete(otpSessionToken);
   const verificationToken = nanoid(40);
   verifiedEmails.set(verificationToken, { email: normalized, expiresAt: Date.now() + VERIFY_TTL_MS });
   return { ok: true, verificationToken, emailVerified: true };
@@ -87,7 +76,7 @@ export async function verifyRegisterOtp(otpSessionToken, email, code) {
 
 export function consumeEmailVerification(verificationToken, email) {
   const record = verifiedEmails.get(verificationToken);
-  const normalized = email.toLowerCase().trim();
+  const normalized = normalizeOtpEmail(email);
   if (!record || record.email !== normalized || Date.now() > record.expiresAt) return false;
   verifiedEmails.delete(verificationToken);
   return true;

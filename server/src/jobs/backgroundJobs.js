@@ -2,6 +2,7 @@ import { runMaturityNotificationJob } from "./maturityNotifications.js";
 import { runRoiEngineCycle } from "../services/roiEngine.js";
 import { runReconciliation } from "../services/treasury.js";
 import { syncSupportInbox } from "../services/supportMail.js";
+import { runMailboxSentCleanupJob } from "../services/mailboxSentCleanup.js";
 import { runReferralAutoPayoutJob } from "../services/referralPayoutJob.js";
 import { runRoiPayoutReminderJob } from "./roiPayoutReminders.js";
 import { runMarketplaceMaintenanceJob, bootstrapMarketplaceMedia } from "./marketplaceCatalogSync.js";
@@ -12,6 +13,7 @@ const DAY = 24 * HOUR;
 let roiRunning = false;
 let treasuryRunning = false;
 let mailRunning = false;
+let sentCleanupRunning = false;
 
 async function safeRun(name, fn) {
   try {
@@ -45,6 +47,18 @@ export function startBackgroundJobs() {
     mailRunning = true;
     try { await safeRun("support-mail", syncSupportInbox); } finally { mailRunning = false; }
   }, 5 * 60 * 1000);
+
+  const sentCleanupInterval = Number(process.env.MAILBOX_SENT_CLEANUP_INTERVAL_MS || 30 * 60 * 1000);
+  setInterval(async () => {
+    if (sentCleanupRunning) return;
+    sentCleanupRunning = true;
+    try {
+      await safeRun("mailbox-sent-cleanup", () => runMailboxSentCleanupJob("invest"));
+    } finally {
+      sentCleanupRunning = false;
+    }
+  }, sentCleanupInterval);
+  setTimeout(() => safeRun("mailbox-sent-cleanup", () => runMailboxSentCleanupJob("invest")), 3 * 60 * 1000);
 
   setInterval(() => safeRun("referral-payout", runReferralAutoPayoutJob), DAY);
   safeRun("referral-payout", runReferralAutoPayoutJob);

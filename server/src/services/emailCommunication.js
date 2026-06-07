@@ -16,6 +16,7 @@ export const DEFAULT_EMAIL_PURPOSE_META = {
   kyc_rejected: { label: "KYC Rejected", description: "When KYC is rejected", group: "Compliance" },
   investment: { label: "Investment", description: "Investment plan confirmations", group: "Finance" },
   roi_reminder: { label: "ROI Payout Reminder", description: "Day-before monthly ROI payout alert", group: "Finance" },
+  roi_credited: { label: "ROI Credited", description: "When ROI return is credited to wallet", group: "Finance" },
   ticket_reply: { label: "Support Ticket Reply", description: "When staff replies to a support ticket", group: "Support" },
   ticket_acknowledgment: { label: "Ticket Auto-Acknowledgment", description: "When a support ticket is created", group: "Support" },
   broadcast: { label: "Admin Broadcast", description: "Bulk announcements from admin", group: "Support" },
@@ -37,6 +38,7 @@ export const NOREPLY_TRANSACTIONAL_PURPOSES = [
   "withdrawal_rejected",
   "investment",
   "roi_reminder",
+  "roi_credited",
   "withdrawal_confirm",
   "login",
   "email_verify",
@@ -85,18 +87,33 @@ const INVEST_AUTO_SUBJECTS = {
   kyc_rejected: "KYC verification update",
   investment: "Investment confirmation",
   roi_reminder: "Upcoming ROI payout reminder",
+  roi_credited: "ROI credited to your wallet",
   ticket_reply: "Support ticket update",
   ticket_acknowledgment: "We received your support request",
   broadcast: "Message from AKSHYA INVESTMENTS",
   generic: "Notification from AKSHYA INVESTMENTS",
 };
 
+const FINANCE_MAILBOX_PURPOSES = new Set([
+  "deposit_submitted",
+  "deposit_approved",
+  "deposit_rejected",
+  "withdrawal_submitted",
+  "withdrawal_approved",
+  "withdrawal_rejected",
+  "investment",
+  "roi_reminder",
+  "roi_credited",
+]);
+
 function defaultConfig(portal) {
   const purposes = portal === "main" ? MAIN_EMAIL_PURPOSES : DEFAULT_EMAIL_PURPOSES;
   const siteLabel = portal === "main" ? "Akshaya EXIM TRADERS" : "AKSHYA INVESTMENTS";
   return {
     identities: identitiesFor(portal),
-    assignments: Object.fromEntries(purposes.map((p) => [p, "noreply"])),
+    assignments: Object.fromEntries(
+      purposes.map((p) => [p, portal === "invest" && FINANCE_MAILBOX_PURPOSES.has(p) ? "finance" : "noreply"])
+    ),
     autoEmails: Object.fromEntries(
       purposes.map((p) => [
         p,

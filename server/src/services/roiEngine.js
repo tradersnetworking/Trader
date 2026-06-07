@@ -2,6 +2,7 @@ import { investDb } from "../db.js";
 import { settlementPayoutAmount, settlementCycleMs } from "../utils/invest.js";
 import { notifyInvestor } from "./notifications.js";
 import { sendPushToUser } from "./pushService.js";
+import { notifyRoiCredited } from "./investNotifications.js";
 
 export async function notifyInvestorWithPush(investorId, payload) {
   await notifyInvestor(investorId, payload);
@@ -42,6 +43,8 @@ export async function runRoiEngineCycle() {
       ...(sub.lastRoiPaidAt == null ? { lastRoiPaidAt: null } : { lastRoiPaidAt: sub.lastRoiPaidAt }),
     };
 
+    let roiPayoutId = null;
+    let walletAfter = null;
     const credited = await investDb.$transaction(async (tx) => {
       const claimed = await tx.subscription.updateMany({
         where: claimWhere,
@@ -67,7 +70,7 @@ export async function runRoiEngineCycle() {
           note: `${cycle} ROI — ${sub.plan?.name || "Investment"}`,
         },
       });
-      await tx.roiPayout.create({
+      const roiRecord = await tx.roiPayout.create({
         data: {
           subscriptionId: sub.id,
           investorId: sub.investorId,
@@ -78,6 +81,8 @@ export async function runRoiEngineCycle() {
           status: "CREDITED",
         },
       });
+      roiPayoutId = roiRecord.id;
+      walletAfter = { ...wallet, available: newAvailable, earnings: wallet.earnings + amount };
       return true;
     });
 
@@ -88,6 +93,18 @@ export async function runRoiEngineCycle() {
       body: `₹${amount.toFixed(2)} ${cycle.toLowerCase()} return credited for ${sub.plan?.name || "your plan"}.`,
       type: "ROI",
     });
+    if (sub.investor?.email) {
+      notifyRoiCredited(sub.investor, {
+        subscription: sub,
+        plan: sub.plan,
+        amount,
+        cycle,
+        periodStart,
+        periodEnd,
+        wallet: walletAfter,
+        roiPayoutId,
+      });
+    }
     paid++;
   }
   return { processed: paid, at: now.toISOString() };

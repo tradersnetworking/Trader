@@ -1,7 +1,7 @@
 import { investDb } from "../db.js";
 import { settlementPayoutAmount, settlementCycleMs } from "../utils/invest.js";
 import { notifyInvestorWithPush } from "../services/roiEngine.js";
-import { sendMail } from "../utils/mailer.js";
+import { notifyRoiReminder } from "../services/investNotifications.js";
 
 const MS_DAY = 86400000;
 
@@ -45,12 +45,13 @@ export async function runRoiPayoutReminderJob() {
       type: "INFO",
       link: "investments",
     });
-    await sendMail({
-      to: sub.investor.email,
-      purpose: "roi_reminder",
-      subject: "Upcoming profit payout — AKSHYA INVESTMENTS",
-      html: `<p>Hi ${sub.investor.name},</p><p>${body}</p><p>Amount will be credited to your earnings wallet when due.</p>`,
-    }).catch(() => {});
+    notifyRoiReminder(sub.investor, {
+      subscription: sub,
+      plan: sub.plan,
+      amount,
+      cycle,
+      dueDate: due,
+    });
     sent++;
   }
   return { remindersSent: sent, at: now.toISOString() };

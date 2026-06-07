@@ -262,7 +262,14 @@ export async function adminAssignSubscription(investorId, body, actor) {
 
   await notifyInvestor(investorId, "Investment assigned", `An investment of ${fmtInr(amt)} in ${plan.name} was set up on your account.`, { type: "SUCCESS", link: "investments" });
   const investor = await investDb.investor.findUnique({ where: { id: investorId } });
-  notifyInvestmentActivity(investor, { planName: plan.name, amount: amt, settlementCycle: sub.settlementCycle, source: "admin" });
+  await notifyInvestmentActivity(investor, {
+    planName: plan.name,
+    amount: amt,
+    settlementCycle: sub.settlementCycle,
+    source: "admin",
+    subscription: sub,
+    plan,
+  });
 
   await logAudit({
     actorId: actor?.id,

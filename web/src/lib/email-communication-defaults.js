@@ -15,6 +15,7 @@ export const DEFAULT_EMAIL_PURPOSE_META = {
   kyc_rejected: { label: "KYC Rejected", description: "When KYC is rejected", group: "Compliance" },
   investment: { label: "Investment", description: "Investment plan confirmations", group: "Finance" },
   roi_reminder: { label: "ROI Payout Reminder", description: "Day-before monthly ROI payout alert", group: "Finance" },
+  roi_credited: { label: "ROI Credited", description: "When ROI return is credited to wallet", group: "Finance" },
   ticket_reply: { label: "Support Ticket Reply", description: "When staff replies to a support ticket", group: "Support" },
   ticket_acknowledgment: { label: "Ticket Auto-Acknowledgment", description: "When a support ticket is created", group: "Support" },
   broadcast: { label: "Admin Broadcast", description: "Bulk announcements from admin", group: "Support" },
@@ -31,7 +32,14 @@ export const DEFAULT_EMAIL_COMM_CONFIG = {
     { id: "compliance", label: "Compliance / KYC", name: "AKSHYA INVESTMENTS Compliance", address: "compliance@akshayaexim.in" },
     { id: "invest", label: "Investor Relations", name: "AKSHYA INVESTMENTS", address: "invest@akshayaexim.in" },
   ],
-  assignments: Object.fromEntries(DEFAULT_EMAIL_PURPOSES.map((p) => [p, "noreply"])),
+  assignments: Object.fromEntries(
+    DEFAULT_EMAIL_PURPOSES.map((p) => [
+      p,
+      ["deposit_submitted", "deposit_approved", "deposit_rejected", "withdrawal_submitted", "withdrawal_approved", "withdrawal_rejected", "investment", "roi_reminder", "roi_credited"].includes(p)
+        ? "finance"
+        : "noreply",
+    ])
+  ),
   autoEmails: {
     registration: { enabled: true, subject: "Welcome to AKSHYA INVESTMENTS" },
     password_reset: { enabled: true, subject: "Reset your AKSHYA INVESTMENTS password" },
@@ -47,6 +55,7 @@ export const DEFAULT_EMAIL_COMM_CONFIG = {
     kyc_rejected: { enabled: true, subject: "KYC verification update" },
     investment: { enabled: true, subject: "Investment confirmation" },
     roi_reminder: { enabled: true, subject: "Upcoming ROI payout tomorrow" },
+    roi_credited: { enabled: true, subject: "ROI credited to your wallet" },
     ticket_reply: { enabled: true, subject: "Support ticket update" },
     ticket_acknowledgment: { enabled: true, subject: "We received your support request" },
     broadcast: { enabled: true, subject: "Message from AKSHYA INVESTMENTS" },

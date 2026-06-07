@@ -35,7 +35,10 @@ export async function autoApproveDeposit(depositId, gatewayRef) {
     }
   }
 
-  if (dep.investor) notifyDepositApproved(dep.investor, { ...dep, status: "APPROVED" });
+  if (dep.investor) {
+    const wallet = await investDb.wallet.findUnique({ where: { investorId: dep.investorId } });
+    notifyDepositApproved(dep.investor, { ...dep, status: "APPROVED" }, wallet);
+  }
   await notifyInvestor(dep.investorId, { title: "Deposit credited", body: `₹${dep.amount.toLocaleString("en-IN")} added to your wallet.`, type: "DEPOSIT" });
   return { ok: true, deposit: dep };
 }

@@ -969,7 +969,8 @@ router.post(
         await addLedger(dep.investorId, { type: "BONUS", direction: "CREDIT", amount: bonus, reference: promo.id, note: `Promo ${code} bonus` });
       }
     }
-    notifyDepositApproved(dep.investor, { ...dep, status: "APPROVED" });
+    const wallet = await investDb.wallet.findUnique({ where: { investorId: dep.investorId } });
+    notifyDepositApproved(dep.investor, { ...dep, status: "APPROVED" }, wallet);
     res.json({ ok: true });
   })
 );
@@ -1438,7 +1439,8 @@ router.post(
     const claimed = await claimPayoutForReject(payout.id, remarks);
     if (!claimed) return res.status(409).json({ error: "Payout already finalized — cannot reject again" });
     await addLedger(payout.investorId, { type: "REFUND", direction: "CREDIT", amount: payout.amount, reference: payout.id, note: "Withdrawal rejected - refunded" });
-    if (payout.investor) notifyWithdrawalRejected(payout.investor, { ...payout, status: "FAILED" }, remarks);
+    const wallet = await investDb.wallet.findUnique({ where: { investorId: payout.investorId } });
+    if (payout.investor) notifyWithdrawalRejected(payout.investor, { ...payout, status: "FAILED" }, remarks, wallet);
     res.json({ ok: true });
   })
 );

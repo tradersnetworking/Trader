@@ -579,14 +579,18 @@ model WebAuthnCredential {
 
 model OtpToken {
   id         String    @id @default(cuid())
-  investorId String
-  investor   Investor  @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  investorId String?
+  investor   Investor? @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  email      String?
   purpose    String    // withdrawal_confirm, login, email_verify
   codeHash   String
   token      String    @unique
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime  @default(now())
+
+  @@index([email, purpose])
+  @@index([investorId, purpose])
 }
 
 model RoiPayout {
