@@ -533,19 +533,24 @@
   .app-dashboard-side { @apply min-w-0; }
   .responsive-form-grid { @apply grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4; }
   .responsive-card-grid { @apply grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4; }
-  /* Dashboard tables — vertical + horizontal scroll without trapping main dashboard scroll */
+  /* Tables: horizontal scroll only — page (invest-main-scroll) handles vertical scroll */
   .app-table-wrap {
-    @apply min-h-0 min-w-0 overscroll-y-contain;
+    @apply min-h-0 min-w-0 max-w-full;
     overflow-x: auto;
-    overflow-y: auto;
-    max-height: min(32rem, 55dvh);
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
     scrollbar-width: thin;
     scrollbar-color: hsl(43 74% 49% / 0.45) transparent;
   }
-  .app-table-wrap thead th {
-    @apply sticky top-0 z-10 bg-muted/95 backdrop-blur-sm;
+  .app-table-wrap::-webkit-scrollbar {
+    height: 6px;
+  }
+  .app-table-wrap::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: hsl(43 74% 49% / 0.45);
   }
   .invest-stat-grid { @apply app-stat-grid; }
   .invest-dashboard-split { @apply grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:gap-6; }
@@ -572,12 +577,13 @@
   .invest-shell { --invest-mobile-nav-h: calc(4.25rem + env(safe-area-inset-bottom, 0px)); }
   .invest-shell.invest-shell-kyc-only { --invest-mobile-nav-h: 0px; }
   .invest-main-scroll {
-    @apply max-w-full overflow-x-clip;
+    @apply max-w-full overflow-x-clip overflow-y-auto;
     min-height: 0;
     padding-bottom: 0;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: auto;
-    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
   }
   .invest-mobile-nav {
     @apply border-t backdrop-blur-xl;
@@ -660,9 +666,10 @@
   .dark table thead { background-color: hsl(var(--muted)); }
 
   @media (max-width: 1023px) {
-    .invest-main-scroll,
-    .app-content { scrollbar-width: none; }
-    .app-content *::-webkit-scrollbar { display: none; }
+    .invest-main-scroll { scrollbar-width: thin; }
+    .app-content:not(.invest-main-scroll) { scrollbar-width: none; }
+    .app-content *:not(.app-table-wrap)::-webkit-scrollbar { display: none; }
+    .app-table-wrap::-webkit-scrollbar { display: block; height: 6px; }
     .invest-sidebar-scroll {
       scrollbar-width: thin;
       -webkit-overflow-scrolling: touch;
