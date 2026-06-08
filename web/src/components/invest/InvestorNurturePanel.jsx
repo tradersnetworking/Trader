@@ -2,7 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { investApi } from "../../lib/api.js";
 import { dateStr } from "../../lib/format.js";
+import { isKycFullySubmitted } from "../../lib/kyc-full-submit.js";
 import { Alert, Field } from "../ui.jsx";
+
+function kycListStatus(kyc) {
+  if (!kyc?.status || kyc.status === "NOT_SUBMITTED") return "Not submitted";
+  if (kyc.status === "PENDING" && !isKycFullySubmitted(kyc)) return "Incomplete";
+  return kyc.status;
+}
 
 /**
  * Shared admin nurture UI: member list + email + WhatsApp outreach.
@@ -205,7 +212,7 @@ export default function InvestorNurturePanel({
                   </td>
                   <td className="p-3 text-muted-foreground">{i.email}</td>
                   <td className="p-3 text-xs text-muted-foreground">{i.phone || i.kyc?.phone || "—"}</td>
-                  <td className="p-3 text-xs">{i.kyc?.status || "Not submitted"}</td>
+                  <td className="p-3 text-xs">{kycListStatus(i.kyc)}</td>
                   <td className="p-3 text-xs text-muted-foreground">{dateStr(i.createdAt)}</td>
                   {manageHref && (
                     <td className="p-3 text-right">

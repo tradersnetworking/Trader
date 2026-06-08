@@ -1,6 +1,7 @@
 import { investDb } from "../db.js";
 import { sendMail } from "../utils/mailer.js";
 import { investorAuthMethod } from "./investorAdminList.js";
+import { isKycRecordFullySubmitted } from "./kycSections.js";
 
 function publicInvestorRow(row) {
   const { passwordHash, resetToken, totpSecret, backupCodes, ...rest } = row;
@@ -38,7 +39,16 @@ export async function listNotInvestedInvestors() {
     .map(({ subscriptions, ...rest }) => publicInvestorRow(rest));
 }
 
-/** Registered investors who have not completed KYC (missing, not submitted, or rejected). */
+/** True when investor still needs to complete/submit KYC (includes stale PENDING drafts). */
+export function isInvestorKycIncomplete(kyc) {
+  if (!kyc) return true;
+  const st = kyc.status;
+  if (st === "NOT_SUBMITTED" || st === "REJECTED") return true;
+  if (st === "PENDING" && !isKycRecordFullySubmitted(kyc)) return true;
+  return false;
+}
+
+/** Registered investors who have not completed KYC (missing, draft, rejected, or incomplete PENDING). */
 export async function listKycPendingInvestors() {
   const rows = await investDb.investor.findMany({
     where: { role: "INVESTOR" },
@@ -46,11 +56,7 @@ export async function listKycPendingInvestors() {
     orderBy: { createdAt: "desc" },
   });
   return rows
-    .filter((r) => {
-      if (!isActiveInvestor(r)) return false;
-      const st = r.kyc?.status;
-      return !r.kyc || st === "NOT_SUBMITTED" || st === "REJECTED";
-    })
+    .filter((r) => isActiveInvestor(r) && isInvestorKycIncomplete(r.kyc))
     .map(publicInvestorRow);
 }
 

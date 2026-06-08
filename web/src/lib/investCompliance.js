@@ -31,7 +31,9 @@ export function isKycPendingPreview(kyc) {
 
 export function needsKycSetup(kyc) {
   if (!kyc) return true;
-  return ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+  if (["NOT_SUBMITTED", "REJECTED"].includes(kyc.status)) return true;
+  if (kyc.status === "PENDING" && !isKycFullySubmitted(kyc)) return true;
+  return false;
 }
 
 /** Sidebar / mobile items shown before KYC approval. */

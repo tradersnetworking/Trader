@@ -1,4 +1,5 @@
 import { investDb } from "../db.js";
+import { isKycRecordFullySubmitted } from "./kycSections.js";
 
 /** Sync approved KYC bank/UPI fields to Investor (used for withdrawals & payouts). */
 export async function syncApprovedPayoutFromKyc(investorId, kyc) {
@@ -69,7 +70,10 @@ export async function applyKycRevision(revision) {
 }
 
 export function needsKycSetup(kyc) {
-  return !kyc || ["NOT_SUBMITTED", "REJECTED"].includes(kyc.status);
+  if (!kyc) return true;
+  if (["NOT_SUBMITTED", "REJECTED"].includes(kyc.status)) return true;
+  if (kyc.status === "PENDING" && !isKycRecordFullySubmitted(kyc)) return true;
+  return false;
 }
 
 export function canAccessInvestDashboard(kyc) {
@@ -77,5 +81,5 @@ export function canAccessInvestDashboard(kyc) {
 }
 
 export function isKycPendingReview(kyc) {
-  return kyc?.status === "PENDING";
+  return kyc?.status === "PENDING" && isKycRecordFullySubmitted(kyc);
 }
