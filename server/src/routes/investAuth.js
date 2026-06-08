@@ -260,8 +260,10 @@ router.post(
     }
 
     const loginOtpDisabled = process.env.LOGIN_OTP_REQUIRED === "false";
+    const isAdminAccount = ["ADMIN", "SUPERADMIN"].includes(investor.role);
+    const requireLoginOtp = !loginOtpDisabled && !isAdminAccount;
     const mailReady = await isOutboundMailConfigured("invest");
-    if (!loginOtpDisabled && mailReady) {
+    if (requireLoginOtp && mailReady) {
       try {
         const otp = await startLoginOtp(investor);
         return res.json({
@@ -277,7 +279,7 @@ router.post(
           error: e.message || "Could not send login verification email. Try again later.",
         });
       }
-    } else if (!loginOtpDisabled && !mailReady) {
+    } else if (requireLoginOtp && !mailReady) {
       return res.status(503).json({
         error: "Email verification is temporarily unavailable. Please try again later.",
       });
